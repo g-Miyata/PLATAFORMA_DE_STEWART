@@ -5,17 +5,17 @@
 const int FB_PINS[6] = {1, 2, 3, 4, 5, 6};  // feedback analógico (0..3,3V)
 
 // Seis saídas PWM em pinos distintos (evite 19/20 - USB)
-const int PWM_PINS[6]  = {7, 8, 9, 10, 11, 12};
+const int PWM_PINS[6]  = {18, 8, 9, 10, 11, 12};
 const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5}; // canais LEDC dedicados
 
 // IN1/IN2 (direção) — ajuste conforme seu driver
 struct PistonIO { int in1; int in2; };
 PistonIO pistons[6] = {
   {13, 14}, // Pistão 1
-  {15, 16}, // Pistão 2
-  {17, 18}, // Pistão 3
+  {16, 17}, // Pistão 2
+  {35, 36}, // Pistão 3
   {21, 38}, // Pistão 4
-  {39, 40}, // Pistão 5
+  {39, 37}, // Pistão 5
   {41, 42}  // Pistão 6
 };
 

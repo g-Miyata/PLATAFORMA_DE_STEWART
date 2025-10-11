@@ -5,17 +5,17 @@
 const int FB_PINS[6] = {1, 2, 3, 4, 5, 6};  // feedback analógico (0..3,3V)
 
 // Seis saídas PWM em pinos distintos (evite 19/20 - USB)
-const int PWM_PINS[6]  = {7, 8, 9, 10, 11, 12};
+const int PWM_PINS[6]  = {18, 8, 9, 10, 11, 12};
 const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5}; // canais LEDC dedicados
 
 // IN1/IN2 (direção) — ajuste conforme seu driver
 struct PistonIO { int in1; int in2; };
 PistonIO pistons[6] = {
   {13, 14}, // Pistão 1
-  {15, 16}, // Pistão 2
-  {17, 18}, // Pistão 3
+  {16, 17}, // Pistão 2
+  {35, 36}, // Pistão 3
   {21, 38}, // Pistão 4
-  {39, 40}, // Pistão 5
+  {39, 37}, // Pistão 5
   {41, 42}  // Pistão 6
 };
 
@@ -25,15 +25,18 @@ PistonIO pistons[6] = {
 
 // ================== CONTROLE ==================
 float SP_pct = 0.0f;            // setpoint em %
-float Kp = 0.5f;                // ganho proporcional (ajuste)
+float Kp = 1.0f;                // ganho proporcional (ajuste)
 float Ki = 0.0f;                // ganho integral (ajuste)
-float deadband_pct = 0.5f;      // banda morta em % (para "soltar" ao redor do SP)
+float deadband_pct = 0.0f;      // banda morta em % (solta ao redor do SP)
 float integ[6] = {0,0,0,0,0,0}; // acumulador integral por pistão
 uint32_t last_ms = 0;
 
 // Limites
 const float MAX_PWM = 255.0f;
 const float INT_LIM = 400.0f;   // anti-windup p/ integral
+
+// CSV
+bool csv_header_done = false;
 
 // Utilidades
 static inline float clampf(float v, float lo, float hi) {
@@ -77,6 +80,9 @@ void setup() {
   Serial.println(F("  ki=x.x      -> ganho integral (por segundo)"));
   Serial.println(F("  db=x.x      -> deadband em %"));
   Serial.println(F("  h           -> ajuda"));
+
+  // Dica pro Excel: usa ; como separador de campos
+  Serial.println(F("sep=;"));
 }
 
 String line;
@@ -157,7 +163,7 @@ void loop() {
     float pwmf = fabs(u);
 
     // Saturação de velocidade máxima
-    if (pwmf > MAX_PWM) pwmf = MAX_PWM;    // <= seu if > 255 então = 255
+    if (pwmf > MAX_PWM) pwmf = MAX_PWM;
 
     uint8_t pwm = (uint8_t) roundf(pwmf);
     ledcWrite(PWM_CHANS[i], pwm);
@@ -167,12 +173,23 @@ void loop() {
   static uint32_t t0 = 0;
   if (millis() - t0 >= 100) {
     t0 = millis();
-    Serial.printf("SP: %.1f%%", SP_pct);
-    for (int i = 0; i < 6; i++) {
-      float pct = fbPct[i];
-      int duty = ledcRead(PWM_CHANS[i]);
-      Serial.printf(" | FB%d: %.1f%% (%.2fV) PWM:%d", i+1, pct, fbV[i], duty);
+
+    // Cabeçalho CSV (somente 1x)
+    if (!csv_header_done) {
+      Serial.print(F("ms;SP_pct;"));
+      for (int i = 0; i < 6; i++) {
+        Serial.printf("FB%d_pct;FB%d_V;PWM%d%s",
+                      i+1, i+1, i+1, (i==5 ? "\n" : ";"));
+      }
+      csv_header_done = true;
     }
-    Serial.println();
+
+    // Linha de dados
+    Serial.printf("%lu;%.3f;", (unsigned long)now, SP_pct);
+    for (int i = 0; i < 6; i++) {
+      int duty = ledcRead(PWM_CHANS[i]);
+      Serial.printf("%.3f;%.3f;%d%s",
+                    fbPct[i], fbV[i], duty, (i==5 ? "\n" : ";"));
+    }
   }
 }

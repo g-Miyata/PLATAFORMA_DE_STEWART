@@ -4,19 +4,19 @@
 // ADC1 no S3: GPIO1..GPIO10 (ADC1_CH0..CH9)
 const int FB_PINS[6] = {1, 2, 3, 4, 5, 6};  // feedback (0..3.3V)
 
-// Seis PWMs em pinos distintos (evite 19/20 - USB)
-const int PWM_PINS[6]  = {7, 8, 9, 10, 11, 12};
-const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5}; // LEDC canais distintos
+// Seis saídas PWM em pinos distintos (evite 19/20 - USB)
+const int PWM_PINS[6]  = {18, 8, 9, 10, 11, 12};
+const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5}; // canais LEDC dedicados
 
 // IN1/IN2 (direção) — ajuste conforme seu driver
 struct PistonIO { int in1; int in2; };
 PistonIO pistons[6] = {
-  {13, 14}, // P1
-  {15, 16}, // P2
-  {17, 18}, // P3
-  {21, 38}, // P4
-  {39, 40}, // P5
-  {41, 42}  // P6
+  {13, 14}, // Pistão 1
+  {16, 17}, // Pistão 2
+  {35, 36}, // Pistão 3
+  {21, 38}, // Pistão 4
+  {39, 37}, // Pistão 5
+  {41, 42}  // Pistão 6
 };
 
 // ================== PWM (LEDC) ==================
@@ -34,8 +34,11 @@ float deadband_pct = 0.5f;         // comum
 uint32_t last_ms = 0;
 
 // Limites
-const float MAX_PWM = 255.0f;
+const float MAX_PWM = 255.0f;      // pode aumentar até 255 se quiser
 const float INT_LIM = 400.0f;
+
+// CSV
+bool csv_header_done = false;
 
 // Utilidades
 static inline float clampf(float v, float lo, float hi) {
@@ -89,6 +92,9 @@ void setup() {
   Serial.println(F("  db=x.x      -> deadband (%) (global)"));
   Serial.println(F("  h           -> ajuda"));
   Serial.println(F("Status inicial: sel=1, SP=0%, Kp=0.5, Ki=0.0, DB=0.5%"));
+
+  // Dica pro Excel: força separador de campo como ';'
+  Serial.println(F("sep=;"));
 }
 
 String line;
@@ -169,7 +175,7 @@ void loop() {
       if (u > 0) setDirAdvance(i); else setDirReturn(i);
 
       float pwmf = fabs(u);
-      if (pwmf > MAX_PWM) pwmf = MAX_PWM;  // saturação 0..255
+      if (pwmf > MAX_PWM) pwmf = MAX_PWM;  // saturação
 
       uint8_t pwm = (uint8_t)roundf(pwmf);
       ledcWrite(PWM_CHANS[i], pwm);
@@ -179,16 +185,27 @@ void loop() {
     }
   }
 
-  // Telemetria (100 ms)
+  // ===== Telemetria (100 ms) — CSV amigável p/ Excel =====
   static uint32_t t0 = 0;
   if (millis() - t0 >= 100) {
     t0 = millis();
-    Serial.printf("SEL=P%d | DB=%.2f%% | ", selIdx+1, deadband_pct);
+
+    // Cabeçalho CSV (somente 1x)
+    if (!csv_header_done) {
+      Serial.print(F("ms;SEL;DB_pct;"));
+      for (int i = 0; i < 6; i++) {
+        Serial.printf("P%d_SP;P%d_FB_pct;P%d_V;P%d_PWM%s",
+                      i+1, i+1, i+1, i+1, (i==5 ? "\n" : ";"));
+      }
+      csv_header_done = true;
+    }
+
+    // Linha de dados
+    Serial.printf("%lu;%d;%.3f;", (unsigned long)now, selIdx+1, deadband_pct);
     for (int i = 0; i < 6; i++) {
       int duty = ledcRead(PWM_CHANS[i]);
-      Serial.printf("P%d SP=%.1f%% FB=%.1f%% PWM=%d%s  ",
-        i+1, SP_pct[i], fbPct[i], duty, (i==selIdx?"*":""));
+      Serial.printf("%.3f;%.3f;%.3f;%d%s",
+                    SP_pct[i], fbPct[i], fbV[i], duty, (i==5 ? "\n" : ";"));
     }
-    Serial.println();
   }
 }
