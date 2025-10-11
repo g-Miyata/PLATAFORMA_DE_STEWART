@@ -7,8 +7,8 @@
 # - Conectar / Parar
 # - Console de leitura (somente leitura)
 # - Salva CSV com: hora ; direcao ; linha (direcao = RX/TX)
-# - Botão "h (ajuda)" — único atalho ainda usado pelo firmware
-# - Slider de Setpoint 0..100% (+ botão Enviar SP)
+# - Botão "h (ajuda)"
+# - Setpoint digitável (0..100) com botão Enviar e Enter para enviar
 # - Campos KP / KI / DB com botões individuais
 # - Campo livre para qualquer comando + opções de finalização (\n, \r, \r\n)
 # - Botões para limpar console e limpar buffer serial
@@ -63,7 +63,9 @@ class App:
         # Estado UI
         self.ending_choice = tk.StringVar(value="LF (\\n)")
         self.echo_tx_csv = tk.BooleanVar(value=True)
-        self.sp_var = tk.DoubleVar(value=0.0)
+
+        # Campos
+        self.sp_entry_var = tk.StringVar(value="0.0")  # setpoint digitável
         self.kp_var = tk.StringVar(value="0.5")
         self.ki_var = tk.StringVar(value="0.0")
         self.db_var = tk.StringVar(value="0.5")
@@ -117,22 +119,41 @@ class App:
         right = ttk.Frame(mid)
         right.pack(side='left', fill='y', padx=(8,0))
 
-        # Grupo ajuda (único atalho necessário)
+        # Grupo ajuda
         grp_help = ttk.LabelFrame(right, text="Ajuda", padding=8)
         grp_help.pack(fill='x')
         ttk.Button(grp_help, text="h (ajuda)", command=lambda: self._tx("h")).pack(fill='x', pady=2)
 
-        # Grupo SP
+        # Grupo SP (digitável)
         grp_sp = ttk.LabelFrame(right, text="Setpoint (%)", padding=8)
         grp_sp.pack(fill='x', pady=(8,0))
 
-        sp_scale = ttk.Scale(grp_sp, from_=0, to=100, orient='horizontal', variable=self.sp_var)
-        sp_scale.pack(fill='x')
-        self.lbl_sp = ttk.Label(grp_sp, text="SP: 0.0%")
-        self.lbl_sp.pack(anchor='w', pady=(4,6))
-        self.sp_var.trace_add("write", lambda *args: self._update_sp_label())
+        # Validação simples: permitir dígitos, ponto e vazio (para digitação gradual)
+        vcmd = (self.root.register(self._validate_float_input), "%P")
+        try:
+            # ttk.Spinbox disponível em Tk >= 8.5/8.6
+            self.sp_spin = ttk.Spinbox(
+                grp_sp,
+                from_=0.0, to=100.0, increment=0.1,
+                textvariable=self.sp_entry_var,
+                validate="key", validatecommand=vcmd,
+                width=8, justify="right"
+            )
+        except Exception:
+            # Fallback: Entry
+            self.sp_spin = ttk.Entry(
+                grp_sp,
+                textvariable=self.sp_entry_var,
+                validate="key", validatecommand=vcmd,
+                width=8, justify="right"
+            )
+        self.sp_spin.pack(side='left')
+        ttk.Label(grp_sp, text="  (0 a 100, ex.: 37.5)").pack(side='left')
 
-        ttk.Button(grp_sp, text="Enviar SP", command=self.send_sp).pack(fill='x')
+        # Enter envia SP
+        self.sp_spin.bind("<Return>", lambda e: self.send_sp())
+
+        ttk.Button(grp_sp, text="Enviar SP", command=self.send_sp).pack(fill='x', pady=(8,0))
 
         # Grupo ganhos
         grp_g = ttk.LabelFrame(right, text="Ganhos", padding=8)
@@ -140,23 +161,25 @@ class App:
 
         row = ttk.Frame(grp_g); row.pack(fill='x', pady=2)
         ttk.Label(row, text="Kp: ").pack(side='left')
-        ttk.Entry(row, textvariable=self.kp_var, width=8).pack(side='left', padx=(2,8))
+        ttk.Entry(row, textvariable=self.kp_var, width=8, justify='right').pack(side='left', padx=(2,8))
         ttk.Button(row, text="Enviar", command=self.send_kp).pack(side='left')
 
         row2 = ttk.Frame(grp_g); row2.pack(fill='x', pady=2)
         ttk.Label(row2, text="Ki: ").pack(side='left')
-        ttk.Entry(row2, textvariable=self.ki_var, width=8).pack(side='left', padx=(2,8))
+        ttk.Entry(row2, textvariable=self.ki_var, width=8, justify='right').pack(side='left', padx=(2,8))
         ttk.Button(row2, text="Enviar", command=self.send_ki).pack(side='left')
 
         row3 = ttk.Frame(grp_g); row3.pack(fill='x', pady=2)
         ttk.Label(row3, text="DB: ").pack(side='left')
-        ttk.Entry(row3, textvariable=self.db_var, width=8).pack(side='left', padx=(2,8))
+        ttk.Entry(row3, textvariable=self.db_var, width=8, justify='right').pack(side='left', padx=(2,8))
         ttk.Button(row3, text="Enviar", command=self.send_db).pack(side='left')
 
         # Grupo comando livre
         grp_tx = ttk.LabelFrame(right, text="Comando livre", padding=8)
         grp_tx.pack(fill='x', pady=(8,0))
-        ttk.Entry(grp_tx, textvariable=self.tx_entry_var).pack(fill='x', pady=(0,6))
+        entry_tx = ttk.Entry(grp_tx, textvariable=self.tx_entry_var)
+        entry_tx.pack(fill='x', pady=(0,6))
+        entry_tx.bind("<Return>", lambda e: self.send_entry())
         ttk.Button(grp_tx, text="Enviar", command=self.send_entry).pack(fill='x')
 
         # Botões utilidades
@@ -169,11 +192,16 @@ class App:
         foot.pack(fill='x')
         ttk.Label(foot, text="CSV salva linhas cruas de RX e também os comandos TX (se habilitado).").pack(anchor='w')
 
-    def _update_sp_label(self):
+    # ---------- Validação de número ----------
+    def _validate_float_input(self, proposed: str) -> bool:
+        # Permite vazio (enquanto digitando), ou número com ponto
+        if proposed.strip() == "":
+            return True
         try:
-            self.lbl_sp.config(text=f"SP: {self.sp_var.get():.1f}%")
-        except Exception:
-            pass
+            float(proposed)
+            return True
+        except ValueError:
+            return False
 
     # ---------- CSV ----------
     def _open_csv_if_needed(self):
@@ -324,13 +352,27 @@ class App:
             self._log(f"[ERRO TX] {e}\n")
 
     # ---------- Ações de envio ----------
+    def _clamp(self, v: float, lo: float, hi: float) -> float:
+        return max(lo, min(hi, v))
+
     def send_sp(self):
-        sp = float(self.sp_var.get())
-        self._tx(f"sp={sp:.2f}")
+        s = self.sp_entry_var.get().strip().replace(",", ".")
+        if s == "":
+            messagebox.showwarning("SP", "Informe um valor entre 0 e 100.")
+            return
+        try:
+            v = float(s)
+        except ValueError:
+            messagebox.showwarning("SP", "Valor inválido. Use números, ex.: 37.5")
+            return
+        v = self._clamp(v, 0.0, 100.0)
+        # normaliza o texto do campo (clamp + 1 casa decimal)
+        self.sp_entry_var.set(f"{v:.1f}")
+        self._tx(f"sp={v:.2f}")
 
     def send_kp(self):
         try:
-            v = float(self.kp_var.get())
+            v = float(self.kp_var.get().strip().replace(",", "."))
         except ValueError:
             messagebox.showwarning("Kp", "Valor inválido.")
             return
@@ -338,7 +380,7 @@ class App:
 
     def send_ki(self):
         try:
-            v = float(self.ki_var.get())
+            v = float(self.ki_var.get().strip().replace(",", "."))
         except ValueError:
             messagebox.showwarning("Ki", "Valor inválido.")
             return
@@ -346,7 +388,7 @@ class App:
 
     def send_db(self):
         try:
-            v = float(self.db_var.get())
+            v = float(self.db_var.get().strip().replace(",", "."))
         except ValueError:
             messagebox.showwarning("DB", "Valor inválido.")
             return
@@ -357,6 +399,8 @@ class App:
         if not s:
             return
         self._tx(s)
+        # mantém o texto para repetir se quiser; apague se preferir:
+        # self.tx_entry_var.set("")
 
     # ---------- Utilidades ----------
     def clear_console(self):
