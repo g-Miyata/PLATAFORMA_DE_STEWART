@@ -20,17 +20,22 @@ uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode
 int   selIdx = 0;                     // 0..5 (pistão selecionado)
 float Lmm[6]   = {250,250,250,250,250,250};  // curso útil (mm) por pistão
 float SP_mm[6] = {0,0,0,0,0,0};               // setpoint em mm
-float Kp_mm[6] = {2,2,2,2,2,2};               // ponto de partida
+float Kp_mm[6] = {1.8236, 1.0333, 1.0152, 0.8223, 2.1822, 2.2680};
 float Ki_mm[6] = {0,0,0,0,0,0};
-float Kd_mm[6] = {0,0,0,0,0,0};               // ganho derivativo em mm/(mm/s)
+float Kd_mm[6] = {0,0,0,0,0,0};
+//float Ki_mm[6] = {0.0249, 0.0145, 0.0142, 0.0143, 0.0304, 0.0312};
+//float Kd_mm[6] = {0.5175, 0.0223, 0.0165, 0.0000, 0.2310, 0.5083};
 float integ[6] = {0,0,0,0,0,0};
 float last_y_mm[6] = {0,0,0,0,0,0};           // memória da posição (p/ derivada)
 bool  y_init = false;                          // flag de init da derivada
 float deadband_mm = 0.2f;                      // histerese em mm (ajuste pelo comando dbmm=)
 
-// ===== Feedforward (zona morta / viés) =====
-float U0_adv[6] = {30,35,30,35,35,30};      // PWM para SUBIR (positivo)
-float U0_ret[6] = {30,30,30,30,30,30};      // PWM para DESCER (negativo)
+// ===== (zona morta / viés) =====
+float U0_adv[6] = {30,45,30,35,35,30};      // PWM para SUBIR (positivo)
+float U0_ret[6] = {30,35,30,30,30,30};      // PWM para DESCER (negativo)
+
+//float U0_adv[6] = {0,0,0,0,0,0};      // PWM para SUBIR (positivo)
+//float U0_ret[6] = {0,0,0,0,0,0};  
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================
 float V0[6] = {0.25,0.25,0.25,0.25,0.25,0.25};

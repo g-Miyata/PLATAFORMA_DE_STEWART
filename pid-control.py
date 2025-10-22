@@ -74,10 +74,6 @@ class App:
         self.kp_vars  = [tk.StringVar(value="2.0")  for _ in range(6)]
         self.ki_vars  = [tk.StringVar(value="0.00") for _ in range(6)]
         self.kd_vars  = [tk.StringVar(value="0.00") for _ in range(6)]
-        # ganhos globais (aplica em todos)
-        self.kp_all = tk.StringVar(value="2.0")
-        self.ki_all = tk.StringVar(value="0.00")
-        self.kd_all = tk.StringVar(value="0.00")
 
         # ajustes gerais
         self.db_var     = tk.StringVar(value="0.20")
@@ -171,16 +167,6 @@ class App:
             ttk.Entry(row, textvariable=self.kd_vars[i], width=6, justify='right').pack(side='left', padx=(2,6))
             ttk.Button(row, text="Enviar", command=lambda k=i: self.send_gains_ind(k)).pack(side='left')
 
-        # Ganhos para todos
-        gall = ttk.LabelFrame(right, text="Ganhos para todos (mm)", padding=6); gall.pack(fill='x', pady=(8,0))
-        rowa = ttk.Frame(gall); rowa.pack(fill='x', pady=1)
-        ttk.Label(rowa, text="Kp_all").pack(side='left')
-        ttk.Entry(rowa, textvariable=self.kp_all, width=6, justify='right').pack(side='left', padx=(2,6))
-        ttk.Label(rowa, text="Ki_all").pack(side='left')
-        ttk.Entry(rowa, textvariable=self.ki_all, width=6, justify='right').pack(side='left', padx=(2,6))
-        ttk.Label(rowa, text="Kd_all").pack(side='left')
-        ttk.Entry(rowa, textvariable=self.kd_all, width=6, justify='right').pack(side='left', padx=(2,6))
-        ttk.Button(rowa, text="Aplicar em todos", command=self.send_gains_all).pack(side='left', padx=6)
 
 
         # Ajustes gerais
