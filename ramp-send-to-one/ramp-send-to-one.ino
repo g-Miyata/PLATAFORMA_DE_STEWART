@@ -17,9 +17,9 @@ const float   MAX_PWM = 255.0f;
 uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode usar 20
 
 // ================== CONTROLE EM mm ==================
-int   selIdx = 0;                     // 0..5 (pistão selecionado)
+int   selIdx = 0;                             // 0..5 (pistão selecionado)
 float Lmm[6]   = {250,250,250,250,250,250};  // curso útil (mm) por pistão
-float SP_mm[6] = {0,0,0,0,0,0};               // setpoint em mm (AGORA: valor que caminha em rampa)
+float SP_mm[6] = {0,0,0,0,0,0};              // setpoint em mm (seguido pelo PI)
 float Kp_mm[6] = {1.8236, 1.0333, 1.0152, 0.8223, 2.1822, 2.2680};
 float Ki_mm[6] = {0,0,0,0,0,0};
 float Kd_mm[6] = {0,0,0,0,0,0};
@@ -98,52 +98,19 @@ float voltsToMM(int i, float V){
   return (Lmm[i]/100.0f) * pct;
 }
 
+// ================== RAMPA EM DEGRAUS (pontos vermelhos) ==================
+bool  rampActive = false;             // rampa do pistão selecionado
+float rampStart_mm[6]  = {0,0,0,0,0,0};
+float rampTarget_mm[6] = {0,0,0,0,0,0};
+uint32_t rampT_total_ms = 0;
+uint32_t rampTick_ms    = 50;         // intervalo entre micro-setpoints
+uint32_t rampT0_ms      = 0;
+int   rampSteps         = 0;
+int   rampK             = 0;          // degrau atual (0..rampSteps)
+
 String line;
 
-// ======== GERADOR DE RAMPA (por pistão) ========
-// Se rtime[i] > 0: usa tempo alvo; senão usa rrate[i] (mm/s).
-float rtime_s[6] = {2,2,2,2,2,2};         // tempo padrão (s) para ir do ponto atual ao alvo
-float rrate_mmps[6] = {10,10,10,10,10,10}; // velocidade padrão (mm/s) caso rtime=0
-bool  ramp_active[6] = {false,false,false,false,false,false};
-float ramp_target_mm[6] = {0,0,0,0,0,0};
-
-void start_ramp(int i, float target_mm, float current_pos_mm){
-  target_mm = clampf(target_mm, 0.0f, Lmm[i]);
-  ramp_target_mm[i] = target_mm;
-  // inicia SP na posição atual (evita salto)
-  SP_mm[i] = current_pos_mm;
-  ramp_active[i] = true;
-}
-
-void step_ramp(int i, float dt){
-  if (!ramp_active[i]) return;
-  float target = ramp_target_mm[i];
-  float curSP  = SP_mm[i];
-  float dx     = target - curSP;
-  if (fabs(dx) < 1e-6f) { SP_mm[i] = target; ramp_active[i] = false; return; }
-
-  // define velocidade
-  float v_mmps = 0.0f;
-  if (rtime_s[i] > 0.0f) {
-    // velocidade para cumprir o tempo alvo com base no deslocamento atual
-    v_mmps = fabs(dx) / rtime_s[i];
-  } else {
-    v_mmps = rrate_mmps[i];
-  }
-  v_mmps = fmaxf(1e-6f, v_mmps);
-
-  float step = v_mmps * dt * (dx > 0 ? 1.0f : -1.0f);
-  float nextSP = curSP + step;
-
-  // não ultrapassar o alvo
-  if ((dx > 0 && nextSP >= target) || (dx < 0 && nextSP <= target)) {
-    SP_mm[i] = target;
-    ramp_active[i] = false;
-  } else {
-    SP_mm[i] = nextSP;
-  }
-}
-
+// ================== SETUP ==================
 void setup() {
   Serial.begin(115200);
   while (!Serial) {}
@@ -171,6 +138,7 @@ void setup() {
   Serial.println(F("sep=;")); // dica p/ Excel
 }
 
+// ================== LOOP ==================
 void loop() {
   // ===== Parser =====
   while (Serial.available()) {
@@ -186,35 +154,55 @@ void loop() {
         freeAllExcept(selIdx);
 
       } else if (cmd.startsWith("spmm=")) {
-        // ===== NOVO: ao receber alvo, inicia RAMPA ao invés de degrau =====
-        float target = cmd.substring(5).toFloat();
-        target = clampf(target, 0.0f, Lmm[selIdx]);
+        // mantém compatibilidade: degrau direto (instantâneo)
+        float v = cmd.substring(5).toFloat();
+        v = clampf(v, 0.0f, Lmm[selIdx]);
+        SP_mm[selIdx] = v;
+        rampActive = false; // cancela rampa se tiver
 
-        // posição atual do selecionado (usa filtro se já inicializado; senão, mede)
-        float y_now_mm;
-        if (fb_init) {
-          y_now_mm = voltsToMM(selIdx, fbV_filt[selIdx]);
+      } else if (cmd.startsWith("rampmm=")) {
+        // formato: rampmm=SPfinal_mm,Ttotal_ms[,Tick_ms]
+        String args = cmd.substring(7);
+        int c1 = args.indexOf(',');
+        int c2 = (c1 >= 0) ? args.indexOf(',', c1+1) : -1;
+        if (c1 < 0) {
+          Serial.println("ERR rampmm: use rampmm=SP_mm,T_ms[,tick_ms]");
         } else {
-          float vmed = readMedianV(FB_PINS[selIdx], 31);
-          y_now_mm = voltsToMM(selIdx, vmed);
+          float spf = args.substring(0, c1).toFloat();
+          spf = clampf(spf, 0.0f, Lmm[selIdx]);
+
+          uint32_t Ttot = (uint32_t) fabs(args.substring(c1+1, (c2<0?args.length():c2)).toFloat());
+          if (Ttot < 10) Ttot = 10;
+
+          uint32_t Ttick = (c2 >= 0) ? (uint32_t) fabs(args.substring(c2+1).toFloat()) : rampTick_ms;
+          if (Ttick < 5) Ttick = 5;
+
+          // posição atual como ponto inicial (usa filtro se já inicializado)
+          float y_now;
+          if (fb_init) y_now = voltsToMM(selIdx, fbV_filt[selIdx]);
+          else         y_now = voltsToMM(selIdx, readMedianV(FB_PINS[selIdx], 31));
+
+          rampStart_mm[selIdx]  = y_now;
+          rampTarget_mm[selIdx] = spf;
+
+          rampT_total_ms = Ttot;
+          rampTick_ms    = Ttick;
+          rampSteps      = (int)ceil((double)Ttot / (double)Ttick);
+          if (rampSteps < 1) rampSteps = 1;
+          rampK          = 0;
+          rampT0_ms      = millis();
+          rampActive     = true;
+
+          // inicializa SP no ponto inicial
+          SP_mm[selIdx]  = rampStart_mm[selIdx];
+
+          Serial.printf("OK RAMP[%d]: start=%.3f -> target=%.3f | steps=%d | tick=%ums | total=%ums\n",
+            selIdx+1, rampStart_mm[selIdx], rampTarget_mm[selIdx], rampSteps, rampTick_ms, rampT_total_ms);
         }
-        start_ramp(selIdx, target, y_now_mm);
-        Serial.printf("RAMP start P%d: SP=%.2f -> %.2f (rtime=%.2fs, rrate=%.2fmm/s)\n",
-                      selIdx+1, y_now_mm, target, rtime_s[selIdx], rrate_mmps[selIdx]);
 
-      } else if (cmd.startsWith("rtime=")) {
-        float v = fabs(cmd.substring(6).toFloat());
-        rtime_s[selIdx] = v; // se 0 => usa rrate
-        Serial.printf("OK rtime[%d]=%.3fs\n", selIdx+1, rtime_s[selIdx]);
-
-      } else if (cmd.startsWith("rrate=")) {
-        float v = fabs(cmd.substring(6).toFloat());
-        rrate_mmps[selIdx] = v;
-        Serial.printf("OK rrate[%d]=%.3f mm/s\n", selIdx+1, rrate_mmps[selIdx]);
-
-      } else if (cmd.equalsIgnoreCase("rstop")) {
-        ramp_active[selIdx] = false;
-        Serial.printf("OK rstop[%d]\n", selIdx+1);
+      } else if (cmd.equalsIgnoreCase("ramppause")) {
+        rampActive = false;
+        Serial.println("OK RAMP: pausada");
 
       } else if (cmd.startsWith("kpmm=")) {
         Kp_mm[selIdx] = cmd.substring(5).toFloat();
@@ -324,6 +312,27 @@ void loop() {
   // Garante apenas o selecionado ativo
   freeAllExcept(selIdx);
 
+  // ===== Atualiza rampa (micro-setpoints) do pistão selecionado =====
+  if (rampActive) {
+    uint32_t tnow = millis();
+    uint32_t elapsed = tnow - rampT0_ms;
+    int k = (int)(elapsed / rampTick_ms);
+    if (k > rampSteps) k = rampSteps;
+
+    if (k != rampK) {
+      rampK = k;
+      float frac = (float)rampK / (float)rampSteps;   // 0..1
+      float delta = rampTarget_mm[selIdx] - rampStart_mm[selIdx];
+      SP_mm[selIdx] = rampStart_mm[selIdx] + frac * delta;
+    }
+
+    if (rampK >= rampSteps) {
+      SP_mm[selIdx] = rampTarget_mm[selIdx];
+      rampActive = false;
+      Serial.printf("OK RAMP[%d]: concluida. SP=%.3f mm\n", selIdx+1, SP_mm[selIdx]);
+    }
+  }
+
   // ===== Ação de saída (manual/controle) =====
   int i = selIdx;
 
@@ -340,9 +349,6 @@ void loop() {
     last_pwm_cmd[i] = pwm;
 
   } else {
-    // ======== Atualiza rampa ANTES do PID ========
-    step_ramp(i, dt); // SP_mm[i] caminha para ramp_target_mm[i]
-
     // --------- Controle P(+I + D na medição) em mm + feedforward assimétrico ---------
     float y_mm = voltsToMM(i, fbV_filt[i]);
     float e_mm = SP_mm[i] - y_mm;
