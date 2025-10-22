@@ -355,6 +355,41 @@
         <div class="subtitle-header">Instituto Federal de São Paulo</div>
       </div>
 
+      <!-- === Barra de Conexão Serial === -->
+      <div class="panel" style="margin-bottom: 24px;">
+        <h2 class="section-title">Conexão Serial</h2>
+
+        <div class="input-row" style="grid-template-columns: 2fr 1fr 1fr 1fr;">
+          <div class="input-field">
+            <label for="serial-port-select">Porta</label>
+            <select id="serial-port-select" style="padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:#f9fafb;font-size:0.95em;">
+              <option value="" disabled selected>Carregando portas…</option>
+            </select>
+          </div>
+
+          <div class="input-field">
+            <label for="baud">Baud Rate</label>
+            <input type="number" id="baud" value="115200" step="1" min="1200" />
+          </div>
+
+          <div class="input-field" style="display:flex;align-items:flex-end;">
+            <button class="btn-secondary" id="btn-refresh-ports" title="Atualizar lista de portas">🔄 Atualizar</button>
+          </div>
+
+          <div class="input-field" style="display:flex;gap:8px;align-items:flex-end;">
+            <button class="btn-primary" id="btn-open-serial">Conectar</button>
+            <button class="btn-secondary" id="btn-close-serial">Desconectar</button>
+          </div>
+        </div>
+
+        <div id="serial-status" class="status-indicator status-invalid" style="margin:0;">
+          ⛔ Desconectado
+        </div>
+
+        <div id="serial-error" class="error-message" style="margin-top:12px;"></div>
+      </div>
+
+
       <div class="main-content">
         <div class="panel">
           <h2 class="section-title">Controles de Posição</h2>
@@ -787,6 +822,98 @@
         calculatePosition();
       }
 
+      let serialConnected = false;
+
+      async function loadSerialPorts() {
+        const sel = document.getElementById('serial-port-select');
+        const errBox = document.getElementById('serial-error');
+        errBox.style.display = 'none';
+        try {
+          sel.innerHTML = '<option value="" disabled selected>Carregando…</option>';
+          const resp = await fetch(`${API_BASE}/serial/ports`);
+          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          const data = await resp.json();
+          const ports = Array.isArray(data.ports) ? data.ports : [];
+          sel.innerHTML = '';
+          if (ports.length === 0) {
+            sel.innerHTML = '<option value="" disabled selected>Nenhuma porta encontrada</option>';
+          } else {
+            ports.forEach(p => {
+              const opt = document.createElement('option');
+              opt.value = p;
+              opt.textContent = p;
+              sel.appendChild(opt);
+            });
+          }
+        } catch (e) {
+          errBox.textContent = `Erro ao listar portas: ${e.message}`;
+          errBox.style.display = 'block';
+          sel.innerHTML = '<option value="" disabled selected>Falha ao carregar</option>';
+        }
+      }
+
+      function setSerialStatus(connected, extra='') {
+        const el = document.getElementById('serial-status');
+        serialConnected = connected;
+        if (connected) {
+          el.className = 'status-indicator status-valid';
+          el.textContent = `✅ Conectado ${extra ? '— ' + extra : ''}`;
+        } else {
+          el.className = 'status-indicator status-invalid';
+          el.textContent = '⛔ Desconectado';
+        }
+      }
+
+      async function openSerial() {
+        const port = document.getElementById('serial-port-select').value;
+        const baud = parseInt(document.getElementById('baud').value || '115200', 10);
+        const errBox = document.getElementById('serial-error');
+        errBox.style.display = 'none';
+        if (!port) {
+          errBox.textContent = 'Escolha uma porta primeiro.';
+          errBox.style.display = 'block';
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/serial/open`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ port, baud })
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
+          setSerialStatus(true, `${port} @ ${baud}`);
+        } catch (e) {
+          setSerialStatus(false);
+          errBox.textContent = `Falha ao conectar: ${e.message}`;
+          errBox.style.display = 'block';
+        }
+      }
+
+      async function closeSerial() {
+        const errBox = document.getElementById('serial-error');
+        errBox.style.display = 'none';
+        try {
+          const resp = await fetch(`${API_BASE}/serial/close`, { method: 'POST' });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
+          setSerialStatus(false);
+        } catch (e) {
+          errBox.textContent = `Falha ao desconectar: ${e.message}`;
+          errBox.style.display = 'block';
+        }
+      }
+
+      function markLiveOnWS() {
+        if (serialConnected) {
+          const el = document.getElementById('serial-status');
+          if (el && el.classList.contains('status-valid')) {
+            el.textContent = el.textContent.replace('✅ Conectado', '✅ Conectado — recebendo dados');
+          }
+        }
+      }
+
+
       let ws = null,
         wsTimer = null;
 
@@ -870,6 +997,7 @@
             const msg = JSON.parse(evt.data);
             const data = normalizeTelemetry(msg);
             applyLiveTelemetry(data);
+            markLiveOnWS();
           } catch (e) {
             console.error('[WS] mensagem inválida', e, evt.data);
           }
@@ -887,6 +1015,10 @@
         setupInputSync();
         init3D('canvas-preview');
         init3D('canvas-live');
+        loadSerialPorts();
+        document.getElementById('btn-refresh-ports').addEventListener('click', loadSerialPorts);
+        document.getElementById('btn-open-serial').addEventListener('click', openSerial);
+        document.getElementById('btn-close-serial').addEventListener('click', closeSerial);
         document.getElementById('btn-calc').addEventListener('click', calculatePosition);
         document.getElementById('btn-reset').addEventListener('click', resetPosition);
         document.getElementById('btn-reset-cam-prev').addEventListener('click', () => resetCamera('canvas-preview'));
