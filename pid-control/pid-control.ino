@@ -19,7 +19,7 @@ uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode
 // ================== CONTROLE EM mm (por pistão) ==================
 float Lmm[6]     = {250,250,250,250,250,250};  // curso útil (mm)
 float SP_mm[6]   = {0,0,0,0,0,0};              // setpoint em mm (pode ser comum via spmm=)
-float Kp_mm[6]   = {2,2,2,2,2,2};              // ponto de partida
+float Kp_mm[6] = {1.8236, 1.0333, 1.0152, 0.8223, 2.1822, 2.2680};
 float Ki_mm[6]   = {0,0,0,0,0,0};
 float Kd_mm[6]   = {0,0,0,0,0,0};              // derivativo sobre a medição
 float integ[6]   = {0,0,0,0,0,0};
@@ -28,7 +28,7 @@ bool  y_init = false;
 float deadband_mm = 0.2f;                      // histerese global (mm)
 
 // ===== Feedforward (zona morta / viés) por pistão =====
-float U0_adv[6] = {30,35,30,35,35,30};        // PWM para SUBIR (positivo)
+float U0_adv[6] = {30,50,30,35,35,30};        // PWM para SUBIR (positivo)
 float U0_ret[6] = {30,30,30,30,30,30};        // PWM para DESCER (negativo)
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================

@@ -14,21 +14,23 @@ PistonIO pistons[6] = {
 #define PWM_FREQ 20000
 #define PWM_RES   8                   // 0..255
 const float   MAX_PWM = 255.0f;
-uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode usar 20
+// mínimos distintos para cada sentido
+uint8_t PWM_MIN_UP   = 0;             // avanço/subida
+uint8_t PWM_MIN_DOWN = 30;             // retorno/descida
 
 // ================== CONTROLE EM mm ==================
 int   selIdx = 0;                     // 0..5 (pistão selecionado)
-float Lmm[6]   = {100,100,100,100,100,100};  // curso útil (mm) por pistão
-float SP_mm[6] = {0,0,0,0,0,0};               // setpoint em mm
-float Kp_mm[6] = {0.03,0.03,0.03,0.03,0.03,0.03}; // ponto de partida (p/ L=100mm)
+float Lmm[6]   = {250,250,250,250,250,250};  // curso útil (mm) por pistão
+float SP_mm[6] = {0,0,0,0,0,0};              // setpoint em mm
+float Kp_mm[6] = {2.2,2.2,2.2,2.2,2.2,2.2};              // ponto de partida
 float Ki_mm[6] = {0,0,0,0,0,0};
 float integ[6] = {0,0,0,0,0,0};
-float deadband_mm = 0.5f;             // histerese em mm (ajuste pelo comando dbmm=)
+float deadband_mm = 0.5f;             // histerese em mm (ajuste com dbmm=)
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================
-float V0[6] = {0,0,0,0,0,0};          // tensão no 0% (offset)
-float V100[6] = {3.3,3.3,3.3,3.3,3.3,3.3}; // tensão no 100% (span topo)
-bool  hasCal[6] = {false,false,false,false,false,false};
+float V0[6]   = {0.25,0.25,0.25,0.25,0.25,0.25};  // tensão no 0% (offset)
+float V100[6] = {3.3,3.3,3.3,3.3,3.3,3.3};        // tensão no 100% (span topo)
+bool  hasCal[6] = {true,true,true,true,true,true};
 
 // ===== Filtro passa-baixa (IIR 1ª ordem) =====
 float fc_hz = 4.0f;                   // ajustável por "fc="
@@ -55,8 +57,8 @@ static inline float clampf(float v, float lo, float hi) {
 }
 
 void setDirAdvance(int i){ digitalWrite(pistons[i].in1, HIGH); digitalWrite(pistons[i].in2, LOW ); }
-void setDirReturn (int i){ digitalWrite(pistons[i].in1, LOW );  digitalWrite(pistons[i].in2, HIGH); }
-void setDirFree   (int i){ digitalWrite(pistons[i].in1, LOW );  digitalWrite(pistons[i].in2, LOW ); }
+void setDirReturn (int i){ digitalWrite(pistons[i].in1, LOW ); digitalWrite(pistons[i].in2, HIGH); }
+void setDirFree   (int i){ digitalWrite(pistons[i].in1, LOW ); digitalWrite(pistons[i].in2, LOW ); }
 
 void freeAllExcept(int keep){
   for(int i=0;i<6;i++){
@@ -158,9 +160,20 @@ void loop() {
         float v = fabs(cmd.substring(3).toFloat());
         fc_hz = clampf(v, 0.1f, 50.0f);
 
-      } else if (cmd.startsWith("minpwm=")) {
+      // ===== MIN PWMs =====
+      } else if (cmd.startsWith("minpwm=")) {                 // retrocompatível: define os dois
         int v = cmd.substring(7).toInt();
-        MIN_PWM = (uint8_t)constrain(v, 0, 255);
+        uint8_t vv = (uint8_t)constrain(v, 0, 255);
+        PWM_MIN_UP   = vv;
+        PWM_MIN_DOWN = vv;
+
+      } else if (cmd.startsWith("minpwmup=")) {               // define só o mínimo de subida
+        int v = cmd.substring(10).toInt();
+        PWM_MIN_UP = (uint8_t)constrain(v, 0, 255);
+
+      } else if (cmd.startsWith("minpwmdown=")) {             // define só o mínimo de descida
+        int v = cmd.substring(12).toInt();
+        PWM_MIN_DOWN = (uint8_t)constrain(v, 0, 255);
 
       } else if (cmd.equalsIgnoreCase("zero")) {
         float v = readMedianV(FB_PINS[selIdx], 31);
@@ -266,7 +279,12 @@ void loop() {
 
       float pwmf = fabs(u);
       if (pwmf > MAX_PWM) pwmf = MAX_PWM;
-      if (pwmf > 0.0f && pwmf < (float)MIN_PWM) pwmf = (float)MIN_PWM;
+
+      // aplicar mínimos diferentes conforme o sentido
+      if (pwmf > 0.0f) {
+        uint8_t min_for_dir = (u > 0.0f) ? PWM_MIN_UP : PWM_MIN_DOWN;
+        if (pwmf < (float)min_for_dir) pwmf = (float)min_for_dir;
+      }
 
       uint8_t pwm = (uint8_t)roundf(pwmf);
       ledcWrite(PWM_CHANS[i], pwm);
