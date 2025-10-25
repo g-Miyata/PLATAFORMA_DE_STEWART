@@ -7,7 +7,7 @@ const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5};
 
 struct PistonIO { int in1; int in2; };
 PistonIO pistons[6] = {
-  {13, 14}, {16, 17}, {35, 36}, {21, 38}, {39, 37}, {41, 42}
+   {16, 17}, {13, 14}, {35, 36}, {21, 38}, {39, 37}, {41, 42}
 };
 
 // ================== PWM (LEDC) ==================
@@ -20,14 +20,14 @@ uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode
 int   selIdx = 0;                     // 0..5 (pistão selecionado)
 float Lmm[6]   = {250,250,250,250,250,250};  // curso útil (mm) por pistão
 float SP_mm[6] = {0,0,0,0,0,0};               // setpoint em mm
-float Kp_mm[6] = {2,2,2,2,2,2}; // ponto de partida
+float Kp_mm[6] = {1,1,1,1,1,1}; // ponto de partida
 float Ki_mm[6] = {0,0,0,0,0,0};
 float integ[6] = {0,0,0,0,0,0};
 float deadband_mm = 0.2f;             // histerese em mm (ajuste pelo comando dbmm=)
 
 // ===== Feedforward (zona morta / viés) =====
-float U0_adv[6] = {30,35,30,35,35,30};      // PWM para SUBIR (positivo)
-float U0_ret[6] = {30,30,30,30,30,30};      // PWM para DESCER (negativo)
+float U0_adv[6] = {11,17,10.5,14,14.5,12.5};      // PWM para SUBIR (positivo)
+float U0_ret[6] = {8,12,9.4,14.5,11.4,11.4};      // PWM para DESCER (negativo)
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================
 float V0[6] = {0.25,0.25,0.25,0.25,0.25,0.25};

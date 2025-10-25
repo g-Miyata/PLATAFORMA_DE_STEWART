@@ -2,12 +2,12 @@
 
 // ================== PINAGEM ==================
 const int FB_PINS[6]   = {1, 2, 3, 4, 5, 6};   // feedback (0..3.3V)
-const int PWM_PINS[6]  = {18, 8, 9, 10, 11, 12};
+const int PWM_PINS[6]  = {8, 18, 9, 10, 11, 12};
 const int PWM_CHANS[6] = {0, 1, 2, 3, 4, 5};
 
 struct PistonIO { int in1; int in2; };
 PistonIO pistons[6] = {
-  {13, 14}, {16, 17}, {35, 36}, {21, 38}, {39, 37}, {41, 42}
+  {16, 17}, {13, 14}, {35, 36}, {21, 38}, {39, 37}, {41, 42}
 };
 
 // ================== PWM (LEDC) ==================
@@ -19,7 +19,7 @@ uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode
 // ================== CONTROLE EM mm (por pistão) ==================
 float Lmm[6]     = {250,250,250,250,250,250};  // curso útil (mm)
 float SP_mm[6]   = {0,0,0,0,0,0};              // setpoint em mm (pode ser comum via spmm=)
-float Kp_mm[6] = {1.8236, 1.0333, 1.0152, 0.8223, 2.1822, 2.2680};
+float Kp_mm[6] = {1, 1, 1, 1, 1, 1};
 float Ki_mm[6]   = {0,0,0,0,0,0};
 float Kd_mm[6]   = {0,0,0,0,0,0};              // derivativo sobre a medição
 float integ[6]   = {0,0,0,0,0,0};
@@ -28,8 +28,11 @@ bool  y_init = false;
 float deadband_mm = 0.2f;                      // histerese global (mm)
 
 // ===== Feedforward (zona morta / viés) por pistão =====
-float U0_adv[6] = {30,50,30,35,35,30};        // PWM para SUBIR (positivo)
-float U0_ret[6] = {30,30,30,30,30,30};        // PWM para DESCER (negativo)
+float U0_adv[6] = {11,17,10.5,14,14.5,12.5};      // PWM para SUBIR (positivo)
+float U0_ret[6] = {8,12,9.4,14.5,11.4,11.4};      // PWM para DESCER (negativo)
+
+//float U0_adv[6] = {0,0,0,0,0,0}; ;      // PWM para SUBIR (positivo)
+//float U0_ret[6] = {0,0,0,0,0,0};      // PWM para DESCER (negativo)
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================
 float V0[6]   = {0.25,0.25,0.25,0.25,0.25,0.25};
