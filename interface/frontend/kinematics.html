@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stewart Platform - Cinemática</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .pulse-dot {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+      .panel {
+        background: #ffffff;
+        padding: 28px;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      }
+      .section-title {
+        color: #111827;
+        margin-bottom: 24px;
+        font-size: 1.25em;
+        font-weight: 600;
+        text-align: left;
+      }
+      .input-group {
+        margin-bottom: 20px;
+      }
+      .input-group h3 {
+        color: #374151;
+        font-size: 0.875em;
+        margin-bottom: 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .input-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+      .input-field {
+        display: flex;
+        flex-direction: column;
+      }
+      label {
+        color: #6b7280;
+        font-weight: 500;
+        margin-bottom: 6px;
+        font-size: 0.875em;
+      }
+      input[type='number'] {
+        padding: 10px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 0.95em;
+        transition: all 0.2s;
+        background: #f9fafb;
+      }
+      input[type='number']:focus {
+        outline: none;
+        border-color: #2f9e41;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(47, 158, 65, 0.1);
+      }
+      .slider-container {
+        margin-top: 8px;
+      }
+      input[type='range'] {
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: #e5e7eb;
+        outline: none;
+        appearance: none;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2f9e41;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        background: #1a6b2d;
+        transform: scale(1.1);
+      }
+      input[type='range']::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2f9e41;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      input[type='range']::-moz-range-thumb:hover {
+        background: #1a6b2d;
+        transform: scale(1.1);
+      }
+      .button-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      .btn-primary {
+        background: #2f9e41;
+        color: #fff;
+        padding: 12px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .btn-primary:hover {
+        background: #1a6b2d;
+        box-shadow: 0 4px 12px rgba(47, 158, 65, 0.3);
+        transform: translateY(-1px);
+      }
+      .btn-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .btn-secondary:hover {
+        background: #e5e7eb;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+      }
+      .status-indicator {
+        padding: 16px;
+        border-radius: 10px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.95em;
+        margin-bottom: 24px;
+        border: 1px solid;
+      }
+      .status-valid {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #10b981;
+      }
+      .status-invalid {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #ef4444;
+      }
+      .canvas-container {
+        width: 100%;
+        height: 420px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        position: relative;
+        overflow: hidden;
+        margin-top: 16px;
+      }
+      #canvas-preview,
+      #canvas-live {
+        width: 100%;
+        height: 100%;
+      }
+      .controls-3d,
+      .legend {
+        position: absolute;
+        background: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(8px);
+        color: #f1f5f9;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 11px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        z-index: 10;
+      }
+      .controls-3d {
+        top: 10px;
+        right: 10px;
+      }
+      .legend {
+        bottom: 10px;
+        left: 10px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+      .legend-color {
+        width: 12px;
+        height: 12px;
+        margin-right: 8px;
+        border-radius: 2px;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        color: #2f9e41;
+        font-style: italic;
+        margin-top: 6px;
+        font-weight: 600;
+      }
+      .error-message {
+        display: none;
+        background: #fef2f2;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 12px;
+        border: 1px solid #ef4444;
+        font-size: 0.875em;
+      }
+      .btn-reset-cam {
+        background: rgba(47, 158, 65, 0.9);
+        color: #fff;
+        border: none;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s;
+        font-weight: 500;
+      }
+      .btn-reset-cam:hover {
+        background: #2f9e41;
+        box-shadow: 0 2px 8px rgba(47, 158, 65, 0.3);
+      }
+      .piston-measures {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+      }
+      .piston-card {
+        background: white;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        text-align: center;
+        font-size: 0.75em;
+      }
+      .piston-card .piston-id {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 4px;
+      }
+      .piston-card .piston-length {
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #2f9e41;
+      }
+      @media (max-width: 1024px) {
+        .main-content {
+          grid-template-columns: 1fr;
+        }
+        .input-row {
+          grid-template-columns: 1fr;
+        }
+        .piston-measures {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- Header -->
+      <div class="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold text-gray-900 mb-2">� Stewart Platform - Cinemática</h1>
+          <p class="text-gray-600">Instituto Federal de São Paulo</p>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <div class="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-gray-200">
+        <div class="flex flex-wrap gap-2 justify-center">
+          <a href="index.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
+          <a href="kinematics.html" class="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold">📐 Cinemática</a>
+          <a href="pid-control.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">🎮 Controle PID</a>
+          <a href="settings.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">🔌 Conexão Serial</h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Porta Serial</label>
+            <select id="serial-port-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">↻ Atualizar</button>
+          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">Conectar</button>
+          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">Desconectar</button>
+        </div>
+        <div id="serial-status" class="mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200">
+          <span class="text-red-800 font-medium">⛔ Desconectado</span>
+        </div>
+      </div>
+
+      <!-- === Controles de Posição === -->
+      <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">🎮 Controles de Posição</h2>
+
+        <div class="input-group">
+          <h3>Translação (mm)</h3>
+          <div class="input-row">
+            <div class="input-field">
+              <label for="x-pos">X</label>
+              <input type="number" id="x-pos" value="0" min="-50" max="50" step="1" />
+              <div class="slider-container"><input type="range" id="x-slider" min="-50" max="50" value="0" step="1" /></div>
+            </div>
+            <div class="input-field">
+              <label for="y-pos">Y</label>
+              <input type="number" id="y-pos" value="0" min="-50" max="50" step="1" />
+              <div class="slider-container"><input type="range" id="y-slider" min="-50" max="50" value="0" step="1" /></div>
+            </div>
+            <div class="input-field">
+              <label for="z-pos">Z</label>
+              <input type="number" id="z-pos" value="500" min="433" max="631" step="1" />
+              <div class="slider-container"><input type="range" id="z-slider" min="433" max="631" value="500" step="1" /></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <h3>Rotação (graus)</h3>
+          <div class="input-row">
+            <div class="input-field">
+              <label for="roll">Roll</label>
+              <input type="number" id="roll" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container"><input type="range" id="roll-slider" min="-15" max="15" value="0" step="0.1" /></div>
+            </div>
+            <div class="input-field">
+              <label for="pitch">Pitch</label>
+              <input type="number" id="pitch" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container"><input type="range" id="pitch-slider" min="-15" max="15" value="0" step="0.1" /></div>
+            </div>
+            <div class="input-field">
+              <label for="yaw">Yaw</label>
+              <input type="number" id="yaw" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container"><input type="range" id="yaw-slider" min="-15" max="15" value="0" step="0.1" /></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-primary" id="btn-calc">Calcular Posição</button>
+          <button class="btn-secondary" id="btn-reset">Resetar</button>
+        </div>
+
+        <!-- Botão para aplicar na bancada (inicialmente oculto) -->
+        <button class="btn-primary" id="btn-apply" style="display: none; margin-top: 12px; width: 100%">🚀 Aplicar na Bancada</button>
+
+        <div class="loading" id="loading">Calculando…</div>
+        <div class="error-message" id="error-message"></div>
+        <div class="error-message" id="apply-error"></div>
+      </div>
+
+      <!-- === Preview e Live lado a lado === -->
+      <div class="main-content">
+        <!-- Preview (Simulada) -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Preview (Simulada)</h2>
+
+          <div class="canvas-container">
+            <div id="canvas-preview"></div>
+            <div class="controls-3d">
+              <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
+              <div style="margin-top: 8px">
+                <button id="btn-reset-cam-prev" class="btn-reset-cam">Reset View</button>
+              </div>
+            </div>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #cd191e"></div>
+                <span>Base</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #2f9e41"></div>
+                <span>Plataforma</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #50c878"></div>
+                <span>Atuador OK</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ff4444"></div>
+                <span>Atuador Inválido</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medidas dos pistões (Preview) -->
+          <div class="piston-measures" id="piston-measures-preview">
+            <div class="piston-card">
+              <div class="piston-id">Pistão 1</div>
+              <div class="piston-length" id="preview-piston-1">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 2</div>
+              <div class="piston-length" id="preview-piston-2">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 3</div>
+              <div class="piston-length" id="preview-piston-3">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 4</div>
+              <div class="piston-length" id="preview-piston-4">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 5</div>
+              <div class="piston-length" id="preview-piston-5">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 6</div>
+              <div class="piston-length" id="preview-piston-6">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live (WebSocket) -->
+        <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Live (WebSocket)</h2>
+
+          <div class="canvas-container">
+            <div id="canvas-live"></div>
+            <div class="controls-3d">
+              <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
+              <div style="margin-top: 8px">
+                <button id="btn-reset-cam-live" class="btn-reset-cam">Reset View</button>
+              </div>
+            </div>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #cd191e"></div>
+                <span>Base</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #2f9e41"></div>
+                <span>Plataforma</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #50c878"></div>
+                <span>Atuador OK</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ff4444"></div>
+                <span>Atuador Inválido</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medidas dos pistões (Live) -->
+          <div class="piston-measures" id="piston-measures-live">
+            <div class="piston-card">
+              <div class="piston-id">Pistão 1</div>
+              <div class="piston-length" id="live-piston-1">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 2</div>
+              <div class="piston-length" id="live-piston-2">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 3</div>
+              <div class="piston-length" id="live-piston-3">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 4</div>
+              <div class="piston-length" id="live-piston-4">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 5</div>
+              <div class="piston-length" id="live-piston-5">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 6</div>
+              <div class="piston-length" id="live-piston-6">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = 'http://localhost:8001';
+      const WS_URL = 'ws://localhost:8001/ws/telemetry';
+      let currentPlatformData = null;
+      window.__threeScenes = {};
+
+      function setupInputSync() {
+        const inputs = ['x-pos', 'y-pos', 'z-pos', 'roll', 'pitch', 'yaw'];
+        const sliders = ['x-slider', 'y-slider', 'z-slider', 'roll-slider', 'pitch-slider', 'yaw-slider'];
+        inputs.forEach((id, i) => {
+          const input = document.getElementById(id);
+          const slider = document.getElementById(sliders[i]);
+          if (!input || !slider) return;
+          input.addEventListener('input', () => {
+            slider.value = input.value;
+          });
+          slider.addEventListener('input', () => {
+            input.value = slider.value;
+          });
+        });
+      }
+
+      function getPoseFromUI() {
+        return {
+          x: parseFloat(document.getElementById('x-pos').value),
+          y: parseFloat(document.getElementById('y-pos').value),
+          z: parseFloat(document.getElementById('z-pos').value),
+          roll: parseFloat(document.getElementById('roll').value),
+          pitch: parseFloat(document.getElementById('pitch').value),
+          yaw: parseFloat(document.getElementById('yaw').value),
+        };
+      }
+
+      // Atualiza medidas dos pistões do Preview (calculado manualmente)
+      function updatePreviewMeasures(actuators) {
+        (actuators || []).forEach((a, index) => {
+          const el = document.getElementById(`preview-piston-${index + 1}`);
+          const card = el?.parentElement;
+          if (el && card) {
+            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            // Aplica estilo válido ou inválido
+            if (a.valid) {
+              card.style.borderColor = '#10b981';
+              card.style.backgroundColor = '#f0fdf4';
+              el.style.color = '#059669';
+            } else {
+              card.style.borderColor = '#ef4444';
+              card.style.backgroundColor = '#fef2f2';
+              el.style.color = '#dc2626';
+            }
+          }
+        });
+      }
+
+      // Atualiza medidas dos pistões do Live (WebSocket real-time)
+      function updateLiveMeasures(actuators) {
+        (actuators || []).forEach((a, index) => {
+          const el = document.getElementById(`live-piston-${index + 1}`);
+          const card = el?.parentElement;
+          if (el && card) {
+            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            // Aplica estilo válido ou inválido
+            if (a.valid) {
+              card.style.borderColor = '#10b981';
+              card.style.backgroundColor = '#f0fdf4';
+              el.style.color = '#059669';
+            } else {
+              card.style.borderColor = '#ef4444';
+              card.style.backgroundColor = '#fef2f2';
+              el.style.color = '#dc2626';
+            }
+          }
+        });
+      }
+
+      const COLORS = {
+        base: 0xcd191e,
+        platform: 0x2f9e41,
+        actuatorValid: 0x50c878,
+        actuatorInvalid: 0xff4444,
+        background: 0x0f172a,
+        grid: 0x475569,
+      };
+
+      function init3D(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(COLORS.background);
+
+        const width = container.offsetWidth || 600;
+        const height = container.offsetHeight || 420;
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 2000);
+        camera.position.set(500, 500, 500);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        let controls = null;
+        if (typeof THREE.OrbitControls !== 'undefined') {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.target.set(0, 200, 0);
+        }
+
+        scene.add(new THREE.AmbientLight(0x404040, 0.6));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+        dir.position.set(200, 300, 200);
+        dir.castShadow = true;
+        scene.add(dir);
+
+        const grid = new THREE.GridHelper(600, 30, COLORS.grid, COLORS.grid);
+        grid.position.y = -50;
+        scene.add(grid);
+
+        const baseGroup = new THREE.Group();
+        const platformGroup = new THREE.Group();
+        const actuatorGroup = new THREE.Group();
+        scene.add(baseGroup, platformGroup, actuatorGroup);
+
+        function onResize() {
+          const w = container.offsetWidth || 600;
+          const h = container.offsetHeight || 420;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', onResize);
+
+        function animate() {
+          requestAnimationFrame(animate);
+          if (controls) controls.update();
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        window.__threeScenes[containerId] = { scene, camera, renderer, controls, baseGroup, platformGroup, actuatorGroup };
+      }
+
+      function createBasePoint(position) {
+        const g = new THREE.Group();
+        const sph = new THREE.Mesh(new THREE.SphereGeometry(8, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.base }));
+        sph.castShadow = true;
+        g.add(sph);
+        g.position.set(position[0], position[2] || 0, position[1]);
+        return g;
+      }
+
+      function createPlatformPoint(position) {
+        const g = new THREE.Group();
+        const sph = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.platform }));
+        sph.castShadow = true;
+        g.add(sph);
+        g.position.set(position[0], position[2], position[1]);
+        return g;
+      }
+
+      function createActuator(startPos, endPos, actuator) {
+        const g = new THREE.Group();
+        const start = new THREE.Vector3(startPos[0], startPos[2] || 0, startPos[1]);
+        const end = new THREE.Vector3(endPos[0], endPos[2], endPos[1]);
+        const length = start.distanceTo(end);
+        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, length, 8), new THREE.MeshPhongMaterial({ color: actuator.valid ? COLORS.actuatorValid : COLORS.actuatorInvalid }));
+        const mid = start.clone().add(end).multiplyScalar(0.5);
+        cyl.position.copy(mid);
+        cyl.lookAt(end);
+        cyl.rotateX(Math.PI / 2);
+        cyl.castShadow = true;
+        g.add(cyl);
+        return g;
+      }
+
+      function draw3DPlatform(containerId, data) {
+        const ctx = window.__threeScenes[containerId];
+        if (!ctx) return;
+        const { scene, controls, baseGroup, platformGroup, actuatorGroup } = ctx;
+
+        console.log(`🎨 draw3DPlatform(${containerId}):`, {
+          base_points_count: data.base_points?.length,
+          platform_points_count: data.platform_points?.length,
+          actuators_count: data.actuators?.length,
+          base_points_sample: data.base_points?.[0],
+          platform_points_sample: data.platform_points?.[0],
+        });
+
+        baseGroup.clear();
+        platformGroup.clear();
+        actuatorGroup.clear();
+
+        const bs = data.base_points;
+        const baseShape = new THREE.Shape();
+        baseShape.moveTo(bs[0][0], bs[0][1]);
+        for (let i = 1; i < bs.length; i++) baseShape.lineTo(bs[i][0], bs[i][1]);
+        baseShape.closePath();
+        const baseGeo = new THREE.ShapeGeometry(baseShape);
+        const baseMat = new THREE.MeshPhongMaterial({ color: COLORS.base, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+        const baseSurf = new THREE.Mesh(baseGeo, baseMat);
+        baseSurf.rotation.x = -Math.PI / 2;
+        baseSurf.position.y = -5;
+        baseSurf.receiveShadow = true;
+        baseGroup.add(baseSurf);
+
+        const baseEdges = new THREE.EdgesGeometry(baseGeo);
+        const baseWire = new THREE.LineSegments(baseEdges, new THREE.LineBasicMaterial({ color: COLORS.base }));
+        baseWire.rotation.x = -Math.PI / 2;
+        baseWire.position.y = -4;
+        baseGroup.add(baseWire);
+
+        bs.forEach((p) => baseGroup.add(createBasePoint(p)));
+
+        const verts = [],
+          idx = [];
+        const ps = data.platform_points;
+        ps.forEach((p) => verts.push(p[0], p[2], p[1]));
+        let cx = 0,
+          cy = 0,
+          cz = 0;
+        ps.forEach((p) => {
+          cx += p[0];
+          cy += p[2];
+          cz += p[1];
+        });
+        cx /= ps.length;
+        cy /= ps.length;
+        cz /= ps.length;
+        verts.push(cx, cy, cz);
+        const cIndex = ps.length;
+        for (let i = 0; i < ps.length; i++) {
+          const n = (i + 1) % ps.length;
+          idx.push(i, n, cIndex);
+        }
+
+        const platGeo = new THREE.BufferGeometry();
+        platGeo.setIndex(idx);
+        platGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        platGeo.computeVertexNormals();
+        const platMat = new THREE.MeshPhongMaterial({ color: COLORS.platform, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+        const platSurf = new THREE.Mesh(platGeo, platMat);
+        platSurf.castShadow = true;
+        platSurf.receiveShadow = true;
+        platformGroup.add(platSurf);
+
+        const edgeVerts = [];
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          edgeVerts.push(p[0], p[2], p[1]);
+        }
+        const p0 = ps[0];
+        edgeVerts.push(p0[0], p0[2], p0[1]);
+        const edgeGeo = new THREE.BufferGeometry();
+        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
+        const edgeLine = new THREE.Line(edgeGeo, new THREE.LineBasicMaterial({ color: 0x1a6b2d }));
+        platformGroup.add(edgeLine);
+
+        ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
+
+        // 🔧 Conecta diretamente: base[i] -> platform[i]
+        // O backend já retorna platform_points_live na ordem correta dos pistões
+        console.log('📊 Conectando atuadores (base[i] -> platform[i]):');
+        (data.actuators || []).forEach((a, i) => {
+          console.log(`   Pistão ${i + 1}: base[${i}]=(${bs[i][0].toFixed(1)}, ${bs[i][1].toFixed(1)}) -> platform[${i}]=(${ps[i][0].toFixed(1)}, ${ps[i][1].toFixed(1)}, ${ps[i][2].toFixed(1)})`);
+          actuatorGroup.add(createActuator(bs[i], ps[i], a));
+        });
+
+        if (controls) {
+          const h = ps[0][2] || 432;
+          controls.target.set(0, h / 2, 0);
+        }
+      }
+
+      // Função auxiliar para encontrar a melhor correspondência entre pontos da base e plataforma
+      function findBestConnections(basePoints, platformPoints) {
+        // Para cada ponto da base, encontra o ponto da plataforma mais próximo
+        const connections = [];
+        const usedPlatform = new Set();
+
+        for (let i = 0; i < basePoints.length; i++) {
+          let minDist = Infinity;
+          let bestIdx = -1;
+
+          for (let j = 0; j < platformPoints.length; j++) {
+            if (usedPlatform.has(j)) continue; // Já foi usado
+
+            // Distância 3D entre base[i] e platform[j]
+            const dx = basePoints[i][0] - platformPoints[j][0];
+            const dy = basePoints[i][1] - platformPoints[j][1];
+            const dz = (basePoints[i][2] || 0) - platformPoints[j][2];
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+            if (dist < minDist) {
+              minDist = dist;
+              bestIdx = j;
+            }
+          }
+
+          connections.push(bestIdx);
+          usedPlatform.add(bestIdx);
+        }
+
+        console.log('🔗 Conexões base->plataforma:', connections);
+        return connections;
+      }
+
+      function resetCamera(containerId) {
+        const ctx = window.__threeScenes[containerId];
+        if (!ctx) return;
+        const { camera, controls } = ctx;
+        const h = (currentPlatformData && currentPlatformData.platform_points?.[0]?.[2]) || 432;
+        camera.position.set(500, h + 200, 500);
+        if (controls) {
+          controls.target.set(0, h / 2, 0);
+          controls.update();
+        }
+      }
+
+      async function calculatePosition() {
+        const loading = document.getElementById('loading');
+        const errBox = document.getElementById('error-message');
+        try {
+          loading.style.display = 'block';
+          errBox.style.display = 'none';
+          const pose = getPoseFromUI();
+          const resp = await fetch(`${API_BASE}/calculate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pose),
+          });
+          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          const data = await resp.json();
+          currentPlatformData = data;
+
+          updatePreviewMeasures(data.actuators);
+          draw3DPlatform('canvas-preview', data);
+
+          // Mostra/oculta botão "Aplicar na Bancada" baseado na validade
+          const applyBtn = document.getElementById('btn-apply');
+          const applyErr = document.getElementById('apply-error');
+          applyErr.style.display = 'none';
+          if (data.valid) {
+            applyBtn.style.display = 'block';
+          } else {
+            applyBtn.style.display = 'none';
+          }
+        } catch (e) {
+          console.error(e);
+          errBox.textContent = `Erro: ${e.message}`;
+          errBox.style.display = 'block';
+        } finally {
+          loading.style.display = 'none';
+        }
+      }
+
+      function resetPosition() {
+        document.getElementById('x-pos').value = 0;
+        document.getElementById('y-pos').value = 0;
+        document.getElementById('z-pos').value = 500;
+        document.getElementById('roll').value = 0;
+        document.getElementById('pitch').value = 0;
+        document.getElementById('yaw').value = 0;
+        document.getElementById('x-slider').value = 0;
+        document.getElementById('y-slider').value = 0;
+        document.getElementById('z-slider').value = 500;
+        document.getElementById('roll-slider').value = 0;
+        document.getElementById('pitch-slider').value = 0;
+        document.getElementById('yaw-slider').value = 0;
+        calculatePosition();
+      }
+
+      async function applyToBench() {
+        const applyBtn = document.getElementById('btn-apply');
+        const applyErr = document.getElementById('apply-error');
+        const originalText = applyBtn.textContent;
+
+        try {
+          applyBtn.disabled = true;
+          applyBtn.textContent = '⏳ Aplicando...';
+          applyErr.style.display = 'none';
+
+          if (!currentPlatformData || !currentPlatformData.valid) {
+            throw new Error('Calcule uma posição válida primeiro');
+          }
+
+          const pose = currentPlatformData.pose;
+          const resp = await fetch(`${API_BASE}/apply_pose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pose),
+          });
+
+          if (!resp.ok) {
+            const errorData = await resp.json();
+            throw new Error(errorData.detail || `Erro ${resp.status}`);
+          }
+
+          const data = await resp.json();
+
+          if (data.applied) {
+            applyBtn.textContent = '✅ Aplicado!';
+            setTimeout(() => {
+              applyBtn.textContent = originalText;
+              applyBtn.disabled = false;
+            }, 2000);
+          } else {
+            throw new Error(data.message || 'Falha ao aplicar pose');
+          }
+        } catch (e) {
+          console.error(e);
+          applyErr.textContent = `Erro ao aplicar: ${e.message}`;
+          applyErr.style.display = 'block';
+          applyBtn.textContent = originalText;
+          applyBtn.disabled = false;
+        }
+      }
+
+      let serialConnected = false;
+
+      async function loadSerialPorts() {
+        const sel = document.getElementById('serial-port-select');
+        try {
+          const resp = await fetch(`${API_BASE}/serial/ports`);
+          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          const data = await resp.json();
+          const ports = Array.isArray(data.ports) ? data.ports : [];
+          sel.innerHTML = '<option value="">Selecione...</option>';
+          ports.forEach((p) => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            sel.appendChild(opt);
+          });
+        } catch (e) {
+          console.error('Erro ao listar portas:', e);
+          sel.innerHTML = '<option value="">Erro ao carregar</option>';
+        }
+      }
+
+      function setSerialStatus(connected, port = '') {
+        serialConnected = connected;
+        const statusDiv = document.getElementById('serial-status');
+        const btnConnect = document.getElementById('btn-open-serial');
+        const btnDisconnect = document.getElementById('btn-close-serial');
+
+        if (connected) {
+          statusDiv.className = 'mt-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200';
+          statusDiv.innerHTML = `<span class="text-green-800 font-medium">✅ Conectado em ${port}</span>`;
+          btnConnect.classList.add('hidden');
+          btnDisconnect.classList.remove('hidden');
+        } else {
+          statusDiv.className = 'mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200';
+          statusDiv.innerHTML = '<span class="text-red-800 font-medium">⛔ Desconectado</span>';
+          btnConnect.classList.remove('hidden');
+          btnDisconnect.classList.add('hidden');
+        }
+      }
+
+      async function openSerial() {
+        const port = document.getElementById('serial-port-select').value;
+        if (!port) {
+          alert('Selecione uma porta serial');
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/serial/open`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port, baud: 115200 }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
+          setSerialStatus(true, port);
+
+          // Conecta ao WebSocket
+          initTelemetryWS();
+        } catch (e) {
+          alert(`Erro ao conectar: ${e.message}`);
+        }
+      }
+
+      async function closeSerial() {
+        try {
+          const resp = await fetch(`${API_BASE}/serial/close`, { method: 'POST' });
+          if (!resp.ok) throw new Error('Erro ao desconectar');
+          setSerialStatus(false);
+
+          // Fecha o WebSocket e cancela reconexão
+          if (wsTimer) {
+            clearTimeout(wsTimer);
+            wsTimer = null;
+          }
+          if (ws) {
+            ws.close();
+            ws = null;
+          }
+        } catch (e) {
+          alert(`Erro ao desconectar: ${e.message}`);
+        }
+      }
+
+      //   function markLiveOnWS() {
+      //     if (serialConnected) {
+      //       const el = document.getElementById('serial-status');
+      //       if (el && el.classList.contains('status-valid')) {
+      //         el.textContent = el.textContent.replace('✅ Conectado', '✅ Conectado — recebendo dados');
+      //       }
+      //     }
+      //   }
+
+      let ws = null,
+        wsTimer = null;
+
+      // Pontos fixos da base (mesmos do backend) - formato [x, y, z]
+      const BASE_POINTS_FIXED = [
+        [305.5, -17, 0],
+        [305.5, 17, 0],
+        [-137.7, 273.23, 0],
+        [-168, 255.7, 0],
+        [-167.2, -256.2, 0],
+        [-136.8, -273.6, 0],
+      ];
+
+      function normalizeTelemetry(msg) {
+        console.log('🔍 normalizeTelemetry recebeu:', msg);
+
+        const out = {};
+        if (msg.pose) out.pose = msg.pose;
+
+        // Base points - usa os fixos se não vier no WebSocket
+        if (msg.base_points) {
+          out.base_points = msg.base_points;
+          console.log('✅ Usando base_points do WebSocket:', msg.base_points);
+        } else if (msg.base_points_live) {
+          out.base_points = msg.base_points_live;
+          console.log('✅ Usando base_points_live do WebSocket:', msg.base_points_live);
+        } else {
+          // Usa os pontos fixos da base como fallback
+          out.base_points = BASE_POINTS_FIXED;
+          console.log('⚠️ Usando BASE_POINTS_FIXED (fallback):', BASE_POINTS_FIXED);
+        }
+
+        // Platform points - PRIORIZA platform_points_live (do backend)
+        if (msg.platform_points_live) {
+          out.platform_points = msg.platform_points_live;
+          console.log('✅ Usando platform_points_live do backend:', msg.platform_points_live);
+        } else if (msg.platform_points) {
+          out.platform_points = msg.platform_points;
+          console.log('✅ Usando platform_points do WebSocket:', msg.platform_points);
+        }
+
+        if (typeof msg.valid === 'boolean') out.valid = msg.valid;
+
+        // Processa os atuadores
+        if (msg.actuators) {
+          out.actuators = msg.actuators.map((a, i) => ({
+            id: a.id ?? i + 1,
+            length: Number(a.length ?? 0),
+            percentage: Number(a.percentage ?? 0),
+            valid: Boolean(a.valid ?? true),
+          }));
+          console.log('✅ Atuadores processados de msg.actuators');
+        } else if (Array.isArray(msg.actuator_lengths_abs)) {
+          out.actuators = msg.actuator_lengths_abs.map((L, i) => ({
+            id: i + 1,
+            length: Number(L),
+            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            valid: true,
+          }));
+          console.log('✅ Atuadores processados de actuator_lengths_abs');
+        } else if (Array.isArray(msg.lengths)) {
+          out.actuators = msg.lengths.map((L, i) => ({
+            id: i + 1,
+            length: Number(L),
+            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            valid: true,
+          }));
+          console.log('✅ Atuadores processados de lengths');
+        }
+
+        // Se temos comprimentos mas não temos platform_points, tenta reconstruir
+        if (out.actuators && !out.platform_points && out.base_points) {
+          console.warn('⚠️ platform_points não veio do backend, reconstruindo localmente (menos preciso)');
+          out.platform_points = reconstructPlatformPoints(out.base_points, out.actuators);
+        }
+
+        console.log('📤 normalizeTelemetry retorna:', out);
+        return out;
+      }
+
+      // Função para reconstruir os pontos da plataforma a partir dos comprimentos dos atuadores
+      function reconstructPlatformPoints(basePoints, actuators) {
+        // Se não temos 6 atuadores válidos, não conseguimos reconstruir
+        if (!actuators || actuators.length !== 6) return null;
+
+        const platformPoints = [];
+
+        // Para cada atuador, calcula a posição aproximada do ponto da plataforma
+        for (let i = 0; i < 6; i++) {
+          const base = basePoints[i];
+          const length = actuators[i].length;
+
+          // Ponto base em 3D (z=0 para a base)
+          const bx = base[0];
+          const by = base[1];
+          const bz = 0;
+
+          // Estimativa simples: assumindo movimento principalmente vertical
+          // A plataforma sobe/desce mas mantém relação com a base
+          const angle = Math.PI / 6; // Ângulo aproximado dos atuadores
+          const pz = length * Math.cos(angle); // Componente vertical
+          const horizontalDist = length * Math.sin(angle); // Componente horizontal
+
+          // Calcula direção da base para o centro (0,0)
+          const dist = Math.sqrt(bx * bx + by * by);
+          const dirX = -bx / dist;
+          const dirY = -by / dist;
+
+          // Ponto da plataforma (mais próximo do centro)
+          const px = bx + dirX * (dist - horizontalDist);
+          const py = by + dirY * (dist - horizontalDist);
+
+          platformPoints.push([px, py, pz]);
+        }
+
+        return platformPoints;
+      }
+
+      function applyLiveTelemetry(data) {
+        if (data.base_points && data.platform_points && Array.isArray(data.actuators)) {
+          if (typeof data.valid !== 'boolean') {
+            data.valid = data.actuators.every((a) => a.valid !== false);
+          }
+          updateLiveMeasures(data.actuators);
+          draw3DPlatform('canvas-live', data);
+        } else if (Array.isArray(data.actuators)) {
+          updateLiveMeasures(data.actuators);
+          console.warn('⚠️ WebSocket sem platform_points, aguardando dados completos...');
+        }
+      }
+
+      function initTelemetryWS() {
+        if (ws) {
+          try {
+            ws.close();
+          } catch (_) {}
+          ws = null;
+        }
+
+        console.log('🔌 Conectando WebSocket:', WS_URL);
+
+        try {
+          ws = new WebSocket(WS_URL);
+        } catch (e) {
+          console.error('❌ Erro ao criar WebSocket:', e);
+          scheduleReconnect();
+          return;
+        }
+
+        ws.onopen = () => {
+          console.log('✅ WebSocket conectado!');
+          if (wsTimer) clearTimeout(wsTimer);
+        };
+
+        ws.onclose = () => {
+          console.log('🔌 WebSocket desconectado');
+          scheduleReconnect();
+        };
+
+        ws.onerror = (e) => {
+          console.error('❌ WebSocket error:', e);
+        };
+
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            const data = normalizeTelemetry(msg);
+            applyLiveTelemetry(data);
+          } catch (e) {
+            console.error('❌ Erro ao processar mensagem WS:', e, evt.data);
+          }
+        };
+      }
+
+      function scheduleReconnect() {
+        if (wsTimer) clearTimeout(wsTimer);
+        wsTimer = setTimeout(() => {
+          if (serialConnected) {
+            initTelemetryWS();
+          }
+        }, 1000);
+      }
+
+      async function checkExistingConnection() {
+        console.log('🔍 Verificando conexão existente...');
+
+        try {
+          // Verifica o status real no backend
+          const res = await fetch(`${API_BASE}/serial/status`);
+          const status = await res.json();
+
+          console.log('📊 Status do backend:', status);
+
+          if (status.connected && status.port) {
+            // Backend está conectado
+            serialConnected = true;
+            setSerialStatus(true, status.port);
+
+            // Preenche o select com a porta conectada
+            const select = document.getElementById('serial-port-select');
+            if (![...select.options].some((opt) => opt.value === status.port)) {
+              const opt = document.createElement('option');
+              opt.value = status.port;
+              opt.textContent = status.port;
+              opt.selected = true;
+              select.appendChild(opt);
+            } else {
+              select.value = status.port;
+            }
+
+            console.log(`✅ Reconectado à sessão: ${status.port}`);
+
+            // Reconecta ao WebSocket
+            initTelemetryWS();
+          } else {
+            // Backend não está conectado
+            console.log('❌ Backend não está conectado');
+          }
+        } catch (err) {
+          console.error('⚠️ Erro ao verificar status:', err);
+        }
+      }
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        setupInputSync();
+        init3D('canvas-preview');
+        init3D('canvas-live');
+        await loadSerialPorts();
+        await checkExistingConnection();
+        document.getElementById('btn-refresh-ports').addEventListener('click', loadSerialPorts);
+        document.getElementById('btn-open-serial').addEventListener('click', openSerial);
+        document.getElementById('btn-close-serial').addEventListener('click', closeSerial);
+        document.getElementById('btn-calc').addEventListener('click', calculatePosition);
+        document.getElementById('btn-reset').addEventListener('click', resetPosition);
+        document.getElementById('btn-apply').addEventListener('click', applyToBench);
+        document.getElementById('btn-reset-cam-prev').addEventListener('click', () => resetCamera('canvas-preview'));
+        document.getElementById('btn-reset-cam-live').addEventListener('click', () => resetCamera('canvas-live'));
+        calculatePosition();
+      });
+    </script>
+  </body>
+</html>
