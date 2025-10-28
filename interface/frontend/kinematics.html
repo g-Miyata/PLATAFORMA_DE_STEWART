@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stewart Platform - Cinemática</title>
+    <title>Plataforma de Stewart - Cinemática</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -36,14 +37,14 @@
         margin-bottom: 30px;
       }
       .panel {
-        background: #ffffff;
+        background: #1f2937;
         padding: 28px;
         border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+        border: 1px solid #374151;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
       }
       .section-title {
-        color: #111827;
+        color: #f9fafb;
         margin-bottom: 24px;
         font-size: 1.25em;
         font-weight: 600;
@@ -53,7 +54,7 @@
         margin-bottom: 20px;
       }
       .input-group h3 {
-        color: #374151;
+        color: #d1d5db;
         font-size: 0.875em;
         margin-bottom: 16px;
         font-weight: 600;
@@ -71,23 +72,24 @@
         flex-direction: column;
       }
       label {
-        color: #6b7280;
+        color: #9ca3af;
         font-weight: 500;
         margin-bottom: 6px;
         font-size: 0.875em;
       }
       input[type='number'] {
         padding: 10px 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid #4b5563;
         border-radius: 8px;
         font-size: 0.95em;
         transition: all 0.2s;
-        background: #f9fafb;
+        background: #374151;
+        color: #f9fafb;
       }
       input[type='number']:focus {
         outline: none;
         border-color: #2f9e41;
-        background: #ffffff;
+        background: #4b5563;
         box-shadow: 0 0 0 3px rgba(47, 158, 65, 0.1);
       }
       .slider-container {
@@ -97,7 +99,7 @@
         width: 100%;
         height: 4px;
         border-radius: 2px;
-        background: #e5e7eb;
+        background: #4b5563;
         outline: none;
         appearance: none;
       }
@@ -156,13 +158,13 @@
         transform: translateY(-1px);
       }
       .btn-secondary {
-        background: #f3f4f6;
-        color: #374151;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        background: #4b5563;
+        color: #f9fafb;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
       .btn-secondary:hover {
-        background: #e5e7eb;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        background: #6b7280;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         transform: translateY(-1px);
       }
       .status-indicator {
@@ -269,27 +271,27 @@
         gap: 8px;
         margin-top: 12px;
         padding: 12px;
-        background: #f9fafb;
+        background: #374151;
         border-radius: 8px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #4b5563;
       }
       .piston-card {
-        background: white;
+        background: #1f2937;
         padding: 8px;
         border-radius: 6px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #4b5563;
         text-align: center;
         font-size: 0.75em;
       }
       .piston-card .piston-id {
         font-weight: 600;
-        color: #374151;
+        color: #d1d5db;
         margin-bottom: 4px;
       }
       .piston-card .piston-length {
         font-size: 1.1em;
         font-weight: 700;
-        color: #2f9e41;
+        color: #10b981;
       }
       @media (max-width: 1024px) {
         .main-content {
@@ -304,33 +306,36 @@
       }
     </style>
   </head>
-  <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-7xl">
       <!-- Header -->
-      <div class="bg-white rounded-2xl shadow-sm p-8 mb-6 border border-gray-200">
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
         <div class="text-center">
-          <h1 class="text-4xl font-bold text-gray-900 mb-2">� Stewart Platform - Cinemática</h1>
-          <p class="text-gray-600">Instituto Federal de São Paulo</p>
+          <h1 class="text-4xl font-bold text-white mb-2">� Stewart Platform - Cinemática</h1>
+                    <div class="flex justify-center items-center gap-2">
+            <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
+            <p class="text-gray-300">Instituto Federal de São Paulo</p>
+          </div>
         </div>
       </div>
 
       <!-- Navegação -->
-      <div class="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-gray-200">
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
         <div class="flex flex-wrap gap-2 justify-center">
-          <a href="index.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
-          <a href="kinematics.html" class="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold">📐 Cinemática</a>
-          <a href="pid-control.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">🎮 Controle PID</a>
-          <a href="settings.html" class="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
+          <a href="index.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
+          <a href="kinematics.html" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold">📐 Cinemática</a>
+          <a href="actuators.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🎮 Controle</a>
+          <a href="settings.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
         </div>
       </div>
 
       <!-- Conexão Serial -->
-      <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">🔌 Conexão Serial</h2>
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4">🔌 Conexão Serial</h2>
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[200px]">
-            <label class="block text-sm font-medium text-gray-700 mb-2">Porta Serial</label>
-            <select id="serial-port-select" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
+            <select id="serial-port-select" class="w-full text-white px-4 py-2 border bg-gray-700 border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
               <option value="">Selecione...</option>
             </select>
           </div>
@@ -344,8 +349,8 @@
       </div>
 
       <!-- === Controles de Posição === -->
-      <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 border border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">🎮 Controles de Posição</h2>
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4">🎮 Controles de Posição</h2>
 
         <div class="input-group">
           <h3>Translação (mm)</h3>
@@ -405,7 +410,7 @@
       <!-- === Preview e Live lado a lado === -->
       <div class="main-content">
         <!-- Preview (Simulada) -->
-        <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">Preview (Simulada)</h2>
 
           <div class="canvas-container">
@@ -466,7 +471,7 @@
         </div>
 
         <!-- Live (WebSocket) -->
-        <div class="bg-white rounded-2xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
           <h2 class="text-xl font-semibold text-gray-900 mb-4">Live (WebSocket)</h2>
 
           <div class="canvas-container">
