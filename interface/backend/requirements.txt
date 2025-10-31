@@ -1,24 +1,17 @@
-# FastAPI e servidor web
+# ==== API e servidor Web  ====
 fastapi==0.104.1
-uvicorn==0.24.0
 starlette==0.27.0
-pydantic==2.5.0
-pydantic-core==2.14.1
-pydantic-settings==2.6.1
-python-multipart==0.0.6
+uvicorn[standard]==0.24.0.post1  
+pydantic==2.5.3
+python-multipart==0.0.9
 
-# Computação científica
+# ==== Científico ====
 numpy==1.26.4
 scipy==1.13.1
 
-# Comunicação serial
+# ==== Serial ====
 pyserial==3.5
 
-# Servidor ASGI/HTTP
-httptools==0.6.4
-websockets==15.0.1
-watchfiles==1.1.0
-python-dotenv==0.21.0
-
-# Utilitários
-typing-extensions==4.11.0
+# ==== Utilitários ====
+python-dotenv==1.0.1
+typing-extensions>=4.8,<5
