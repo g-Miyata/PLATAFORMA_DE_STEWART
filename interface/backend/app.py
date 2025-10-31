@@ -6,6 +6,7 @@ import time
 import json
 import asyncio
 from typing import List, Optional, Dict, Any
+from math import sin, cos, tau
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -15,7 +16,7 @@ import serial.tools.list_ports
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
@@ -97,6 +98,28 @@ class PIDSettings(BaseModel):
     dbmm: Optional[float] = None
     fc: Optional[float] = None
     minpwm: Optional[int] = None
+
+class MotionRequest(BaseModel):
+    routine: str  # "sine_axis", "circle_xy", "lissajous_xy", "heave_pitch", "wobble_precession"
+    duration_s: float = Field(60.0, gt=0, le=3600)
+    hz: float = Field(0.2, gt=0, le=2.0)
+    axis: Optional[str] = None  # Para sine_axis: x|y|z|roll|pitch|yaw
+    amp: Optional[float] = None
+    offset: Optional[float] = None
+    ax: Optional[float] = None
+    ay: Optional[float] = None
+    fx: Optional[float] = None
+    fy: Optional[float] = None
+    phx: Optional[float] = None  # Fase em graus (também usado como fase azimutal inicial para wobble_precession)
+    phy: Optional[float] = None  # Fase em graus
+    # Campos para wobble_precession
+    tilt_deg: Optional[float] = None        # amplitude de inclinação (graus pico) – default 3.0
+    tilt_bias_deg: Optional[float] = None   # inclinação constante adicional (graus) – default 0.0
+    prec_hz: Optional[float] = None         # frequência da precessão (Hz) – default 0.4
+    yaw_hz: Optional[float] = None          # rotação em yaw (Hz) – default 0.1
+    z_amp_mm: Optional[float] = None        # amplitude em z (mm) – default 6.0
+    z_hz: Optional[float] = None            # frequência em z (Hz) – default: igual a prec_hz
+    z_phase_deg: Optional[float] = None     # fase de z em graus – default 90°
 
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
@@ -196,7 +219,7 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform(h0=432, stroke_min=500, stroke_max=680)  # 180mm de curso útil
+platform = StewartPlatform(h0=500, stroke_min=498, stroke_max=680)  # 182mm de curso útil
 
 # -------------------- WS Manager --------------------
 class WSManager:
@@ -390,6 +413,311 @@ class SerialManager:
 
 serial_mgr = SerialManager()
 
+# -------------------- Motion Runner --------------------
+class MotionRunner:
+    """Executa rotinas de movimento com trajetórias senoidais em thread separada"""
+    
+    def __init__(self, serial_manager, stewart_platform):
+        self.serial_mgr = serial_manager
+        self.platform = stewart_platform
+        self.thread: Optional[threading.Thread] = None
+        self.stop_evt = threading.Event()
+        self.status_dict = {
+            "running": False,
+            "routine": None,
+            "params": {},
+            "started_at": None,
+            "elapsed": 0.0
+        }
+        self.lock = threading.Lock()
+    
+    def start(self, req: MotionRequest):
+        """Inicia uma rotina de movimento"""
+        with self.lock:
+            if self.status_dict["running"]:
+                raise RuntimeError("Rotina já está rodando. Pare primeiro.")
+            
+            self.stop_evt.clear()
+            self.status_dict = {
+                "running": True,
+                "routine": req.routine,
+                "params": req.dict(),
+                "started_at": time.time(),
+                "elapsed": 0.0
+            }
+            
+            self.thread = threading.Thread(
+                target=self._run_routine,
+                args=(req,),
+                daemon=True
+            )
+            self.thread.start()
+            print(f"🎬 Rotina '{req.routine}' iniciada")
+    
+    def stop(self):
+        """Para a rotina e retorna suavemente para home"""
+        with self.lock:
+            if not self.status_dict["running"]:
+                return
+            
+            print(f"⏹️  Parando rotina...")
+            self.stop_evt.set()
+        
+        if self.thread:
+            self.thread.join(timeout=2.0)
+        
+        with self.lock:
+            self.status_dict["running"] = False
+        
+        # Retornar suavemente para home (0,0,h0,0,0,0)
+        print(f"🏠 Retornando para home...")
+        try:
+            self._go_home_smooth(duration=1.5)
+        except Exception as e:
+            print(f"⚠️ Erro ao retornar para home: {e}")
+    
+    def status(self) -> dict:
+        """Retorna o status atual"""
+        with self.lock:
+            if self.status_dict["running"] and self.status_dict["started_at"]:
+                self.status_dict["elapsed"] = time.time() - self.status_dict["started_at"]
+            return self.status_dict.copy()
+    
+    def _run_routine(self, req: MotionRequest):
+        """Thread principal que executa a rotina"""
+        try:
+            routine_name = req.routine
+            duration = req.duration_s
+            hz = req.hz
+            dt = 1.0 / 60.0  # 60 Hz
+            
+            # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
+            ramp_time = min(2.0, duration * 0.2)
+            
+            t = 0.0
+            step = 0
+            
+            print(f"▶️  Iniciando rotina '{routine_name}' por {duration}s @ {hz}Hz")
+            
+            while t < duration and not self.stop_evt.is_set():
+                # Calcular fator de ramp (ramp-in e ramp-out suaves com cosseno)
+                if t < ramp_time:
+                    # Ramp-in: 0 -> 1 usando (1 - cos(π*t/ramp_time))/2
+                    ramp_factor = (1.0 - cos(tau * 0.5 * t / ramp_time)) / 2.0
+                elif t > (duration - ramp_time):
+                    # Ramp-out: 1 -> 0
+                    remaining = duration - t
+                    ramp_factor = (1.0 - cos(tau * 0.5 * remaining / ramp_time)) / 2.0
+                else:
+                    ramp_factor = 1.0
+                
+                # Gerar pose baseada na rotina
+                pose = self._generate_pose(req, t, hz, ramp_factor)
+                
+                # Limitar pose
+                pose = self._clamp_pose(pose)
+                
+                # Validar com inverse kinematics
+                z_val = pose.get("z", self.platform.h0)
+                L, valid, _ = self.platform.inverse_kinematics(
+                    x=pose["x"], y=pose["y"], z=z_val,
+                    roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
+                )
+                
+                if not valid:
+                    print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
+                    break
+                
+                # Converter para curso (mm)
+                course_mm = self.platform.lengths_to_stroke_mm(L)
+                stroke_range = self.platform.stroke_max - self.platform.stroke_min
+                course_mm = np.clip(course_mm, 0.0, stroke_range)
+                
+                # Enviar setpoints via serial
+                try:
+                    for i in range(6):
+                        self.serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
+                        time.sleep(0.0015)  # 1.5 ms entre comandos
+                except Exception as e:
+                    print(f"❌ Erro ao enviar comando serial: {e}")
+                    break
+                
+                # Broadcast via WebSocket
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        ws_mgr.broadcast_json({
+                            "type": "motion_tick",
+                            "t": t,
+                            "pose_cmd": pose,
+                            "routine": routine_name
+                        }),
+                        self.serial_mgr.loop
+                    )
+                except Exception as e:
+                    print(f"⚠️ Erro ao enviar motion_tick: {e}")
+                
+                # Aguardar próximo tick
+                t += dt
+                step += 1
+                time.sleep(dt)
+            
+            print(f"✅ Rotina '{routine_name}' finalizada ({step} passos)")
+            
+        except Exception as e:
+            print(f"❌ Erro na rotina: {e}")
+        finally:
+            with self.lock:
+                self.status_dict["running"] = False
+    
+    def _generate_pose(self, req: MotionRequest, t: float, hz: float, ramp: float) -> dict:
+        """Gera a pose para um instante t baseado na rotina"""
+        routine = req.routine
+        h0 = self.platform.h0
+        
+        if routine == "sine_axis":
+            # Movimento senoidal em um eixo
+            axis = req.axis
+            amp = req.amp
+            offset = req.offset
+            
+            # Defaults de amplitude
+            if amp is None:
+                if axis in ["x", "y", "z"]:
+                    amp = 5.0  # mm
+                else:  # roll, pitch, yaw
+                    amp = 2.0  # graus
+            
+            # Defaults de offset
+            if offset is None:
+                if axis == "z":
+                    offset = h0
+                else:
+                    offset = 0.0
+            
+            value = offset + amp * ramp * sin(tau * hz * t)
+            
+            pose = {"x": 0, "y": 0, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+            pose[axis] = value
+            return pose
+        
+        elif routine == "circle_xy":
+            # Círculo no plano XY
+            ax = req.ax if req.ax is not None else 10.0
+            ay = req.ay if req.ay is not None else 10.0
+            phx = req.phx if req.phx is not None else 0.0
+            
+            x = ax * ramp * cos(tau * hz * t + tau * phx / 360.0)
+            y = ay * ramp * sin(tau * hz * t + tau * phx / 360.0)
+            
+            return {"x": x, "y": y, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+        
+        elif routine == "lissajous_xy":
+            # Lissajous XY
+            ax = req.ax if req.ax is not None else 10.0
+            ay = req.ay if req.ay is not None else 6.0
+            fx = req.fx if req.fx is not None else hz
+            fy = req.fy if req.fy is not None else hz * 1.5
+            phx = req.phx if req.phx is not None else 0.0
+            phy = req.phy if req.phy is not None else 90.0
+            
+            x = ax * ramp * sin(tau * fx * t + tau * phx / 360.0)
+            y = ay * ramp * sin(tau * fy * t + tau * phy / 360.0)
+            
+            return {"x": x, "y": y, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+        
+        elif routine == "heave_pitch":
+            # Movimento combinado em z e pitch
+            amp_z = req.amp if req.amp is not None else 8.0  # mm
+            amp_pitch = req.ay if req.ay is not None else 2.5  # graus
+            
+            z = h0 + amp_z * ramp * sin(tau * hz * t)
+            pitch = amp_pitch * ramp * sin(tau * hz * t + tau * 0.25)  # +90° de fase
+            
+            return {"x": 0, "y": 0, "z": z, "roll": 0, "pitch": pitch, "yaw": 0}
+        
+        elif routine == "wobble_precession":
+            # Movimento tipo "Euler's Disk": inclinação precessionando + yaw lento + z oscilante
+            # Defaults seguros
+            tilt_deg = req.tilt_deg if req.tilt_deg is not None else 3.0
+            tilt_bias_deg = req.tilt_bias_deg if req.tilt_bias_deg is not None else 0.0
+            prec_hz = req.prec_hz if req.prec_hz is not None else 0.4
+            yaw_hz = req.yaw_hz if req.yaw_hz is not None else 0.1
+            z_amp_mm = req.z_amp_mm if req.z_amp_mm is not None else 6.0
+            z_hz = req.z_hz if req.z_hz is not None else prec_hz
+            z_phase_deg = req.z_phase_deg if req.z_phase_deg is not None else 90.0
+            phx = req.phx if req.phx is not None else 0.0  # fase azimutal inicial
+            
+            # Cálculos
+            # theta(t) = inclinação total em relação à vertical
+            theta_t = tilt_bias_deg + tilt_deg * ramp * sin(tau * prec_hz * t)
+            
+            # phi(t) = ângulo azimutal da precessão
+            phi_t_rad = tau * prec_hz * t + tau * phx / 360.0
+            
+            # Decompor inclinação em roll e pitch
+            roll = theta_t * cos(phi_t_rad)
+            pitch = theta_t * sin(phi_t_rad)
+            
+            # Yaw acumula linearmente
+            yaw = 360.0 * yaw_hz * t
+            
+            # Z oscila com fase configurável
+            z = h0 + z_amp_mm * ramp * sin(tau * z_hz * t + tau * z_phase_deg / 360.0)
+            
+            return {"x": 0, "y": 0, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw}
+        
+        else:
+            # Fallback: parado
+            return {"x": 0, "y": 0, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+    
+    def _clamp_pose(self, pose: dict) -> dict:
+        """Limita a pose para valores seguros"""
+        h0 = self.platform.h0
+        
+        pose["x"] = np.clip(pose["x"], -50.0, 50.0)
+        pose["y"] = np.clip(pose["y"], -50.0, 50.0)
+        pose["z"] = np.clip(pose["z"], h0 - 20.0, h0 + 40.0)
+        pose["roll"] = np.clip(pose["roll"], -10.0, 10.0)
+        pose["pitch"] = np.clip(pose["pitch"], -10.0, 10.0)
+        pose["yaw"] = np.clip(pose["yaw"], -10.0, 10.0)
+        
+        return pose
+    
+    def _go_home_smooth(self, duration: float = 1.5):
+        """Retorna suavemente para a pose home (0,0,h0,0,0,0)"""
+        dt = 1.0 / 60.0  # 60 Hz
+        steps = int(duration / dt)
+        
+        for i in range(steps):
+            t = (i + 1) / steps  # 0 -> 1
+            # Curva suave (cosseno)
+            factor = 1.0 - (1.0 - cos(tau * 0.5 * t)) / 2.0
+            
+            # Interpolar para home
+            pose = {
+                "x": 0, "y": 0, "z": self.platform.h0,
+                "roll": 0, "pitch": 0, "yaw": 0
+            }
+            
+            L, valid, _ = self.platform.inverse_kinematics(**pose)
+            if not valid:
+                continue
+            
+            course_mm = self.platform.lengths_to_stroke_mm(L)
+            stroke_range = self.platform.stroke_max - self.platform.stroke_min
+            course_mm = np.clip(course_mm, 0.0, stroke_range)
+            
+            try:
+                for j in range(6):
+                    self.serial_mgr.write_line(f"spmm{j+1}={course_mm[j]:.3f}")
+                    time.sleep(0.0015)
+            except Exception:
+                pass
+            
+            time.sleep(dt)
+
+motion_runner = MotionRunner(serial_mgr, platform)
+
 # -------------------- Endpoints Serial --------------------
 @app.get("/serial/ports")
 def api_list_ports():
@@ -579,6 +907,142 @@ def pid_select_piston(piston: int):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+# -------------------- Endpoints Motion --------------------
+"""
+Exemplos de uso das rotinas de movimento:
+
+1. Seno em Z, 8 mm, 0.3 Hz, 45 s:
+   POST /motion/start
+   {
+     "routine": "sine_axis",
+     "axis": "z",
+     "amp": 8,
+     "hz": 0.3,
+     "duration_s": 45
+   }
+
+2. Círculo XY 12x8 mm, 0.25 Hz, 60 s:
+   POST /motion/start
+   {
+     "routine": "circle_xy",
+     "ax": 12,
+     "ay": 8,
+     "hz": 0.25,
+     "duration_s": 60
+   }
+
+3. Lissajous XY com ax=10, ay=6, fx=0.2, fy=0.3, phx=0, phy=90, 90 s:
+   POST /motion/start
+   {
+     "routine": "lissajous_xy",
+     "ax": 10,
+     "ay": 6,
+     "fx": 0.2,
+     "fy": 0.3,
+     "phx": 0,
+     "phy": 90,
+     "duration_s": 90
+   }
+
+4. Heave-pitch z±8mm, pitch±2.5°, 0.2 Hz, 40 s:
+   POST /motion/start
+   {
+     "routine": "heave_pitch",
+     "amp": 8,
+     "ay": 2.5,
+     "hz": 0.2,
+     "duration_s": 40
+   }
+
+5. Wobble precession padrão (Euler's Disk): tilt 3°, precessão 0.4 Hz, yaw 0.1 Hz, z±6 mm com fase 90°, 40 s:
+   POST /motion/start
+   {
+     "routine": "wobble_precession",
+     "duration_s": 40,
+     "prec_hz": 0.4,
+     "yaw_hz": 0.1,
+     "tilt_deg": 3.0,
+     "tilt_bias_deg": 0.0,
+     "z_amp_mm": 6.0,
+     "z_phase_deg": 90
+   }
+
+6. Wobble mais rápido com z sincronizado em fase (0°):
+   POST /motion/start
+   {
+     "routine": "wobble_precession",
+     "duration_s": 30,
+     "prec_hz": 0.6,
+     "yaw_hz": 0.15,
+     "tilt_deg": 2.5,
+     "z_amp_mm": 5,
+     "z_phase_deg": 0
+   }
+
+7. Parar rotina:
+   POST /motion/stop
+
+8. Consultar status:
+   GET /motion/status
+"""
+
+@app.post("/motion/start")
+def motion_start(req: MotionRequest):
+    """Inicia uma rotina de movimento"""
+    try:
+        # Validar routine
+        valid_routines = ["sine_axis", "circle_xy", "lissajous_xy", "heave_pitch", "wobble_precession"]
+        if req.routine not in valid_routines:
+            raise ValueError(f"Rotina inválida. Use: {', '.join(valid_routines)}")
+        
+        # Validar axis para sine_axis
+        if req.routine == "sine_axis":
+            if req.axis is None:
+                raise ValueError("Campo 'axis' obrigatório para routine='sine_axis'")
+            valid_axes = ["x", "y", "z", "roll", "pitch", "yaw"]
+            if req.axis not in valid_axes:
+                raise ValueError(f"Eixo inválido. Use: {', '.join(valid_axes)}")
+            
+            # Aplicar defaults de amplitude
+            if req.amp is None:
+                if req.axis in ["x", "y", "z"]:
+                    req.amp = 5.0  # mm
+                else:
+                    req.amp = 2.0  # graus
+        
+        # Iniciar rotina
+        motion_runner.start(req)
+        
+        return {
+            "message": f"Rotina '{req.routine}' iniciada",
+            "routine": req.routine,
+            "params": req.dict()
+        }
+    
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/motion/stop")
+def motion_stop():
+    """Para a rotina de movimento atual"""
+    try:
+        motion_runner.stop()
+        return {"message": "Rotina parada"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/motion/status")
+def motion_status():
+    """Retorna o status da rotina de movimento"""
+    try:
+        return motion_runner.status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # -------------------- Plataforma (REST iguais) --------------------
 @app.get("/config", response_model=PlatformConfig)
 def get_config():
@@ -667,6 +1131,7 @@ def root():
             "GET  /serial/ports",
             "POST /serial/open {port, baud?}",
             "POST /serial/close",
+            "GET  /serial/status",
             "POST /serial/send {command}",
             "GET  /telemetry",
             "WS   /ws/telemetry",
@@ -682,6 +1147,9 @@ def root():
             "POST /pid/settings",
             "POST /pid/manual/{action}",
             "POST /pid/select/{piston}",
+            "POST /motion/start",
+            "POST /motion/stop",
+            "GET  /motion/status",
         ]
     }
 

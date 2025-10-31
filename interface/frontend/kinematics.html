@@ -293,6 +293,49 @@
         font-weight: 700;
         color: #10b981;
       }
+      /* Motion Routines Styles */
+      .motion-preset-card {
+        background: #1f2937;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #374151;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      .motion-preset-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-color: #4b5563;
+      }
+      .motion-preset-card.active {
+        border-color: #10b981;
+        background: linear-gradient(135deg, #1f2937 0%, #065f46 100%);
+      }
+      .motion-param-input {
+        background: #374151;
+        border: 1px solid #4b5563;
+        border-radius: 6px;
+        padding: 6px 10px;
+        color: #f3f4f6;
+        width: 100%;
+        font-size: 0.875em;
+      }
+      .motion-param-input:focus {
+        outline: none;
+        border-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+      }
+      .motion-status-running {
+        background: #10b981;
+        animation: pulse-motion 2s infinite;
+      }
+      .motion-status-stopped {
+        background: #6b7280;
+      }
+      @keyframes pulse-motion {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
       @media (max-width: 1024px) {
         .main-content {
           grid-template-columns: 1fr;
@@ -329,9 +372,20 @@
         </div>
       </div>
 
+      <!-- Status da Conexão -->
+      <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span id="status-text" class="font-medium text-gray-300">Desconectado</span>
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
       <!-- Conexão Serial -->
       <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
-        <h2 class="text-xl font-semibold text-white mb-4">Conexão Serial</h2>
+        <h2 class="text-xl font-semibold text-white mb-4">🔌 Conexão Serial</h2>
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[200px]">
             <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
@@ -339,12 +393,9 @@
               <option value="">Selecione...</option>
             </select>
           </div>
-          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium">↻ Atualizar</button>
+          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium">↻ Atualizar</button>
           <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">Conectar</button>
           <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">Desconectar</button>
-        </div>
-        <div id="serial-status" class="mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200">
-          <span class="text-red-800 font-medium">⛔ Desconectado</span>
         </div>
       </div>
 
@@ -529,6 +580,234 @@
               <div class="piston-length" id="live-piston-6">--</div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- === Motion Routines === -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-white">🎬 Rotinas de Movimento</h2>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full motion-status-stopped" id="motion-status-dot"></span>
+              <span id="motion-status-text" class="text-sm text-gray-400">Parado</span>
+            </div>
+            <span id="motion-elapsed" class="text-lg font-mono text-green-400">00:00</span>
+            <button id="btn-motion-stop" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>⏹️ Parar</button>
+          </div>
+        </div>
+
+        <!-- Grid de Presets -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <!-- Preset: Seno Z -->
+          <div class="motion-preset-card" data-preset="sine_z">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-blue-400">🔵 Seno Z</h3>
+              <span class="text-2xl">📊</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Movimento vertical senoidal</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (mm)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="8" min="1" max="20" step="0.5">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.3" min="0.1" max="2" step="0.05">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="45" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Círculo XY -->
+          <div class="motion-preset-card" data-preset="circle_xy">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-purple-400">🟣 Círculo XY</h3>
+              <span class="text-2xl">⭕</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Movimento circular horizontal</p>
+            <div class="space-y-2 mb-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Raio X (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="ax" value="12" min="1" max="40" step="1">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Raio Y (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="ay" value="8" min="1" max="40" step="1">
+                </div>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="60" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Heave-Pitch -->
+          <div class="motion-preset-card" data-preset="heave_pitch">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-orange-400">🟠 Heave-Pitch</h3>
+              <span class="text-2xl">🌊</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Simulação de onda marítima</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude Z (mm)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="8" min="1" max="20" step="0.5">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Amplitude Pitch (°)</label>
+                <input type="number" class="motion-param-input" data-param="ay" value="2.5" min="0.5" max="8" step="0.5">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.2" min="0.1" max="2" step="0.05">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="40" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Seno Pitch -->
+          <div class="motion-preset-card" data-preset="sine_pitch">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-teal-400">🔷 Seno Pitch</h3>
+              <span class="text-2xl">↕️</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Balanço frontal angular</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (°)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="3" min="0.5" max="8" step="0.5">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Seno Roll -->
+          <div class="motion-preset-card" data-preset="sine_roll">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-indigo-400">🔶 Seno Roll</h3>
+              <span class="text-2xl">↔️</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Balanço lateral angular</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (°)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="3" min="0.5" max="8" step="0.5">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Lissajous XY -->
+          <div class="motion-preset-card" data-preset="lissajous_xy">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-pink-400">🌸 Lissajous</h3>
+              <span class="text-2xl">∞</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Figura-8 complexa</p>
+            <div class="space-y-2 mb-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Amp X</label>
+                  <input type="number" class="motion-param-input" data-param="ax" value="12" min="1" max="40" step="1">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Amp Y</label>
+                  <input type="number" class="motion-param-input" data-param="ay" value="8" min="1" max="40" step="1">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Freq X</label>
+                  <input type="number" class="motion-param-input" data-param="fx" value="0.2" min="0.1" max="2" step="0.05">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Freq Y</label>
+                  <input type="number" class="motion-param-input" data-param="fy" value="0.3" min="0.1" max="2" step="0.05">
+                </div>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="90" min="5" max="300" step="5">
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Wobble Precession (Euler's Disk) -->
+          <div class="motion-preset-card" data-preset="wobble_precession">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-amber-400">🟡 Wobble Precession</h3>
+              <span class="text-2xl">🌀</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Movimento tipo Euler's Disk com precessão</p>
+            <div class="space-y-2 mb-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Tilt (°)</label>
+                  <input type="number" class="motion-param-input" data-param="tilt_deg" value="3.0" min="1" max="8" step="0.5">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Prec Hz</label>
+                  <input type="number" class="motion-param-input" data-param="prec_hz" value="0.4" min="0.1" max="1" step="0.05">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Yaw Hz</label>
+                  <input type="number" class="motion-param-input" data-param="yaw_hz" value="0.1" min="0.05" max="0.5" step="0.05">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Z Amp (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="z_amp_mm" value="6" min="2" max="15" step="1">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Z Phase (°)</label>
+                  <input type="number" class="motion-param-input" data-param="z_phase_deg" value="90" min="0" max="360" step="15">
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Duração (s)</label>
+                  <input type="number" class="motion-param-input" data-param="duration_s" value="40" min="5" max="300" step="5">
+                </div>
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -955,6 +1234,30 @@
 
       let serialConnected = false;
 
+      // ========== Atualização de Status ==========
+      async function updateConnectionStatus() {
+        try {
+          const res = await fetch(`${API_BASE}/serial/status`);
+          const status = await res.json();
+
+          const indicator = document.getElementById('status-indicator');
+          const text = document.getElementById('status-text');
+          const portSpan = document.getElementById('status-port');
+
+          if (status.connected && status.port) {
+            indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+            text.textContent = 'Conectado';
+            portSpan.textContent = status.port;
+          } else {
+            indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+            text.textContent = 'Desconectado';
+            portSpan.textContent = '--';
+          }
+        } catch (err) {
+          console.error('Erro ao verificar status:', err);
+        }
+      }
+
       async function loadSerialPorts() {
         const sel = document.getElementById('serial-port-select');
         try {
@@ -977,18 +1280,22 @@
 
       function setSerialStatus(connected, port = '') {
         serialConnected = connected;
-        const statusDiv = document.getElementById('serial-status');
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+        const portSpan = document.getElementById('status-port');
         const btnConnect = document.getElementById('btn-open-serial');
         const btnDisconnect = document.getElementById('btn-close-serial');
 
         if (connected) {
-          statusDiv.className = 'mt-4 px-4 py-3 rounded-lg bg-green-50 border border-green-200';
-          statusDiv.innerHTML = `<span class="text-green-800 font-medium">✅ Conectado em ${port}</span>`;
+          indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+          text.textContent = 'Conectado';
+          portSpan.textContent = port;
           btnConnect.classList.add('hidden');
           btnDisconnect.classList.remove('hidden');
         } else {
-          statusDiv.className = 'mt-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200';
-          statusDiv.innerHTML = '<span class="text-red-800 font-medium">⛔ Desconectado</span>';
+          indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+          text.textContent = 'Desconectado';
+          portSpan.textContent = '--';
           btnConnect.classList.remove('hidden');
           btnDisconnect.classList.add('hidden');
         }
@@ -1212,8 +1519,16 @@
         ws.onmessage = (evt) => {
           try {
             const msg = JSON.parse(evt.data);
-            const data = normalizeTelemetry(msg);
-            applyLiveTelemetry(data);
+            
+            // Detectar eventos de motion_tick
+            if (msg.type === 'motion_tick' && msg.pose_cmd) {
+              console.log('🎬 Motion tick:', msg.pose_cmd);
+              updateVisualizationFromMotion(msg.pose_cmd);
+            } else {
+              // Telemetria normal
+              const data = normalizeTelemetry(msg);
+              applyLiveTelemetry(data);
+            }
           } catch (e) {
             console.error('❌ Erro ao processar mensagem WS:', e, evt.data);
           }
@@ -1269,6 +1584,51 @@
         }
       }
 
+      // Atualizar visualização 3D a partir de pose do motion routine
+      let motionUpdatePending = false;
+      let lastMotionPose = null;
+      
+      async function updateVisualizationFromMotion(pose_cmd) {
+        // Guardar a última pose recebida
+        lastMotionPose = pose_cmd;
+        
+        // Se já tem uma atualização pendente, skip (throttle)
+        if (motionUpdatePending) {
+          return;
+        }
+        
+        motionUpdatePending = true;
+        
+        try {
+          // Calcular cinemática inversa para a pose
+          const response = await fetch(`${API_BASE}/calculate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(lastMotionPose)
+          });
+          
+          if (!response.ok) {
+            console.warn('⚠️ Falha ao calcular IK para motion:', lastMotionPose);
+            motionUpdatePending = false;
+            return;
+          }
+          
+          const calcData = await response.json();
+          
+          // Atualizar APENAS Preview (simulado) - Live é atualizado pela telemetria real
+          if (calcData.base_points && calcData.platform_points && calcData.actuators) {
+            draw3DPlatform('canvas-preview', calcData);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao atualizar visualização de motion:', error);
+        } finally {
+          // Libera após um pequeno delay para throttle (máximo ~30 FPS)
+          setTimeout(() => {
+            motionUpdatePending = false;
+          }, 33);
+        }
+      }
+
       window.addEventListener('DOMContentLoaded', async () => {
         setupInputSync();
         init3D('canvas-preview');
@@ -1284,7 +1644,170 @@
         document.getElementById('btn-reset-cam-prev').addEventListener('click', () => resetCamera('canvas-preview'));
         document.getElementById('btn-reset-cam-live').addEventListener('click', () => resetCamera('canvas-live'));
         calculatePosition();
+        
+        // Atualiza status periodicamente
+        setInterval(updateConnectionStatus, 2000);
       });
+
+      // ============ MOTION ROUTINES ============
+      const MOTION_PRESET_CONFIG = {
+        'sine_z': { routine: 'sine_axis', axis: 'z', defaultParams: ['amp', 'hz', 'duration_s'] },
+        'circle_xy': { routine: 'circle_xy', defaultParams: ['ax', 'ay', 'hz', 'duration_s'] },
+        'heave_pitch': { routine: 'heave_pitch', defaultParams: ['amp', 'ay', 'hz', 'duration_s'] },
+        'sine_pitch': { routine: 'sine_axis', axis: 'pitch', defaultParams: ['amp', 'hz', 'duration_s'] },
+        'sine_roll': { routine: 'sine_axis', axis: 'roll', defaultParams: ['amp', 'hz', 'duration_s'] },
+        'lissajous_xy': { routine: 'lissajous_xy', defaultParams: ['ax', 'ay', 'fx', 'fy', 'duration_s'], extraDefaults: { phx: 0, phy: 90 } },
+        'wobble_precession': { routine: 'wobble_precession', defaultParams: ['tilt_deg', 'prec_hz', 'yaw_hz', 'z_amp_mm', 'z_phase_deg', 'duration_s'], extraDefaults: { tilt_bias_deg: 0.0 } }
+      };
+
+      let motionStatusInterval = null;
+      let motionElapsedInterval = null;
+      let motionStartTime = null;
+
+      // Iniciar preset
+      document.querySelectorAll('.btn-start-motion').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const card = this.closest('.motion-preset-card');
+          const presetKey = card.dataset.preset;
+          const config = MOTION_PRESET_CONFIG[presetKey];
+          
+          const payload = { routine: config.routine };
+          if (config.axis) payload.axis = config.axis;
+          
+          config.defaultParams.forEach(param => {
+            const input = card.querySelector(`[data-param="${param}"]`);
+            if (input) payload[param] = parseFloat(input.value);
+          });
+          
+          if (config.extraDefaults) Object.assign(payload, config.extraDefaults);
+          
+          try {
+            const response = await fetch(`${API_BASE}/motion/start`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              console.log('✅ Rotina iniciada:', data);
+              card.classList.add('active');
+              startMotionMonitoring();
+            } else {
+              alert(`Erro: ${data.detail || 'Falha ao iniciar rotina'}`);
+            }
+          } catch (error) {
+            alert(`Erro de conexão: ${error.message}`);
+          }
+        });
+      });
+
+      // Parar rotina
+      document.getElementById('btn-motion-stop').addEventListener('click', async function() {
+        try {
+          const response = await fetch(`${API_BASE}/motion/stop`, { method: 'POST' });
+          if (response.ok) {
+            console.log('⏹️ Rotina parada');
+            stopMotionMonitoring();
+            updateMotionUIState(false);
+          } else {
+            alert('Erro ao parar rotina');
+          }
+        } catch (error) {
+          alert(`Erro: ${error.message}`);
+        }
+      });
+
+      function startMotionMonitoring() {
+        if (motionStatusInterval) return;
+        motionStatusInterval = setInterval(checkMotionStatus, 500);
+        motionElapsedInterval = setInterval(updateMotionElapsedTime, 100);
+      }
+
+      function stopMotionMonitoring() {
+        if (motionStatusInterval) {
+          clearInterval(motionStatusInterval);
+          motionStatusInterval = null;
+        }
+        if (motionElapsedInterval) {
+          clearInterval(motionElapsedInterval);
+          motionElapsedInterval = null;
+        }
+      }
+
+      async function checkMotionStatus() {
+        try {
+          const response = await fetch(`${API_BASE}/motion/status`);
+          const status = await response.json();
+          
+          if (status.running) {
+            updateMotionUIState(true, status);
+            if (!motionStartTime) {
+              motionStartTime = Date.now() - (status.elapsed * 1000);
+            }
+          } else {
+            updateMotionUIState(false);
+            stopMotionMonitoring();
+          }
+        } catch (error) {
+          console.error('Erro ao verificar status da rotina:', error);
+        }
+      }
+
+      function updateMotionUIState(running, status = null) {
+        const statusDot = document.getElementById('motion-status-dot');
+        const statusText = document.getElementById('motion-status-text');
+        const btnStop = document.getElementById('btn-motion-stop');
+        
+        // Remover active de todos os cards
+        document.querySelectorAll('.motion-preset-card').forEach(card => {
+          card.classList.remove('active');
+        });
+        
+        if (running && status) {
+          statusDot.className = 'w-3 h-3 rounded-full motion-status-running';
+          statusText.textContent = 'Rodando';
+          btnStop.disabled = false;
+          
+          // Ativar card correspondente
+          const presetKey = findMotionPresetKey(status.routine, status.params);
+          if (presetKey) {
+            const card = document.querySelector(`[data-preset="${presetKey}"]`);
+            if (card) card.classList.add('active');
+          }
+        } else {
+          statusDot.className = 'w-3 h-3 rounded-full motion-status-stopped';
+          statusText.textContent = 'Parado';
+          btnStop.disabled = true;
+          document.getElementById('motion-elapsed').textContent = '00:00';
+          motionStartTime = null;
+        }
+      }
+
+      function updateMotionElapsedTime() {
+        if (!motionStartTime) return;
+        
+        const elapsed = (Date.now() - motionStartTime) / 1000;
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = Math.floor(elapsed % 60);
+        
+        document.getElementById('motion-elapsed').textContent = 
+          `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      }
+
+      function findMotionPresetKey(routine, params) {
+        for (const [key, config] of Object.entries(MOTION_PRESET_CONFIG)) {
+          if (config.routine === routine) {
+            if (routine === 'sine_axis' && config.axis === params?.axis) {
+              return key;
+            } else if (routine !== 'sine_axis') {
+              return key;
+            }
+          }
+        }
+        return null;
+      }
     </script>
   </body>
 </html>

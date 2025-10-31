@@ -241,7 +241,7 @@
           const portSpan = document.getElementById('status-port');
 
           if (status.connected && status.port) {
-            indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+            indicator.className = 'w-3 h-3 rounded-full bg-green-500/30 pulse-dot';
             text.textContent = 'Conectado';
             portSpan.textContent = status.port;
 
