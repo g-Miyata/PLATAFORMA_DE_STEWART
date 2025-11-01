@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plataforma de Stewart - Cinemática</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg">
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: "Inter", sans-serif;
       }
       * {
         margin: 0;
@@ -77,7 +77,7 @@
         margin-bottom: 6px;
         font-size: 0.875em;
       }
-      input[type='number'] {
+      input[type="number"] {
         padding: 10px 12px;
         border: 1px solid #4b5563;
         border-radius: 8px;
@@ -86,7 +86,7 @@
         background: #374151;
         color: #f9fafb;
       }
-      input[type='number']:focus {
+      input[type="number"]:focus {
         outline: none;
         border-color: #2f9e41;
         background: #4b5563;
@@ -95,7 +95,7 @@
       .slider-container {
         margin-top: 8px;
       }
-      input[type='range'] {
+      input[type="range"] {
         width: 100%;
         height: 4px;
         border-radius: 2px;
@@ -103,7 +103,7 @@
         outline: none;
         appearance: none;
       }
-      input[type='range']::-webkit-slider-thumb {
+      input[type="range"]::-webkit-slider-thumb {
         appearance: none;
         width: 16px;
         height: 16px;
@@ -113,11 +113,11 @@
         transition: all 0.2s;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
-      input[type='range']::-webkit-slider-thumb:hover {
+      input[type="range"]::-webkit-slider-thumb:hover {
         background: #1a6b2d;
         transform: scale(1.1);
       }
-      input[type='range']::-moz-range-thumb {
+      input[type="range"]::-moz-range-thumb {
         width: 16px;
         height: 16px;
         border-radius: 50%;
@@ -126,7 +126,7 @@
         cursor: pointer;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
-      input[type='range']::-moz-range-thumb:hover {
+      input[type="range"]::-moz-range-thumb:hover {
         background: #1a6b2d;
         transform: scale(1.1);
       }
@@ -144,7 +144,7 @@
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
       }
       .btn-primary {
         background: #2f9e41;
@@ -333,8 +333,13 @@
         background: #6b7280;
       }
       @keyframes pulse-motion {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
       }
       @media (max-width: 1024px) {
         .main-content {
@@ -352,10 +357,14 @@
   <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
     <div class="container mx-auto px-4 py-8 max-w-7xl">
       <!-- Header -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700"
+      >
         <div class="text-center">
-          <h1 class="text-4xl font-bold text-white mb-2">Plataforma de Stewart - Cinemática</h1>
-                    <div class="flex justify-center items-center gap-2">
+          <h1 class="text-4xl font-bold text-white mb-2">
+            Plataforma de Stewart - Cinemática
+          </h1>
+          <div class="flex justify-center items-center gap-2">
             <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
             <p class="text-gray-300">Instituto Federal de São Paulo</p>
           </div>
@@ -363,63 +372,163 @@
       </div>
 
       <!-- Navegação -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700"
+      >
         <div class="flex flex-wrap gap-2 justify-center">
-          <a href="index.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
-          <a href="kinematics.html" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold">📐 Cinemática</a>
-          <a href="actuators.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🎮 Controle</a>
-          <a href="settings.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
+          <a
+            href="index.html"
+            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
+            >🏠 Início</a
+          >
+          <a
+            href="kinematics.html"
+            class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold"
+            >📐 Cinemática</a
+          >
+          <a
+            href="actuators.html"
+            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
+            >🎮 Controle</a
+          >
+          <a
+            href="settings.html"
+            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
+            >⚙️ Configurações</a
+          >
         </div>
       </div>
 
       <!-- Status da Conexão -->
-      <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+      <div
+        id="connection-status"
+        class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700"
+      >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
-            <span id="status-text" class="font-medium text-gray-300">Desconectado</span>
+            <div
+              id="status-indicator"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></div>
+            <span id="status-text" class="font-medium text-gray-300"
+              >Desconectado</span
+            >
           </div>
           <span id="status-port" class="text-sm text-gray-400">--</span>
         </div>
       </div>
 
       <!-- Conexão Serial -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
         <h2 class="text-xl font-semibold text-white mb-4">🔌 Conexão Serial</h2>
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[200px]">
-            <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
-            <select id="serial-port-select" class="w-full text-white px-4 py-2 border bg-gray-700 border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >Porta Serial</label
+            >
+            <select
+              id="serial-port-select"
+              class="w-full text-white px-4 py-2 border bg-gray-700 border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
               <option value="">Selecione...</option>
             </select>
           </div>
-          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium">↻ Atualizar</button>
-          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">Conectar</button>
-          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">Desconectar</button>
+          <button
+            id="btn-refresh-ports"
+            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium"
+          >
+            ↻ Atualizar
+          </button>
+          <button
+            id="btn-open-serial"
+            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold"
+          >
+            Conectar
+          </button>
+          <button
+            id="btn-close-serial"
+            class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden"
+          >
+            Desconectar
+          </button>
         </div>
       </div>
 
       <!-- === Controles de Posição === -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
-        <h2 class="text-xl font-semibold text-white mb-4">🎮 Controles de Posição</h2>
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2 class="text-xl font-semibold text-white mb-4">
+          🎮 Controles de Posição
+        </h2>
 
         <div class="input-group">
           <h3>Translação (mm)</h3>
           <div class="input-row">
             <div class="input-field">
               <label for="x-pos">X</label>
-              <input type="number" id="x-pos" value="0" min="-50" max="50" step="1" />
-              <div class="slider-container"><input type="range" id="x-slider" min="-50" max="50" value="0" step="1" /></div>
+              <input
+                type="number"
+                id="x-pos"
+                value="0"
+                min="-50"
+                max="50"
+                step="1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="x-slider"
+                  min="-50"
+                  max="50"
+                  value="0"
+                  step="1"
+                />
+              </div>
             </div>
             <div class="input-field">
               <label for="y-pos">Y</label>
-              <input type="number" id="y-pos" value="0" min="-50" max="50" step="1" />
-              <div class="slider-container"><input type="range" id="y-slider" min="-50" max="50" value="0" step="1" /></div>
+              <input
+                type="number"
+                id="y-pos"
+                value="0"
+                min="-50"
+                max="50"
+                step="1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="y-slider"
+                  min="-50"
+                  max="50"
+                  value="0"
+                  step="1"
+                />
+              </div>
             </div>
             <div class="input-field">
               <label for="z-pos">Z</label>
-              <input type="number" id="z-pos" value="500" min="433" max="631" step="1" />
-              <div class="slider-container"><input type="range" id="z-slider" min="433" max="631" value="500" step="1" /></div>
+              <input
+                type="number"
+                id="z-pos"
+                value="500"
+                min="433"
+                max="631"
+                step="1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="z-slider"
+                  min="433"
+                  max="631"
+                  value="500"
+                  step="1"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -429,18 +538,66 @@
           <div class="input-row">
             <div class="input-field">
               <label for="roll">Roll</label>
-              <input type="number" id="roll" value="0" min="-15" max="15" step="0.1" />
-              <div class="slider-container"><input type="range" id="roll-slider" min="-15" max="15" value="0" step="0.1" /></div>
+              <input
+                type="number"
+                id="roll"
+                value="0"
+                min="-15"
+                max="15"
+                step="0.1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="roll-slider"
+                  min="-15"
+                  max="15"
+                  value="0"
+                  step="0.1"
+                />
+              </div>
             </div>
             <div class="input-field">
               <label for="pitch">Pitch</label>
-              <input type="number" id="pitch" value="0" min="-15" max="15" step="0.1" />
-              <div class="slider-container"><input type="range" id="pitch-slider" min="-15" max="15" value="0" step="0.1" /></div>
+              <input
+                type="number"
+                id="pitch"
+                value="0"
+                min="-15"
+                max="15"
+                step="0.1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="pitch-slider"
+                  min="-15"
+                  max="15"
+                  value="0"
+                  step="0.1"
+                />
+              </div>
             </div>
             <div class="input-field">
               <label for="yaw">Yaw</label>
-              <input type="number" id="yaw" value="0" min="-15" max="15" step="0.1" />
-              <div class="slider-container"><input type="range" id="yaw-slider" min="-15" max="15" value="0" step="0.1" /></div>
+              <input
+                type="number"
+                id="yaw"
+                value="0"
+                min="-15"
+                max="15"
+                step="0.1"
+              />
+              <div class="slider-container">
+                <input
+                  type="range"
+                  id="yaw-slider"
+                  min="-15"
+                  max="15"
+                  value="0"
+                  step="0.1"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -451,7 +608,13 @@
         </div>
 
         <!-- Botão para aplicar na bancada (inicialmente oculto) -->
-        <button class="btn-primary" id="btn-apply" style="display: none; margin-top: 12px; width: 100%">🚀 Aplicar na Bancada</button>
+        <button
+          class="btn-primary"
+          id="btn-apply"
+          style="display: none; margin-top: 12px; width: 100%"
+        >
+          🚀 Aplicar na Bancada
+        </button>
 
         <div class="loading" id="loading">Calculando…</div>
         <div class="error-message" id="error-message"></div>
@@ -461,15 +624,21 @@
       <!-- === Preview e Live lado a lado === -->
       <div class="main-content">
         <!-- Preview (Simulada) -->
-        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
-          <h2 class="text-xl font-semibold text-white mb-4">Preview (Simulada)</h2>
+        <div
+          class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700"
+        >
+          <h2 class="text-xl font-semibold text-white mb-4">
+            Preview (Simulada)
+          </h2>
 
           <div class="canvas-container">
             <div id="canvas-preview"></div>
             <div class="controls-3d">
               <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
               <div style="margin-top: 8px">
-                <button id="btn-reset-cam-prev" class="btn-reset-cam">Reset View</button>
+                <button id="btn-reset-cam-prev" class="btn-reset-cam">
+                  Reset View
+                </button>
               </div>
             </div>
             <div class="legend">
@@ -522,15 +691,21 @@
         </div>
 
         <!-- Live (WebSocket) -->
-        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
-          <h2 class="text-xl font-semibold text-gray-300 mb-4">Live (WebSocket)</h2>
+        <div
+          class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700"
+        >
+          <h2 class="text-xl font-semibold text-gray-300 mb-4">
+            Live (WebSocket)
+          </h2>
 
           <div class="canvas-container">
             <div id="canvas-live"></div>
             <div class="controls-3d">
               <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
               <div style="margin-top: 8px">
-                <button id="btn-reset-cam-live" class="btn-reset-cam">Reset View</button>
+                <button id="btn-reset-cam-live" class="btn-reset-cam">
+                  Reset View
+                </button>
               </div>
             </div>
             <div class="legend">
@@ -584,44 +759,90 @@
       </div>
 
       <!-- === Motion Routines === -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-white">🎬 Rotinas de Movimento</h2>
+          <h2 class="text-xl font-semibold text-white">
+            🎬 Rotinas de Movimento
+          </h2>
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
-              <span class="w-3 h-3 rounded-full motion-status-stopped" id="motion-status-dot"></span>
-              <span id="motion-status-text" class="text-sm text-gray-400">Parado</span>
+              <span
+                class="w-3 h-3 rounded-full motion-status-stopped"
+                id="motion-status-dot"
+              ></span>
+              <span id="motion-status-text" class="text-sm text-gray-400"
+                >Parado</span
+              >
             </div>
-            <span id="motion-elapsed" class="text-lg font-mono text-green-400">00:00</span>
-            <button id="btn-motion-stop" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>⏹️ Parar</button>
+            <span id="motion-elapsed" class="text-lg font-mono text-green-400"
+              >00:00</span
+            >
+            <button
+              id="btn-motion-stop"
+              class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              ⏹️ Parar
+            </button>
           </div>
         </div>
 
         <!-- Grid de Presets -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          
           <!-- Preset: Seno Z -->
           <div class="motion-preset-card" data-preset="sine_z">
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-base font-bold text-blue-400">🔵 Seno Z</h3>
               <span class="text-2xl">📊</span>
             </div>
-            <p class="text-gray-400 text-xs mb-3">Movimento vertical senoidal</p>
+            <p class="text-gray-400 text-xs mb-3">
+              Movimento vertical senoidal
+            </p>
             <div class="space-y-2 mb-3">
               <div>
                 <label class="text-xs text-gray-400">Amplitude (mm)</label>
-                <input type="number" class="motion-param-input" data-param="amp" value="8" min="1" max="20" step="0.5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="amp"
+                  value="8"
+                  min="1"
+                  max="20"
+                  step="0.5"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input type="number" class="motion-param-input" data-param="hz" value="0.3" min="0.1" max="2" step="0.05">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="hz"
+                  value="0.3"
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="45" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="45"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Círculo XY -->
@@ -630,56 +851,132 @@
               <h3 class="text-base font-bold text-purple-400">🟣 Círculo XY</h3>
               <span class="text-2xl">⭕</span>
             </div>
-            <p class="text-gray-400 text-xs mb-3">Movimento circular horizontal</p>
+            <p class="text-gray-400 text-xs mb-3">
+              Movimento circular horizontal
+            </p>
             <div class="space-y-2 mb-3">
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Raio X (mm)</label>
-                  <input type="number" class="motion-param-input" data-param="ax" value="12" min="1" max="40" step="1">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="ax"
+                    value="12"
+                    min="1"
+                    max="40"
+                    step="1"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Raio Y (mm)</label>
-                  <input type="number" class="motion-param-input" data-param="ay" value="8" min="1" max="40" step="1">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="ay"
+                    value="8"
+                    min="1"
+                    max="40"
+                    step="1"
+                  />
                 </div>
               </div>
               <div>
                 <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="hz"
+                  value="0.25"
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="60" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="60"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Heave-Pitch -->
           <div class="motion-preset-card" data-preset="heave_pitch">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-orange-400">🟠 Heave-Pitch</h3>
+              <h3 class="text-base font-bold text-orange-400">
+                🟠 Heave-Pitch
+              </h3>
               <span class="text-2xl">🌊</span>
             </div>
             <p class="text-gray-400 text-xs mb-3">Simulação de onda marítima</p>
             <div class="space-y-2 mb-3">
               <div>
                 <label class="text-xs text-gray-400">Amplitude Z (mm)</label>
-                <input type="number" class="motion-param-input" data-param="amp" value="8" min="1" max="20" step="0.5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="amp"
+                  value="8"
+                  min="1"
+                  max="20"
+                  step="0.5"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Amplitude Pitch (°)</label>
-                <input type="number" class="motion-param-input" data-param="ay" value="2.5" min="0.5" max="8" step="0.5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="ay"
+                  value="2.5"
+                  min="0.5"
+                  max="8"
+                  step="0.5"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input type="number" class="motion-param-input" data-param="hz" value="0.2" min="0.1" max="2" step="0.05">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="hz"
+                  value="0.2"
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="40" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="40"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Seno Pitch -->
@@ -692,18 +989,46 @@
             <div class="space-y-2 mb-3">
               <div>
                 <label class="text-xs text-gray-400">Amplitude (°)</label>
-                <input type="number" class="motion-param-input" data-param="amp" value="3" min="0.5" max="8" step="0.5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="amp"
+                  value="3"
+                  min="0.5"
+                  max="8"
+                  step="0.5"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="hz"
+                  value="0.25"
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="30"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Seno Roll -->
@@ -716,18 +1041,46 @@
             <div class="space-y-2 mb-3">
               <div>
                 <label class="text-xs text-gray-400">Amplitude (°)</label>
-                <input type="number" class="motion-param-input" data-param="amp" value="3" min="0.5" max="8" step="0.5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="amp"
+                  value="3"
+                  min="0.5"
+                  max="8"
+                  step="0.5"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input type="number" class="motion-param-input" data-param="hz" value="0.25" min="0.1" max="2" step="0.05">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="hz"
+                  value="0.25"
+                  min="0.1"
+                  max="2"
+                  step="0.05"
+                />
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="30"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Lissajous XY -->
@@ -741,94 +1094,200 @@
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Amp X</label>
-                  <input type="number" class="motion-param-input" data-param="ax" value="12" min="1" max="40" step="1">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="ax"
+                    value="12"
+                    min="1"
+                    max="40"
+                    step="1"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Amp Y</label>
-                  <input type="number" class="motion-param-input" data-param="ay" value="8" min="1" max="40" step="1">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="ay"
+                    value="8"
+                    min="1"
+                    max="40"
+                    step="1"
+                  />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Freq X</label>
-                  <input type="number" class="motion-param-input" data-param="fx" value="0.2" min="0.1" max="2" step="0.05">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="fx"
+                    value="0.2"
+                    min="0.1"
+                    max="2"
+                    step="0.05"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Freq Y</label>
-                  <input type="number" class="motion-param-input" data-param="fy" value="0.3" min="0.1" max="2" step="0.05">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="fy"
+                    value="0.3"
+                    min="0.1"
+                    max="2"
+                    step="0.05"
+                  />
                 </div>
               </div>
               <div>
                 <label class="text-xs text-gray-400">Duração (s)</label>
-                <input type="number" class="motion-param-input" data-param="duration_s" value="90" min="5" max="300" step="5">
+                <input
+                  type="number"
+                  class="motion-param-input"
+                  data-param="duration_s"
+                  value="90"
+                  min="5"
+                  max="300"
+                  step="5"
+                />
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
 
           <!-- Preset: Wobble Precession (Euler's Disk) -->
           <div class="motion-preset-card" data-preset="wobble_precession">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-amber-400">🟡 Wobble Precession</h3>
+              <h3 class="text-base font-bold text-amber-400">
+                🟡 Wobble Precession
+              </h3>
               <span class="text-2xl">🌀</span>
             </div>
-            <p class="text-gray-400 text-xs mb-3">Movimento tipo Euler's Disk com precessão</p>
+            <p class="text-gray-400 text-xs mb-3">
+              Movimento tipo Euler's Disk com precessão
+            </p>
             <div class="space-y-2 mb-3">
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Tilt (°)</label>
-                  <input type="number" class="motion-param-input" data-param="tilt_deg" value="3.0" min="1" max="8" step="0.5">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="tilt_deg"
+                    value="3.0"
+                    min="1"
+                    max="8"
+                    step="0.5"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Prec Hz</label>
-                  <input type="number" class="motion-param-input" data-param="prec_hz" value="0.4" min="0.1" max="1" step="0.05">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="prec_hz"
+                    value="0.4"
+                    min="0.1"
+                    max="1"
+                    step="0.05"
+                  />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Yaw Hz</label>
-                  <input type="number" class="motion-param-input" data-param="yaw_hz" value="0.1" min="0.05" max="0.5" step="0.05">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="yaw_hz"
+                    value="0.1"
+                    min="0.05"
+                    max="0.5"
+                    step="0.05"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Z Amp (mm)</label>
-                  <input type="number" class="motion-param-input" data-param="z_amp_mm" value="6" min="2" max="15" step="1">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="z_amp_mm"
+                    value="6"
+                    min="2"
+                    max="15"
+                    step="1"
+                  />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="text-xs text-gray-400">Z Phase (°)</label>
-                  <input type="number" class="motion-param-input" data-param="z_phase_deg" value="90" min="0" max="360" step="15">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="z_phase_deg"
+                    value="90"
+                    min="0"
+                    max="360"
+                    step="15"
+                  />
                 </div>
                 <div>
                   <label class="text-xs text-gray-400">Duração (s)</label>
-                  <input type="number" class="motion-param-input" data-param="duration_s" value="40" min="5" max="300" step="5">
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="duration_s"
+                    value="40"
+                    min="5"
+                    max="300"
+                    step="5"
+                  />
                 </div>
               </div>
             </div>
-            <button class="btn-start-motion w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+            <button
+              class="btn-start-motion w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+            >
+              ▶️ Iniciar
+            </button>
           </div>
-
         </div>
       </div>
     </div>
 
     <script>
-      const API_BASE = 'http://localhost:8001';
-      const WS_URL = 'ws://localhost:8001/ws/telemetry';
+      const API_BASE = "http://localhost:8001";
+      const WS_URL = "ws://localhost:8001/ws/telemetry";
       let currentPlatformData = null;
       window.__threeScenes = {};
 
       function setupInputSync() {
-        const inputs = ['x-pos', 'y-pos', 'z-pos', 'roll', 'pitch', 'yaw'];
-        const sliders = ['x-slider', 'y-slider', 'z-slider', 'roll-slider', 'pitch-slider', 'yaw-slider'];
+        const inputs = ["x-pos", "y-pos", "z-pos", "roll", "pitch", "yaw"];
+        const sliders = [
+          "x-slider",
+          "y-slider",
+          "z-slider",
+          "roll-slider",
+          "pitch-slider",
+          "yaw-slider",
+        ];
         inputs.forEach((id, i) => {
           const input = document.getElementById(id);
           const slider = document.getElementById(sliders[i]);
           if (!input || !slider) return;
-          input.addEventListener('input', () => {
+          input.addEventListener("input", () => {
             slider.value = input.value;
           });
-          slider.addEventListener('input', () => {
+          slider.addEventListener("input", () => {
             input.value = slider.value;
           });
         });
@@ -836,12 +1295,12 @@
 
       function getPoseFromUI() {
         return {
-          x: parseFloat(document.getElementById('x-pos').value),
-          y: parseFloat(document.getElementById('y-pos').value),
-          z: parseFloat(document.getElementById('z-pos').value),
-          roll: parseFloat(document.getElementById('roll').value),
-          pitch: parseFloat(document.getElementById('pitch').value),
-          yaw: parseFloat(document.getElementById('yaw').value),
+          x: parseFloat(document.getElementById("x-pos").value),
+          y: parseFloat(document.getElementById("y-pos").value),
+          z: parseFloat(document.getElementById("z-pos").value),
+          roll: parseFloat(document.getElementById("roll").value),
+          pitch: parseFloat(document.getElementById("pitch").value),
+          yaw: parseFloat(document.getElementById("yaw").value),
         };
       }
 
@@ -851,16 +1310,16 @@
           const el = document.getElementById(`preview-piston-${index + 1}`);
           const card = el?.parentElement;
           if (el && card) {
-            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            el.textContent = Number(a.length).toFixed(1) + " mm";
             // Aplica estilo válido ou inválido
             if (a.valid) {
-              card.style.borderColor = '#10b981';
-              card.style.backgroundColor = '#1f2937';
-              el.style.color = '#10b981';
+              card.style.borderColor = "#10b981";
+              card.style.backgroundColor = "#1f2937";
+              el.style.color = "#10b981";
             } else {
-              card.style.borderColor = '#ef4444';
-              card.style.backgroundColor = '#1f2937';
-              el.style.color = '#ef4444';
+              card.style.borderColor = "#ef4444";
+              card.style.backgroundColor = "#1f2937";
+              el.style.color = "#ef4444";
             }
           }
         });
@@ -872,16 +1331,16 @@
           const el = document.getElementById(`live-piston-${index + 1}`);
           const card = el?.parentElement;
           if (el && card) {
-            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            el.textContent = Number(a.length).toFixed(1) + " mm";
             // Aplica estilo válido ou inválido
             if (a.valid) {
-              card.style.borderColor = '#10b981';
-              card.style.backgroundColor = '#1f2937';
-              el.style.color = '#10b981';
+              card.style.borderColor = "#10b981";
+              card.style.backgroundColor = "#1f2937";
+              el.style.color = "#10b981";
             } else {
-              card.style.borderColor = '#ef4444';
-              card.style.backgroundColor = '#1f2937';
-              el.style.color = '#ef4444';
+              card.style.borderColor = "#ef4444";
+              card.style.backgroundColor = "#1f2937";
+              el.style.color = "#ef4444";
             }
           }
         });
@@ -899,14 +1358,19 @@
       function init3D(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
-        container.innerHTML = '';
+        container.innerHTML = "";
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(COLORS.background);
 
         const width = container.offsetWidth || 600;
         const height = container.offsetHeight || 420;
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 2000);
+        const camera = new THREE.PerspectiveCamera(
+          75,
+          width / height,
+          0.1,
+          2000
+        );
         camera.position.set(500, 500, 500);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -916,7 +1380,7 @@
         container.appendChild(renderer.domElement);
 
         let controls = null;
-        if (typeof THREE.OrbitControls !== 'undefined') {
+        if (typeof THREE.OrbitControls !== "undefined") {
           controls = new THREE.OrbitControls(camera, renderer.domElement);
           controls.enableDamping = true;
           controls.dampingFactor = 0.05;
@@ -945,7 +1409,7 @@
           camera.updateProjectionMatrix();
           renderer.setSize(w, h);
         }
-        window.addEventListener('resize', onResize);
+        window.addEventListener("resize", onResize);
 
         function animate() {
           requestAnimationFrame(animate);
@@ -954,12 +1418,23 @@
         }
         animate();
 
-        window.__threeScenes[containerId] = { scene, camera, renderer, controls, baseGroup, platformGroup, actuatorGroup };
+        window.__threeScenes[containerId] = {
+          scene,
+          camera,
+          renderer,
+          controls,
+          baseGroup,
+          platformGroup,
+          actuatorGroup,
+        };
       }
 
       function createBasePoint(position) {
         const g = new THREE.Group();
-        const sph = new THREE.Mesh(new THREE.SphereGeometry(8, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.base }));
+        const sph = new THREE.Mesh(
+          new THREE.SphereGeometry(8, 16, 16),
+          new THREE.MeshPhongMaterial({ color: COLORS.base })
+        );
         sph.castShadow = true;
         g.add(sph);
         g.position.set(position[0], position[2] || 0, position[1]);
@@ -968,7 +1443,10 @@
 
       function createPlatformPoint(position) {
         const g = new THREE.Group();
-        const sph = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.platform }));
+        const sph = new THREE.Mesh(
+          new THREE.SphereGeometry(6, 16, 16),
+          new THREE.MeshPhongMaterial({ color: COLORS.platform })
+        );
         sph.castShadow = true;
         g.add(sph);
         g.position.set(position[0], position[2], position[1]);
@@ -977,10 +1455,21 @@
 
       function createActuator(startPos, endPos, actuator) {
         const g = new THREE.Group();
-        const start = new THREE.Vector3(startPos[0], startPos[2] || 0, startPos[1]);
+        const start = new THREE.Vector3(
+          startPos[0],
+          startPos[2] || 0,
+          startPos[1]
+        );
         const end = new THREE.Vector3(endPos[0], endPos[2], endPos[1]);
         const length = start.distanceTo(end);
-        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, length, 8), new THREE.MeshPhongMaterial({ color: actuator.valid ? COLORS.actuatorValid : COLORS.actuatorInvalid }));
+        const cyl = new THREE.Mesh(
+          new THREE.CylinderGeometry(3, 3, length, 8),
+          new THREE.MeshPhongMaterial({
+            color: actuator.valid
+              ? COLORS.actuatorValid
+              : COLORS.actuatorInvalid,
+          })
+        );
         const mid = start.clone().add(end).multiplyScalar(0.5);
         cyl.position.copy(mid);
         cyl.lookAt(end);
@@ -993,16 +1482,17 @@
       function draw3DPlatform(containerId, data) {
         const ctx = window.__threeScenes[containerId];
         if (!ctx) return;
-        const { scene, controls, baseGroup, platformGroup, actuatorGroup } = ctx;
-
-        console.log(`🎨 draw3DPlatform(${containerId}):`, {
+        const { scene, controls, baseGroup, platformGroup, actuatorGroup } =
+          ctx;
+        /*
+        ////console.log(`🎨 draw3DPlatform(${containerId}):`, {
           base_points_count: data.base_points?.length,
           platform_points_count: data.platform_points?.length,
           actuators_count: data.actuators?.length,
           base_points_sample: data.base_points?.[0],
           platform_points_sample: data.platform_points?.[0],
         });
-
+*/
         baseGroup.clear();
         platformGroup.clear();
         actuatorGroup.clear();
@@ -1010,10 +1500,16 @@
         const bs = data.base_points;
         const baseShape = new THREE.Shape();
         baseShape.moveTo(bs[0][0], bs[0][1]);
-        for (let i = 1; i < bs.length; i++) baseShape.lineTo(bs[i][0], bs[i][1]);
+        for (let i = 1; i < bs.length; i++)
+          baseShape.lineTo(bs[i][0], bs[i][1]);
         baseShape.closePath();
         const baseGeo = new THREE.ShapeGeometry(baseShape);
-        const baseMat = new THREE.MeshPhongMaterial({ color: COLORS.base, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+        const baseMat = new THREE.MeshPhongMaterial({
+          color: COLORS.base,
+          transparent: true,
+          opacity: 0.4,
+          side: THREE.DoubleSide,
+        });
         const baseSurf = new THREE.Mesh(baseGeo, baseMat);
         baseSurf.rotation.x = -Math.PI / 2;
         baseSurf.position.y = -5;
@@ -1021,7 +1517,10 @@
         baseGroup.add(baseSurf);
 
         const baseEdges = new THREE.EdgesGeometry(baseGeo);
-        const baseWire = new THREE.LineSegments(baseEdges, new THREE.LineBasicMaterial({ color: COLORS.base }));
+        const baseWire = new THREE.LineSegments(
+          baseEdges,
+          new THREE.LineBasicMaterial({ color: COLORS.base })
+        );
         baseWire.rotation.x = -Math.PI / 2;
         baseWire.position.y = -4;
         baseGroup.add(baseWire);
@@ -1052,9 +1551,17 @@
 
         const platGeo = new THREE.BufferGeometry();
         platGeo.setIndex(idx);
-        platGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        platGeo.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(verts, 3)
+        );
         platGeo.computeVertexNormals();
-        const platMat = new THREE.MeshPhongMaterial({ color: COLORS.platform, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
+        const platMat = new THREE.MeshPhongMaterial({
+          color: COLORS.platform,
+          transparent: true,
+          opacity: 0.7,
+          side: THREE.DoubleSide,
+        });
         const platSurf = new THREE.Mesh(platGeo, platMat);
         platSurf.castShadow = true;
         platSurf.receiveShadow = true;
@@ -1068,17 +1575,23 @@
         const p0 = ps[0];
         edgeVerts.push(p0[0], p0[2], p0[1]);
         const edgeGeo = new THREE.BufferGeometry();
-        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
-        const edgeLine = new THREE.Line(edgeGeo, new THREE.LineBasicMaterial({ color: 0x1a6b2d }));
+        edgeGeo.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(edgeVerts, 3)
+        );
+        const edgeLine = new THREE.Line(
+          edgeGeo,
+          new THREE.LineBasicMaterial({ color: 0x1a6b2d })
+        );
         platformGroup.add(edgeLine);
 
         ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
 
         // 🔧 Conecta diretamente: base[i] -> platform[i]
         // O backend já retorna platform_points_live na ordem correta dos pistões
-        console.log('📊 Conectando atuadores (base[i] -> platform[i]):');
+        ////console.log('📊 Conectando atuadores (base[i] -> platform[i]):');
         (data.actuators || []).forEach((a, i) => {
-          console.log(`   Pistão ${i + 1}: base[${i}]=(${bs[i][0].toFixed(1)}, ${bs[i][1].toFixed(1)}) -> platform[${i}]=(${ps[i][0].toFixed(1)}, ${ps[i][1].toFixed(1)}, ${ps[i][2].toFixed(1)})`);
+          ////console.log(`   Pistão ${i + 1}: base[${i}]=(${bs[i][0].toFixed(1)}, ${bs[i][1].toFixed(1)}) -> platform[${i}]=(${ps[i][0].toFixed(1)}, ${ps[i][1].toFixed(1)}, ${ps[i][2].toFixed(1)})`);
           actuatorGroup.add(createActuator(bs[i], ps[i], a));
         });
 
@@ -1117,7 +1630,7 @@
           usedPlatform.add(bestIdx);
         }
 
-        console.log('🔗 Conexões base->plataforma:', connections);
+        ////console.log('🔗 Conexões base->plataforma:', connections);
         return connections;
       }
 
@@ -1125,7 +1638,10 @@
         const ctx = window.__threeScenes[containerId];
         if (!ctx) return;
         const { camera, controls } = ctx;
-        const h = (currentPlatformData && currentPlatformData.platform_points?.[0]?.[2]) || 432;
+        const h =
+          (currentPlatformData &&
+            currentPlatformData.platform_points?.[0]?.[2]) ||
+          432;
         camera.position.set(500, h + 200, 500);
         if (controls) {
           controls.target.set(0, h / 2, 0);
@@ -1134,76 +1650,77 @@
       }
 
       async function calculatePosition() {
-        const loading = document.getElementById('loading');
-        const errBox = document.getElementById('error-message');
+        const loading = document.getElementById("loading");
+        const errBox = document.getElementById("error-message");
         try {
-          loading.style.display = 'block';
-          errBox.style.display = 'none';
+          loading.style.display = "block";
+          errBox.style.display = "none";
           const pose = getPoseFromUI();
           const resp = await fetch(`${API_BASE}/calculate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(pose),
           });
-          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          if (!resp.ok)
+            throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
           const data = await resp.json();
           currentPlatformData = data;
 
           updatePreviewMeasures(data.actuators);
-          draw3DPlatform('canvas-preview', data);
+          draw3DPlatform("canvas-preview", data);
 
           // Mostra/oculta botão "Aplicar na Bancada" baseado na validade
-          const applyBtn = document.getElementById('btn-apply');
-          const applyErr = document.getElementById('apply-error');
-          applyErr.style.display = 'none';
+          const applyBtn = document.getElementById("btn-apply");
+          const applyErr = document.getElementById("apply-error");
+          applyErr.style.display = "none";
           if (data.valid) {
-            applyBtn.style.display = 'block';
+            applyBtn.style.display = "block";
           } else {
-            applyBtn.style.display = 'none';
+            applyBtn.style.display = "none";
           }
         } catch (e) {
           console.error(e);
           errBox.textContent = `Erro: ${e.message}`;
-          errBox.style.display = 'block';
+          errBox.style.display = "block";
         } finally {
-          loading.style.display = 'none';
+          loading.style.display = "none";
         }
       }
 
       function resetPosition() {
-        document.getElementById('x-pos').value = 0;
-        document.getElementById('y-pos').value = 0;
-        document.getElementById('z-pos').value = 500;
-        document.getElementById('roll').value = 0;
-        document.getElementById('pitch').value = 0;
-        document.getElementById('yaw').value = 0;
-        document.getElementById('x-slider').value = 0;
-        document.getElementById('y-slider').value = 0;
-        document.getElementById('z-slider').value = 500;
-        document.getElementById('roll-slider').value = 0;
-        document.getElementById('pitch-slider').value = 0;
-        document.getElementById('yaw-slider').value = 0;
+        document.getElementById("x-pos").value = 0;
+        document.getElementById("y-pos").value = 0;
+        document.getElementById("z-pos").value = 500;
+        document.getElementById("roll").value = 0;
+        document.getElementById("pitch").value = 0;
+        document.getElementById("yaw").value = 0;
+        document.getElementById("x-slider").value = 0;
+        document.getElementById("y-slider").value = 0;
+        document.getElementById("z-slider").value = 500;
+        document.getElementById("roll-slider").value = 0;
+        document.getElementById("pitch-slider").value = 0;
+        document.getElementById("yaw-slider").value = 0;
         calculatePosition();
       }
 
       async function applyToBench() {
-        const applyBtn = document.getElementById('btn-apply');
-        const applyErr = document.getElementById('apply-error');
+        const applyBtn = document.getElementById("btn-apply");
+        const applyErr = document.getElementById("apply-error");
         const originalText = applyBtn.textContent;
 
         try {
           applyBtn.disabled = true;
-          applyBtn.textContent = '⏳ Aplicando...';
-          applyErr.style.display = 'none';
+          applyBtn.textContent = "⏳ Aplicando...";
+          applyErr.style.display = "none";
 
           if (!currentPlatformData || !currentPlatformData.valid) {
-            throw new Error('Calcule uma posição válida primeiro');
+            throw new Error("Calcule uma posição válida primeiro");
           }
 
           const pose = currentPlatformData.pose;
           const resp = await fetch(`${API_BASE}/apply_pose`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(pose),
           });
 
@@ -1215,18 +1732,18 @@
           const data = await resp.json();
 
           if (data.applied) {
-            applyBtn.textContent = '✅ Aplicado!';
+            applyBtn.textContent = "✅ Aplicado!";
             setTimeout(() => {
               applyBtn.textContent = originalText;
               applyBtn.disabled = false;
             }, 2000);
           } else {
-            throw new Error(data.message || 'Falha ao aplicar pose');
+            throw new Error(data.message || "Falha ao aplicar pose");
           }
         } catch (e) {
           console.error(e);
           applyErr.textContent = `Erro ao aplicar: ${e.message}`;
-          applyErr.style.display = 'block';
+          applyErr.style.display = "block";
           applyBtn.textContent = originalText;
           applyBtn.disabled = false;
         }
@@ -1240,77 +1757,78 @@
           const res = await fetch(`${API_BASE}/serial/status`);
           const status = await res.json();
 
-          const indicator = document.getElementById('status-indicator');
-          const text = document.getElementById('status-text');
-          const portSpan = document.getElementById('status-port');
+          const indicator = document.getElementById("status-indicator");
+          const text = document.getElementById("status-text");
+          const portSpan = document.getElementById("status-port");
 
           if (status.connected && status.port) {
-            indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
-            text.textContent = 'Conectado';
+            indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
+            text.textContent = "Conectado";
             portSpan.textContent = status.port;
           } else {
-            indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-            text.textContent = 'Desconectado';
-            portSpan.textContent = '--';
+            indicator.className = "w-3 h-3 rounded-full bg-red-500";
+            text.textContent = "Desconectado";
+            portSpan.textContent = "--";
           }
         } catch (err) {
-          console.error('Erro ao verificar status:', err);
+          console.error("Erro ao verificar status:", err);
         }
       }
 
       async function loadSerialPorts() {
-        const sel = document.getElementById('serial-port-select');
+        const sel = document.getElementById("serial-port-select");
         try {
           const resp = await fetch(`${API_BASE}/serial/ports`);
-          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          if (!resp.ok)
+            throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
           const data = await resp.json();
           const ports = Array.isArray(data.ports) ? data.ports : [];
           sel.innerHTML = '<option value="">Selecione...</option>';
           ports.forEach((p) => {
-            const opt = document.createElement('option');
+            const opt = document.createElement("option");
             opt.value = p;
             opt.textContent = p;
             sel.appendChild(opt);
           });
         } catch (e) {
-          console.error('Erro ao listar portas:', e);
+          console.error("Erro ao listar portas:", e);
           sel.innerHTML = '<option value="">Erro ao carregar</option>';
         }
       }
 
-      function setSerialStatus(connected, port = '') {
+      function setSerialStatus(connected, port = "") {
         serialConnected = connected;
-        const indicator = document.getElementById('status-indicator');
-        const text = document.getElementById('status-text');
-        const portSpan = document.getElementById('status-port');
-        const btnConnect = document.getElementById('btn-open-serial');
-        const btnDisconnect = document.getElementById('btn-close-serial');
+        const indicator = document.getElementById("status-indicator");
+        const text = document.getElementById("status-text");
+        const portSpan = document.getElementById("status-port");
+        const btnConnect = document.getElementById("btn-open-serial");
+        const btnDisconnect = document.getElementById("btn-close-serial");
 
         if (connected) {
-          indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
-          text.textContent = 'Conectado';
+          indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
+          text.textContent = "Conectado";
           portSpan.textContent = port;
-          btnConnect.classList.add('hidden');
-          btnDisconnect.classList.remove('hidden');
+          btnConnect.classList.add("hidden");
+          btnDisconnect.classList.remove("hidden");
         } else {
-          indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-          text.textContent = 'Desconectado';
-          portSpan.textContent = '--';
-          btnConnect.classList.remove('hidden');
-          btnDisconnect.classList.add('hidden');
+          indicator.className = "w-3 h-3 rounded-full bg-red-500";
+          text.textContent = "Desconectado";
+          portSpan.textContent = "--";
+          btnConnect.classList.remove("hidden");
+          btnDisconnect.classList.add("hidden");
         }
       }
 
       async function openSerial() {
-        const port = document.getElementById('serial-port-select').value;
+        const port = document.getElementById("serial-port-select").value;
         if (!port) {
-          alert('Selecione uma porta serial');
+          alert("Selecione uma porta serial");
           return;
         }
         try {
           const resp = await fetch(`${API_BASE}/serial/open`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ port, baud: 115200 }),
           });
           const data = await resp.json();
@@ -1326,8 +1844,10 @@
 
       async function closeSerial() {
         try {
-          const resp = await fetch(`${API_BASE}/serial/close`, { method: 'POST' });
-          if (!resp.ok) throw new Error('Erro ao desconectar');
+          const resp = await fetch(`${API_BASE}/serial/close`, {
+            method: "POST",
+          });
+          if (!resp.ok) throw new Error("Erro ao desconectar");
           setSerialStatus(false);
 
           // Fecha o WebSocket e cancela reconexão
@@ -1367,7 +1887,7 @@
       ];
 
       function normalizeTelemetry(msg) {
-        console.log('🔍 normalizeTelemetry recebeu:', msg);
+        ////console.log('🔍 normalizeTelemetry recebeu:', msg);
 
         const out = {};
         if (msg.pose) out.pose = msg.pose;
@@ -1375,26 +1895,26 @@
         // Base points - usa os fixos se não vier no WebSocket
         if (msg.base_points) {
           out.base_points = msg.base_points;
-          console.log('✅ Usando base_points do WebSocket:', msg.base_points);
+          ////console.log('✅ Usando base_points do WebSocket:', msg.base_points);
         } else if (msg.base_points_live) {
           out.base_points = msg.base_points_live;
-          console.log('✅ Usando base_points_live do WebSocket:', msg.base_points_live);
+          ////console.log('✅ Usando base_points_live do WebSocket:', msg.base_points_live);
         } else {
           // Usa os pontos fixos da base como fallback
           out.base_points = BASE_POINTS_FIXED;
-          console.log('⚠️ Usando BASE_POINTS_FIXED (fallback):', BASE_POINTS_FIXED);
+          ////console.log('⚠️ Usando BASE_POINTS_FIXED (fallback):', BASE_POINTS_FIXED);
         }
 
         // Platform points - PRIORIZA platform_points_live (do backend)
         if (msg.platform_points_live) {
           out.platform_points = msg.platform_points_live;
-          console.log('✅ Usando platform_points_live do backend:', msg.platform_points_live);
+          ////console.log('✅ Usando platform_points_live do backend:', msg.platform_points_live);
         } else if (msg.platform_points) {
           out.platform_points = msg.platform_points;
-          console.log('✅ Usando platform_points do WebSocket:', msg.platform_points);
+          ////console.log('✅ Usando platform_points do WebSocket:', msg.platform_points);
         }
 
-        if (typeof msg.valid === 'boolean') out.valid = msg.valid;
+        if (typeof msg.valid === "boolean") out.valid = msg.valid;
 
         // Processa os atuadores
         if (msg.actuators) {
@@ -1404,32 +1924,41 @@
             percentage: Number(a.percentage ?? 0),
             valid: Boolean(a.valid ?? true),
           }));
-          console.log('✅ Atuadores processados de msg.actuators');
+          ////console.log('✅ Atuadores processados de msg.actuators');
         } else if (Array.isArray(msg.actuator_lengths_abs)) {
           out.actuators = msg.actuator_lengths_abs.map((L, i) => ({
             id: i + 1,
             length: Number(L),
-            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            percentage: Array.isArray(msg.percentages)
+              ? Number(msg.percentages[i] ?? 0)
+              : 0,
             valid: true,
           }));
-          console.log('✅ Atuadores processados de actuator_lengths_abs');
+          ////console.log('✅ Atuadores processados de actuator_lengths_abs');
         } else if (Array.isArray(msg.lengths)) {
           out.actuators = msg.lengths.map((L, i) => ({
             id: i + 1,
             length: Number(L),
-            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            percentage: Array.isArray(msg.percentages)
+              ? Number(msg.percentages[i] ?? 0)
+              : 0,
             valid: true,
           }));
-          console.log('✅ Atuadores processados de lengths');
+          ////console.log('✅ Atuadores processados de lengths');
         }
 
         // Se temos comprimentos mas não temos platform_points, tenta reconstruir
         if (out.actuators && !out.platform_points && out.base_points) {
-          console.warn('⚠️ platform_points não veio do backend, reconstruindo localmente (menos preciso)');
-          out.platform_points = reconstructPlatformPoints(out.base_points, out.actuators);
+          console.warn(
+            "⚠️ platform_points não veio do backend, reconstruindo localmente (menos preciso)"
+          );
+          out.platform_points = reconstructPlatformPoints(
+            out.base_points,
+            out.actuators
+          );
         }
 
-        console.log('📤 normalizeTelemetry retorna:', out);
+        ////console.log('📤 normalizeTelemetry retorna:', out);
         return out;
       }
 
@@ -1472,15 +2001,21 @@
       }
 
       function applyLiveTelemetry(data) {
-        if (data.base_points && data.platform_points && Array.isArray(data.actuators)) {
-          if (typeof data.valid !== 'boolean') {
+        if (
+          data.base_points &&
+          data.platform_points &&
+          Array.isArray(data.actuators)
+        ) {
+          if (typeof data.valid !== "boolean") {
             data.valid = data.actuators.every((a) => a.valid !== false);
           }
           updateLiveMeasures(data.actuators);
-          draw3DPlatform('canvas-live', data);
+          draw3DPlatform("canvas-live", data);
         } else if (Array.isArray(data.actuators)) {
           updateLiveMeasures(data.actuators);
-          console.warn('⚠️ WebSocket sem platform_points, aguardando dados completos...');
+          console.warn(
+            "⚠️ WebSocket sem platform_points, aguardando dados completos..."
+          );
         }
       }
 
@@ -1492,37 +2027,37 @@
           ws = null;
         }
 
-        console.log('🔌 Conectando WebSocket:', WS_URL);
+        ////console.log('🔌 Conectando WebSocket:', WS_URL);
 
         try {
           ws = new WebSocket(WS_URL);
         } catch (e) {
-          console.error('❌ Erro ao criar WebSocket:', e);
+          console.error("❌ Erro ao criar WebSocket:", e);
           scheduleReconnect();
           return;
         }
 
         ws.onopen = () => {
-          console.log('✅ WebSocket conectado!');
+          ////console.log('✅ WebSocket conectado!');
           if (wsTimer) clearTimeout(wsTimer);
         };
 
         ws.onclose = () => {
-          console.log('🔌 WebSocket desconectado');
+          ////console.log('🔌 WebSocket desconectado');
           scheduleReconnect();
         };
 
         ws.onerror = (e) => {
-          console.error('❌ WebSocket error:', e);
+          console.error("❌ WebSocket error:", e);
         };
 
         ws.onmessage = (evt) => {
           try {
             const msg = JSON.parse(evt.data);
-            
+
             // Detectar eventos de motion_tick
-            if (msg.type === 'motion_tick' && msg.pose_cmd) {
-              console.log('🎬 Motion tick:', msg.pose_cmd);
+            if (msg.type === "motion_tick" && msg.pose_cmd) {
+              ////console.log('🎬 Motion tick:', msg.pose_cmd);
               updateVisualizationFromMotion(msg.pose_cmd);
             } else {
               // Telemetria normal
@@ -1530,7 +2065,7 @@
               applyLiveTelemetry(data);
             }
           } catch (e) {
-            console.error('❌ Erro ao processar mensagem WS:', e, evt.data);
+            console.error("❌ Erro ao processar mensagem WS:", e, evt.data);
           }
         };
       }
@@ -1545,14 +2080,14 @@
       }
 
       async function checkExistingConnection() {
-        console.log('🔍 Verificando conexão existente...');
+        ////console.log('🔍 Verificando conexão existente...');
 
         try {
           // Verifica o status real no backend
           const res = await fetch(`${API_BASE}/serial/status`);
           const status = await res.json();
 
-          console.log('📊 Status do backend:', status);
+          ////console.log('📊 Status do backend:', status);
 
           if (status.connected && status.port) {
             // Backend está conectado
@@ -1560,9 +2095,9 @@
             setSerialStatus(true, status.port);
 
             // Preenche o select com a porta conectada
-            const select = document.getElementById('serial-port-select');
+            const select = document.getElementById("serial-port-select");
             if (![...select.options].some((opt) => opt.value === status.port)) {
-              const opt = document.createElement('option');
+              const opt = document.createElement("option");
               opt.value = status.port;
               opt.textContent = status.port;
               opt.selected = true;
@@ -1571,56 +2106,63 @@
               select.value = status.port;
             }
 
-            console.log(`✅ Reconectado à sessão: ${status.port}`);
+            ////console.log(`✅ Reconectado à sessão: ${status.port}`);
 
             // Reconecta ao WebSocket
             initTelemetryWS();
           } else {
             // Backend não está conectado
-            console.log('❌ Backend não está conectado');
+            ////console.log('❌ Backend não está conectado');
           }
         } catch (err) {
-          console.error('⚠️ Erro ao verificar status:', err);
+          console.error("⚠️ Erro ao verificar status:", err);
         }
       }
 
       // Atualizar visualização 3D a partir de pose do motion routine
       let motionUpdatePending = false;
       let lastMotionPose = null;
-      
+
       async function updateVisualizationFromMotion(pose_cmd) {
         // Guardar a última pose recebida
         lastMotionPose = pose_cmd;
-        
+
         // Se já tem uma atualização pendente, skip (throttle)
         if (motionUpdatePending) {
           return;
         }
-        
+
         motionUpdatePending = true;
-        
+
         try {
           // Calcular cinemática inversa para a pose
           const response = await fetch(`${API_BASE}/calculate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(lastMotionPose)
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(lastMotionPose),
           });
-          
+
           if (!response.ok) {
-            console.warn('⚠️ Falha ao calcular IK para motion:', lastMotionPose);
+            console.warn(
+              "⚠️ Falha ao calcular IK para motion:",
+              lastMotionPose
+            );
             motionUpdatePending = false;
             return;
           }
-          
+
           const calcData = await response.json();
-          
+
           // Atualizar APENAS Preview (simulado) - Live é atualizado pela telemetria real
-          if (calcData.base_points && calcData.platform_points && calcData.actuators) {
-            draw3DPlatform('canvas-preview', calcData);
+          if (
+            calcData.base_points &&
+            calcData.platform_points &&
+            calcData.actuators
+          ) {
+            draw3DPlatform("canvas-preview", calcData);
           }
         } catch (error) {
-          console.error('❌ Erro ao atualizar visualização de motion:', error);
+          console.error("❌ Erro ao atualizar visualização de motion:", error);
         } finally {
           // Libera após um pequeno delay para throttle (máximo ~30 FPS)
           setTimeout(() => {
@@ -1629,35 +2171,84 @@
         }
       }
 
-      window.addEventListener('DOMContentLoaded', async () => {
+      window.addEventListener("DOMContentLoaded", async () => {
         setupInputSync();
-        init3D('canvas-preview');
-        init3D('canvas-live');
+        init3D("canvas-preview");
+        init3D("canvas-live");
         await loadSerialPorts();
         await checkExistingConnection();
-        document.getElementById('btn-refresh-ports').addEventListener('click', loadSerialPorts);
-        document.getElementById('btn-open-serial').addEventListener('click', openSerial);
-        document.getElementById('btn-close-serial').addEventListener('click', closeSerial);
-        document.getElementById('btn-calc').addEventListener('click', calculatePosition);
-        document.getElementById('btn-reset').addEventListener('click', resetPosition);
-        document.getElementById('btn-apply').addEventListener('click', applyToBench);
-        document.getElementById('btn-reset-cam-prev').addEventListener('click', () => resetCamera('canvas-preview'));
-        document.getElementById('btn-reset-cam-live').addEventListener('click', () => resetCamera('canvas-live'));
+        document
+          .getElementById("btn-refresh-ports")
+          .addEventListener("click", loadSerialPorts);
+        document
+          .getElementById("btn-open-serial")
+          .addEventListener("click", openSerial);
+        document
+          .getElementById("btn-close-serial")
+          .addEventListener("click", closeSerial);
+        document
+          .getElementById("btn-calc")
+          .addEventListener("click", calculatePosition);
+        document
+          .getElementById("btn-reset")
+          .addEventListener("click", resetPosition);
+        document
+          .getElementById("btn-apply")
+          .addEventListener("click", applyToBench);
+        document
+          .getElementById("btn-reset-cam-prev")
+          .addEventListener("click", () => resetCamera("canvas-preview"));
+        document
+          .getElementById("btn-reset-cam-live")
+          .addEventListener("click", () => resetCamera("canvas-live"));
         calculatePosition();
-        
+
         // Atualiza status periodicamente
         setInterval(updateConnectionStatus, 2000);
       });
 
       // ============ MOTION ROUTINES ============
       const MOTION_PRESET_CONFIG = {
-        'sine_z': { routine: 'sine_axis', axis: 'z', defaultParams: ['amp', 'hz', 'duration_s'] },
-        'circle_xy': { routine: 'circle_xy', defaultParams: ['ax', 'ay', 'hz', 'duration_s'] },
-        'heave_pitch': { routine: 'heave_pitch', defaultParams: ['amp', 'ay', 'hz', 'duration_s'] },
-        'sine_pitch': { routine: 'sine_axis', axis: 'pitch', defaultParams: ['amp', 'hz', 'duration_s'] },
-        'sine_roll': { routine: 'sine_axis', axis: 'roll', defaultParams: ['amp', 'hz', 'duration_s'] },
-        'lissajous_xy': { routine: 'lissajous_xy', defaultParams: ['ax', 'ay', 'fx', 'fy', 'duration_s'], extraDefaults: { phx: 0, phy: 90 } },
-        'wobble_precession': { routine: 'wobble_precession', defaultParams: ['tilt_deg', 'prec_hz', 'yaw_hz', 'z_amp_mm', 'z_phase_deg', 'duration_s'], extraDefaults: { tilt_bias_deg: 0.0 } }
+        sine_z: {
+          routine: "sine_axis",
+          axis: "z",
+          defaultParams: ["amp", "hz", "duration_s"],
+        },
+        circle_xy: {
+          routine: "circle_xy",
+          defaultParams: ["ax", "ay", "hz", "duration_s"],
+        },
+        heave_pitch: {
+          routine: "heave_pitch",
+          defaultParams: ["amp", "ay", "hz", "duration_s"],
+        },
+        sine_pitch: {
+          routine: "sine_axis",
+          axis: "pitch",
+          defaultParams: ["amp", "hz", "duration_s"],
+        },
+        sine_roll: {
+          routine: "sine_axis",
+          axis: "roll",
+          defaultParams: ["amp", "hz", "duration_s"],
+        },
+        lissajous_xy: {
+          routine: "lissajous_xy",
+          defaultParams: ["ax", "ay", "fx", "fy", "duration_s"],
+          extraDefaults: { phx: 0, phy: 90 },
+        },
+        wobble_precession: {
+          routine: "wobble_precession",
+          defaultParams: [
+            "tilt_deg",
+            "prec_hz",
+            "yaw_hz",
+            "z_amp_mm",
+            "z_phase_deg",
+            "duration_s",
+          ],
+          extraDefaults: { tilt_bias_deg: 0.0 },
+        },
       };
 
       let motionStatusInterval = null;
@@ -1665,37 +2256,38 @@
       let motionStartTime = null;
 
       // Iniciar preset
-      document.querySelectorAll('.btn-start-motion').forEach(btn => {
-        btn.addEventListener('click', async function() {
-          const card = this.closest('.motion-preset-card');
+      document.querySelectorAll(".btn-start-motion").forEach((btn) => {
+        btn.addEventListener("click", async function () {
+          const card = this.closest(".motion-preset-card");
           const presetKey = card.dataset.preset;
           const config = MOTION_PRESET_CONFIG[presetKey];
-          
+
           const payload = { routine: config.routine };
           if (config.axis) payload.axis = config.axis;
-          
-          config.defaultParams.forEach(param => {
+
+          config.defaultParams.forEach((param) => {
             const input = card.querySelector(`[data-param="${param}"]`);
             if (input) payload[param] = parseFloat(input.value);
           });
-          
-          if (config.extraDefaults) Object.assign(payload, config.extraDefaults);
-          
+
+          if (config.extraDefaults)
+            Object.assign(payload, config.extraDefaults);
+
           try {
             const response = await fetch(`${API_BASE}/motion/start`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
-              console.log('✅ Rotina iniciada:', data);
-              card.classList.add('active');
+              ////console.log('✅ Rotina iniciada:', data);
+              card.classList.add("active");
               startMotionMonitoring();
             } else {
-              alert(`Erro: ${data.detail || 'Falha ao iniciar rotina'}`);
+              alert(`Erro: ${data.detail || "Falha ao iniciar rotina"}`);
             }
           } catch (error) {
             alert(`Erro de conexão: ${error.message}`);
@@ -1704,20 +2296,24 @@
       });
 
       // Parar rotina
-      document.getElementById('btn-motion-stop').addEventListener('click', async function() {
-        try {
-          const response = await fetch(`${API_BASE}/motion/stop`, { method: 'POST' });
-          if (response.ok) {
-            console.log('⏹️ Rotina parada');
-            stopMotionMonitoring();
-            updateMotionUIState(false);
-          } else {
-            alert('Erro ao parar rotina');
+      document
+        .getElementById("btn-motion-stop")
+        .addEventListener("click", async function () {
+          try {
+            const response = await fetch(`${API_BASE}/motion/stop`, {
+              method: "POST",
+            });
+            if (response.ok) {
+              ////console.log('⏹️ Rotina parada');
+              stopMotionMonitoring();
+              updateMotionUIState(false);
+            } else {
+              alert("Erro ao parar rotina");
+            }
+          } catch (error) {
+            alert(`Erro: ${error.message}`);
           }
-        } catch (error) {
-          alert(`Erro: ${error.message}`);
-        }
-      });
+        });
 
       function startMotionMonitoring() {
         if (motionStatusInterval) return;
@@ -1740,68 +2336,69 @@
         try {
           const response = await fetch(`${API_BASE}/motion/status`);
           const status = await response.json();
-          
+
           if (status.running) {
             updateMotionUIState(true, status);
             if (!motionStartTime) {
-              motionStartTime = Date.now() - (status.elapsed * 1000);
+              motionStartTime = Date.now() - status.elapsed * 1000;
             }
           } else {
             updateMotionUIState(false);
             stopMotionMonitoring();
           }
         } catch (error) {
-          console.error('Erro ao verificar status da rotina:', error);
+          console.error("Erro ao verificar status da rotina:", error);
         }
       }
 
       function updateMotionUIState(running, status = null) {
-        const statusDot = document.getElementById('motion-status-dot');
-        const statusText = document.getElementById('motion-status-text');
-        const btnStop = document.getElementById('btn-motion-stop');
-        
+        const statusDot = document.getElementById("motion-status-dot");
+        const statusText = document.getElementById("motion-status-text");
+        const btnStop = document.getElementById("btn-motion-stop");
+
         // Remover active de todos os cards
-        document.querySelectorAll('.motion-preset-card').forEach(card => {
-          card.classList.remove('active');
+        document.querySelectorAll(".motion-preset-card").forEach((card) => {
+          card.classList.remove("active");
         });
-        
+
         if (running && status) {
-          statusDot.className = 'w-3 h-3 rounded-full motion-status-running';
-          statusText.textContent = 'Rodando';
+          statusDot.className = "w-3 h-3 rounded-full motion-status-running";
+          statusText.textContent = "Rodando";
           btnStop.disabled = false;
-          
+
           // Ativar card correspondente
           const presetKey = findMotionPresetKey(status.routine, status.params);
           if (presetKey) {
             const card = document.querySelector(`[data-preset="${presetKey}"]`);
-            if (card) card.classList.add('active');
+            if (card) card.classList.add("active");
           }
         } else {
-          statusDot.className = 'w-3 h-3 rounded-full motion-status-stopped';
-          statusText.textContent = 'Parado';
+          statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
+          statusText.textContent = "Parado";
           btnStop.disabled = true;
-          document.getElementById('motion-elapsed').textContent = '00:00';
+          document.getElementById("motion-elapsed").textContent = "00:00";
           motionStartTime = null;
         }
       }
 
       function updateMotionElapsedTime() {
         if (!motionStartTime) return;
-        
+
         const elapsed = (Date.now() - motionStartTime) / 1000;
         const minutes = Math.floor(elapsed / 60);
         const seconds = Math.floor(elapsed % 60);
-        
-        document.getElementById('motion-elapsed').textContent = 
-          `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        document.getElementById("motion-elapsed").textContent = `${String(
+          minutes
+        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
       }
 
       function findMotionPresetKey(routine, params) {
         for (const [key, config] of Object.entries(MOTION_PRESET_CONFIG)) {
           if (config.routine === routine) {
-            if (routine === 'sine_axis' && config.axis === params?.axis) {
+            if (routine === "sine_axis" && config.axis === params?.axis) {
               return key;
-            } else if (routine !== 'sine_axis') {
+            } else if (routine !== "sine_axis") {
               return key;
             }
           }
