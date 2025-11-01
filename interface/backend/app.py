@@ -5,7 +5,7 @@ import threading
 import time
 import json
 import asyncio
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from math import sin, cos, tau
 
 import numpy as np
@@ -430,6 +430,54 @@ class MotionRunner:
             "elapsed": 0.0
         }
         self.lock = threading.Lock()
+
+        # --- NOVO: limites dinâmicos derivados da HOME ---
+        self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
+        self._home_bias_mm: float = 23.0  # mesmo offset usado no go_home_smooth
+        self._z_safety_mm: float = 5.0    # margem de segurança contra batente
+    
+    def _home_pose(self) -> dict:
+        """Pose HOME padronizada: XY e ângulos nulos, Z = h0 + bias."""
+        return {"x": 0.0, "y": 0.0, "z": self.platform.h0 + self._home_bias_mm,
+                "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+
+    def _calibrate_limits_from_home(self):
+        """
+        Recalibra limites seguros de Z a partir da HOME atual (considerando folga real de curso).
+        Define self._z_limits_mm = (z_min, z_max).
+        """
+        pose_home = self._home_pose()
+        L0, valid, _ = self.platform.inverse_kinematics(**pose_home)
+        if not valid:
+            print("⚠️ HOME inválida na calibração; usando clamps padrão de _clamp_pose.")
+            self._z_limits_mm = None
+            return
+
+        L0 = np.asarray(L0, dtype=float)
+        up_margin  = float(np.min(self.platform.stroke_max - L0))   # mm até batente superior
+        down_margin = float(np.min(L0 - self.platform.stroke_min))  # mm até batente inferior
+
+        # tira margem de segurança
+        up_margin   = max(0.0, up_margin  - self._z_safety_mm)
+        down_margin = max(0.0, down_margin - self._z_safety_mm)
+
+        z_home = pose_home["z"]
+        # z pode subir até up_margin e descer até down_margin, sempre respeitando clamps globais
+        z_min = max(self.platform.h0 - 20.0, z_home - down_margin)
+        z_max = min(self.platform.h0 + 64.0, z_home + up_margin)
+
+        if z_min > z_max:
+            print("⚠️ Limites Z degenerados na calibração; usando clamps padrão.")
+            self._z_limits_mm = None
+        else:
+            self._z_limits_mm = (z_min, z_max)
+            print(f"✅ Limites Z calibrados da HOME: [{z_min:.2f}, {z_max:.2f}] mm")
+
+    def home_and_calibrate_limits(self, go_home_duration: float = 1.5):
+        """Vai para HOME suavemente e recalibra limites com base nas folgas reais."""
+        print("🏠 Preflight: indo para HOME e calibrando limites...")
+        self._go_home_smooth(duration=go_home_duration)
+        self._calibrate_limits_from_home()
     
     def start(self, req: MotionRequest):
         """Inicia uma rotina de movimento"""
@@ -469,7 +517,7 @@ class MotionRunner:
         with self.lock:
             self.status_dict["running"] = False
         
-        # Retornar suavemente para home (0,0,h0,0,0,0)
+        # Retornar suavemente para home (0,0,h0+bias,0,0,0)
         print(f"🏠 Retornando para home...")
         try:
             self._go_home_smooth(duration=1.5)
@@ -490,6 +538,9 @@ class MotionRunner:
             duration = req.duration_s
             hz = req.hz
             dt = 1.0 / 60.0  # 60 Hz
+
+            # --- NOVO: sempre começar da HOME e calibrar limites a partir dela ---
+            self.home_and_calibrate_limits(go_home_duration=1.2)
             
             # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
             ramp_time = min(2.0, duration * 0.2)
@@ -514,7 +565,7 @@ class MotionRunner:
                 # Gerar pose baseada na rotina
                 pose = self._generate_pose(req, t, hz, ramp_factor)
                 
-                # Limitar pose
+                # Limitar pose (com limites dinâmicos de Z, se disponíveis)
                 pose = self._clamp_pose(pose)
                 
                 # Validar com inverse kinematics
@@ -572,7 +623,7 @@ class MotionRunner:
     def _generate_pose(self, req: MotionRequest, t: float, hz: float, ramp: float) -> dict:
         """Gera a pose para um instante t baseado na rotina"""
         routine = req.routine
-        h0 = self.platform.h0
+        h0 = self.platform.h0 
         
         if routine == "sine_axis":
             # Movimento senoidal em um eixo
@@ -590,7 +641,7 @@ class MotionRunner:
             # Defaults de offset
             if offset is None:
                 if axis == "z":
-                    offset = h0
+                    offset = h0 + 23
                 else:
                     offset = 0.0
             
@@ -664,43 +715,45 @@ class MotionRunner:
             # Z oscila com fase configurável
             z = h0 + z_amp_mm * ramp * sin(tau * z_hz * t + tau * z_phase_deg / 360.0)
             
-            return {"x": 0, "y": 0, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw}
+            return {"x": 0, "y": 0, "z": z, "roll": 0, "pitch": pitch, "yaw": yaw}
         
         else:
             # Fallback: parado
             return {"x": 0, "y": 0, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
     
     def _clamp_pose(self, pose: dict) -> dict:
-        """Limita a pose para valores seguros"""
+        """Limita a pose para valores seguros.
+           OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
+        """
         h0 = self.platform.h0
         
-        pose["x"] = np.clip(pose["x"], -50.0, 50.0)
-        pose["y"] = np.clip(pose["y"], -50.0, 50.0)
-        pose["z"] = np.clip(pose["z"], h0 - 20.0, h0 + 40.0)
-        pose["roll"] = np.clip(pose["roll"], -10.0, 10.0)
-        pose["pitch"] = np.clip(pose["pitch"], -10.0, 10.0)
-        pose["yaw"] = np.clip(pose["yaw"], -10.0, 10.0)
+        pose["x"] = float(np.clip(pose["x"], -50.0, 50.0))
+        pose["y"] = float(np.clip(pose["y"], -50.0, 50.0))
+
+        # Z: usar limites dinâmicos calculados a partir da HOME quando disponíveis
+        if self._z_limits_mm is not None:
+            z_min, z_max = self._z_limits_mm
+            pose["z"] = float(np.clip(pose.get("z", h0), z_min, z_max))
+        else:
+            pose["z"] = float(np.clip(pose.get("z", h0), h0 - 20.0, h0 + 64.0))
+
+        pose["roll"]  = float(np.clip(pose["roll"],  -10.0, 10.0))
+        pose["pitch"] = float(np.clip(pose["pitch"], -10.0, 10.0))
+        pose["yaw"]   = float(np.clip(pose["yaw"],   -10.0, 10.0))
         
         return pose
     
     def _go_home_smooth(self, duration: float = 1.5):
-        """Retorna suavemente para a pose home (0,0,h0,0,0,0)"""
+        """Retorna suavemente para a pose home (0,0,h0+bias,0,0,0)"""
         dt = 1.0 / 60.0  # 60 Hz
-        steps = int(duration / dt)
-        
-        for i in range(steps):
-            t = (i + 1) / steps  # 0 -> 1
-            # Curva suave (cosseno)
-            factor = 1.0 - (1.0 - cos(tau * 0.5 * t)) / 2.0
-            
-            # Interpolar para home
-            pose = {
-                "x": 0, "y": 0, "z": self.platform.h0,
-                "roll": 0, "pitch": 0, "yaw": 0
-            }
-            
+        steps = int(max(1, duration / dt))
+
+        pose = self._home_pose()
+        for _ in range(steps):
+            # curva suave apenas para marcar o ritmo de envio (HOME é fixa)
             L, valid, _ = self.platform.inverse_kinematics(**pose)
             if not valid:
+                time.sleep(dt)
                 continue
             
             course_mm = self.platform.lengths_to_stroke_mm(L)
