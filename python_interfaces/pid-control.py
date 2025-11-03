@@ -77,7 +77,6 @@ class App:
 
         # ajustes gerais
         self.db_var     = tk.StringVar(value="0.20")
-        self.fc_var     = tk.StringVar(value="4.0")
         self.minpwm_var = tk.StringVar(value="0")
 
         # labels telemetria
@@ -175,9 +174,6 @@ class App:
         ttk.Label(rowd, text="dbmm").pack(side='left')
         ttk.Entry(rowd, textvariable=self.db_var, width=6, justify='right').pack(side='left', padx=(2,8))
         ttk.Button(rowd, text="Enviar", command=self.send_db).pack(side='left', padx=(0,12))
-        ttk.Label(rowd, text="fc (Hz)").pack(side='left')
-        ttk.Entry(rowd, textvariable=self.fc_var, width=6, justify='right').pack(side='left', padx=(2,8))
-        ttk.Button(rowd, text="Enviar", command=self.send_fc).pack(side='left', padx=(0,12))
         ttk.Label(rowd, text="minpwm").pack(side='left')
         ttk.Entry(rowd, textvariable=self.minpwm_var, width=6, justify='right').pack(side='left', padx=(2,8))
         ttk.Button(rowd, text="Enviar", command=self.send_minpwm).pack(side='left')
@@ -435,10 +431,6 @@ class App:
     def send_db(self):
         v = abs(self._parse_float(self.db_var.get(), 0.0))
         self._tx(f"dbmm={v}")
-
-    def send_fc(self):
-        v = abs(self._parse_float(self.fc_var.get(), 4.0))
-        self._tx(f"fc={v}")
 
     def send_minpwm(self):
         v = int(max(0, min(255, self._parse_float(self.minpwm_var.get(), 0))))
