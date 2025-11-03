@@ -8,6 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
       body {
@@ -786,6 +790,131 @@
             >
               ⏹️ Parar
             </button>
+            <button
+              id="btn-toggle-motion-chart"
+              onclick="toggleMotionChart()"
+              class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm"
+            >
+              📊 Mostrar Gráfico
+            </button>
+          </div>
+        </div>
+
+        <!-- Seção do Gráfico de Movimento (inicialmente oculta) -->
+        <div id="motion-chart-section" class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-6 border border-gray-700 hidden">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+            <h2 class="text-lg sm:text-xl font-semibold text-white">
+              📈 Trajetória do Movimento em Tempo Real
+            </h2>
+            <div class="flex flex-wrap gap-2">
+              <button
+                id="btn-start-motion-chart"
+                onclick="startMotionChart()"
+                class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm"
+              >
+                ▶️ Iniciar
+              </button>
+              <button
+                id="btn-stop-motion-chart"
+                onclick="stopMotionChart()"
+                class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden"
+              >
+                ⏸ Parar
+              </button>
+              <button
+                id="btn-reset-zoom-chart"
+                onclick="resetMotionChartZoom()"
+                class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-sm"
+              >
+                🔍 Reset Zoom
+              </button>
+              <button
+                id="btn-clear-motion-chart"
+                onclick="clearMotionChart()"
+                class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm"
+              >
+                🗑️ Limpar
+              </button>
+              <button
+                id="btn-export-motion-csv"
+                onclick="exportMotionToCSV()"
+                class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm"
+              >
+                💾 Exportar CSV
+              </button>
+            </div>
+          </div>
+          <div class="bg-gray-900 rounded-lg p-2 sm:p-4" style="height: 400px">
+            <canvas id="motion-chart"></canvas>
+          </div>
+          <div class="mt-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-semibold text-gray-300">Pistões Visíveis:</span>
+              <div class="flex gap-2 flex-wrap">
+                <button
+                  onclick="toggleAllMotionPistons(true)"
+                  class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+                >
+                  Todos
+                </button>
+                <button
+                  onclick="toggleMotionPistonsByType('cmd')"
+                  class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+                >
+                  Só CMD
+                </button>
+                <button
+                  onclick="toggleMotionPistonsByType('real')"
+                  class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+                >
+                  Só Real
+                </button>
+                <button
+                  onclick="toggleAllMotionPistons(false)"
+                  class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
+                >
+                  Nenhum
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-1-visible" checked onchange="toggleMotionPistonVisibility(1)" class="w-4 h-4" />
+                <span class="text-red-500">● P1 CMD</span>
+                <span class="text-red-400">━ P1 Real</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-2-visible" checked onchange="toggleMotionPistonVisibility(2)" class="w-4 h-4" />
+                <span class="text-orange-500">● P2 CMD</span>
+                <span class="text-orange-400">━ P2 Real</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-3-visible" checked onchange="toggleMotionPistonVisibility(3)" class="w-4 h-4" />
+                <span class="text-yellow-500">● P3 CMD</span>
+                <span class="text-yellow-400">━ P3 Real</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-4-visible" checked onchange="toggleMotionPistonVisibility(4)" class="w-4 h-4" />
+                <span class="text-green-500">● P4 CMD</span>
+                <span class="text-green-400">━ P4 Real</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-5-visible" checked onchange="toggleMotionPistonVisibility(5)" class="w-4 h-4" />
+                <span class="text-blue-500">● P5 CMD</span>
+                <span class="text-blue-400">━ P5 Real</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="motion-piston-6-visible" checked onchange="toggleMotionPistonVisibility(6)" class="w-4 h-4" />
+                <span class="text-purple-500">● P6 CMD</span>
+                <span class="text-purple-400">━ P6 Real</span>
+              </label>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-gray-400 text-center">
+            💡 Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar
+          </div>
+          <div id="motion-chart-status" class="mt-2 text-sm text-gray-400 text-center">
+            Pronto para iniciar gravação
           </div>
         </div>
 
@@ -807,9 +936,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="amp"
-                  value="8"
-                  min="1"
-                  max="20"
+                  value="10"
+                  min="10"
+                  max="40"
                   step="0.5"
                 />
               </div>
@@ -819,9 +948,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="hz"
-                  value="0.3"
+                  value="0.5"
                   min="0.1"
-                  max="2"
+                  max="1.5"
                   step="0.05"
                 />
               </div>
@@ -862,8 +991,8 @@
                     type="number"
                     class="motion-param-input"
                     data-param="ax"
-                    value="12"
-                    min="1"
+                    value="20"
+                    min="10"
                     max="40"
                     step="1"
                   />
@@ -874,8 +1003,8 @@
                     type="number"
                     class="motion-param-input"
                     data-param="ay"
-                    value="8"
-                    min="1"
+                    value="20"
+                    min="10"
                     max="40"
                     step="1"
                   />
@@ -887,9 +1016,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="hz"
-                  value="0.25"
-                  min="0.1"
-                  max="2"
+                  value="0.75"
+                  min="0.2"
+                  max="1.5"
                   step="0.05"
                 />
               </div>
@@ -929,9 +1058,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="amp"
-                  value="8"
-                  min="1"
-                  max="20"
+                  value="20"
+                  min="10"
+                  max="25"
                   step="0.5"
                 />
               </div>
@@ -941,9 +1070,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="ay"
-                  value="2.5"
-                  min="0.5"
-                  max="8"
+                  value="3.5"
+                  min="1.5"
+                  max="3.5"
                   step="0.5"
                 />
               </div>
@@ -953,9 +1082,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="hz"
-                  value="0.2"
-                  min="0.1"
-                  max="2"
+                  value="0.8"
+                  min="0.3"
+                  max="0.8"
                   step="0.05"
                 />
               </div>
@@ -993,9 +1122,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="amp"
-                  value="3"
+                  value="5"
                   min="0.5"
-                  max="8"
+                  max="5"
                   step="0.5"
                 />
               </div>
@@ -1005,9 +1134,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="hz"
-                  value="0.25"
+                  value="0.8"
                   min="0.1"
-                  max="2"
+                  max="0.8"
                   step="0.05"
                 />
               </div>
@@ -1045,9 +1174,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="amp"
-                  value="3"
-                  min="0.5"
-                  max="8"
+                  value="5"
+                  min="0.2"
+                  max="5"
                   step="0.5"
                 />
               </div>
@@ -1057,9 +1186,9 @@
                   type="number"
                   class="motion-param-input"
                   data-param="hz"
-                  value="0.25"
-                  min="0.1"
-                  max="2"
+                  value="0.8"
+                  min="0.2"
+                  max="0.8"
                   step="0.05"
                 />
               </div>
@@ -1083,35 +1212,35 @@
             </button>
           </div>
 
-          <!-- Preset: Lissajous XY -->
-          <div class="motion-preset-card" data-preset="lissajous_xy">
+          <!-- Preset: Helix (Parafuso) -->
+          <div class="motion-preset-card" data-preset="helix">
             <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-pink-400">🌸 Lissajous</h3>
-              <span class="text-2xl">∞</span>
+              <h3 class="text-base font-bold text-pink-400">🔩 Helix</h3>
+              <span class="text-2xl">🌀</span>
             </div>
-            <p class="text-gray-400 text-xs mb-3">Figura-8 complexa</p>
+            <p class="text-gray-400 text-xs mb-3">Parafuso: sobe girando, desce voltando</p>
             <div class="space-y-2 mb-3">
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="text-xs text-gray-400">Amp X</label>
+                  <label class="text-xs text-gray-400">Raio X</label>
                   <input
                     type="number"
                     class="motion-param-input"
                     data-param="ax"
-                    value="12"
-                    min="1"
+                    value="10"
+                    min="10"
                     max="40"
                     step="1"
                   />
                 </div>
                 <div>
-                  <label class="text-xs text-gray-400">Amp Y</label>
+                  <label class="text-xs text-gray-400">Raio Y</label>
                   <input
                     type="number"
                     class="motion-param-input"
                     data-param="ay"
-                    value="8"
-                    min="1"
+                    value="10"
+                    min="10"
                     max="40"
                     step="1"
                   />
@@ -1119,41 +1248,55 @@
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <div>
-                  <label class="text-xs text-gray-400">Freq X</label>
+                  <label class="text-xs text-gray-400">Amp Z (mm)</label>
                   <input
                     type="number"
                     class="motion-param-input"
-                    data-param="fx"
+                    data-param="z_amp_mm"
+                    value="10"
+                    min="10"
+                    max="40"
+                    step="0.5"
+                  />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Ciclos Z</label>
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="z_cycles"
+                    value="1"
+                    min="0.2"
+                    max="1"
+                    step="0.5"
+                  />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Freq (Hz)</label>
+                  <input
+                    type="number"
+                    class="motion-param-input"
+                    data-param="hz"
                     value="0.2"
                     min="0.1"
-                    max="2"
+                    max="1.5"
                     step="0.05"
                   />
                 </div>
                 <div>
-                  <label class="text-xs text-gray-400">Freq Y</label>
+                  <label class="text-xs text-gray-400">Duração (s)</label>
                   <input
                     type="number"
                     class="motion-param-input"
-                    data-param="fy"
-                    value="0.3"
-                    min="0.1"
-                    max="2"
-                    step="0.05"
+                    data-param="duration_s"
+                    value="60"
+                    min="5"
+                    max="300"
+                    step="5"
                   />
                 </div>
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="90"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
               </div>
             </div>
             <button
@@ -1163,103 +1306,7 @@
             </button>
           </div>
 
-          <!-- Preset: Wobble Precession (Euler's Disk) -->
-          <div class="motion-preset-card" data-preset="wobble_precession">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-amber-400">
-                🟡 Wobble Precession
-              </h3>
-              <span class="text-2xl">🌀</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">
-              Movimento tipo Euler's Disk com precessão
-            </p>
-            <div class="space-y-2 mb-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Tilt (°)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="tilt_deg"
-                    value="3.0"
-                    min="1"
-                    max="8"
-                    step="0.5"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Prec Hz</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="prec_hz"
-                    value="0.4"
-                    min="0.1"
-                    max="1"
-                    step="0.05"
-                  />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Yaw Hz</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="yaw_hz"
-                    value="0.1"
-                    min="0.05"
-                    max="0.5"
-                    step="0.05"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Z Amp (mm)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="z_amp_mm"
-                    value="6"
-                    min="2"
-                    max="15"
-                    step="1"
-                  />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Z Phase (°)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="z_phase_deg"
-                    value="90"
-                    min="0"
-                    max="360"
-                    step="15"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Duração (s)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="duration_s"
-                    value="40"
-                    min="5"
-                    max="300"
-                    step="5"
-                  />
-                </div>
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
+
         </div>
       </div>
     </div>
@@ -1269,6 +1316,21 @@
       const WS_URL = "ws://localhost:8001/ws/telemetry";
       let currentPlatformData = null;
       window.__threeScenes = {};
+      
+      // ========== Variáveis do Gráfico de Movimento ==========
+      let motionChart = null;
+      let motionChartVisible = false;
+      let motionDB = null;
+      const MOTION_DB_NAME = "MotionTrajectoryDB";
+      const MOTION_DB_VERSION = 1;
+      const MOTION_STORE_NAME = "motion_data";
+      
+      // Configuração da janela de visualização (mais ampla que actuators.html)
+      const CHART_WINDOW_SECONDS = 60; // Janela de 60 segundos (2x actuators.html)
+      let maxDataPoints = 1000; // Máximo de pontos no gráfico
+      let motionStartTimestamp = null; // Timestamp do primeiro dado
+      let chartRecording = false; // Controla se está gravando ou não
+      let motionChartData = []; // Dados em memória
 
       function setupInputSync() {
         const inputs = ["x-pos", "y-pos", "z-pos", "roll", "pitch", "yaw"];
@@ -1327,6 +1389,11 @@
 
       // Atualiza medidas dos pistões do Live (WebSocket real-time)
       function updateLiveMeasures(actuators) {
+        // Capturar os valores reais para usar no gráfico
+        if (actuators && actuators.length >= 6) {
+          window.lastActuatorsReal = actuators.map(a => Number(a.length) || 0);
+        }
+        
         (actuators || []).forEach((a, index) => {
           const el = document.getElementById(`live-piston-${index + 1}`);
           const card = el?.parentElement;
@@ -2038,7 +2105,7 @@
         }
 
         ws.onopen = () => {
-          ////console.log('✅ WebSocket conectado!');
+          console.log('✅ WebSocket conectado!');
           if (wsTimer) clearTimeout(wsTimer);
         };
 
@@ -2054,15 +2121,48 @@
         ws.onmessage = (evt) => {
           try {
             const msg = JSON.parse(evt.data);
-
+            
             // Detectar eventos de motion_tick
             if (msg.type === "motion_tick" && msg.pose_cmd) {
-              ////console.log('🎬 Motion tick:', msg.pose_cmd);
               updateVisualizationFromMotion(msg.pose_cmd);
+              
+              // Atualizar timer do movimento em tempo real usando elapsed_ms
+              if (msg.elapsed_ms !== undefined) {
+                const elapsedSeconds = Math.floor(msg.elapsed_ms / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                const elapsedEl = document.getElementById("motion-elapsed");
+                if (elapsedEl) {
+                  elapsedEl.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                }
+              }
+              
+              // Capturar dados para o gráfico de movimento
+              if (msg.actuators_cmd) {
+                // Se actuators_real vier como zeros, usar os valores da telemetria
+                let actuators_real = msg.actuators_real || [];
+                const allZeros = actuators_real.every(v => v === 0);
+                
+                if (allZeros && window.lastActuatorsReal) {
+                  actuators_real = window.lastActuatorsReal;
+                  console.log("🔄 Usando valores da telemetria para actuators_real");
+                }
+                
+                updateMotionGraph(
+                  msg.elapsed_ms || 0,
+                  msg.routine || "unknown",
+                  msg.pose_cmd,
+                  msg.actuators_cmd,
+                  actuators_real
+                );
+              } else if (chartRecording) {
+                console.warn("⚠️ motion_tick sem actuators_cmd:", msg);
+              }
             } else {
               // Telemetria normal
               const data = normalizeTelemetry(msg);
               applyLiveTelemetry(data);
+              // Os valores reais são capturados em updateLiveMeasures()
             }
           } catch (e) {
             console.error("❌ Erro ao processar mensagem WS:", e, evt.data);
@@ -2114,8 +2214,53 @@
             // Backend não está conectado
             ////console.log('❌ Backend não está conectado');
           }
+          
+          // Verificar se há movimento rodando
+          await checkMotionStatus();
         } catch (err) {
           console.error("⚠️ Erro ao verificar status:", err);
+        }
+      }
+      
+      async function checkMotionStatus() {
+        try {
+          const res = await fetch(`${API_BASE}/motion/status`);
+          const data = await res.json();
+          
+          if (data.running) {
+            console.log(`🔄 Movimento detectado rodando: ${data.routine || 'unknown'} (${data.elapsed?.toFixed(1) || 0}s)`);
+            // Atualizar UI para refletir que há movimento rodando
+            const btnStart = document.getElementById("btn-start-motion");
+            const btnStop = document.getElementById("btn-stop-motion");
+            const statusEl = document.querySelector("#motion-routines-section .flex.items-center.gap-2");
+            
+            if (btnStart) btnStart.disabled = true;
+            if (btnStop) btnStop.disabled = false;
+            
+            // Atualizar o indicador visual (bolinha verde "Rodando")
+            if (statusEl) {
+              const dot = statusEl.querySelector(".w-2.h-2");
+              const text = statusEl.querySelector("span");
+              const timer = statusEl.querySelector(".text-sm");
+              
+              if (dot) {
+                dot.classList.remove("bg-gray-400");
+                dot.classList.add("bg-green-500");
+              }
+              if (text) {
+                text.textContent = "Rodando";
+              }
+              if (timer) {
+                timer.textContent = `${data.elapsed?.toFixed(0) || 0}s`;
+              }
+            }
+            
+            // Se estava com gráfico gravando antes do F5, pode ter perdido o estado
+            console.warn("⚠️ Atenção: Movimento estava rodando antes do reload. Verifique o estado do gráfico.");
+          }
+        } catch (err) {
+          // Endpoint existe mas pode dar erro se backend ainda não iniciou
+          console.log("ℹ️ Não foi possível verificar status do movimento");
         }
       }
 
@@ -2171,12 +2316,594 @@
         }
       }
 
+      // ========== IndexedDB para Gráfico de Movimento ==========
+      function initMotionDB() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(MOTION_DB_NAME, MOTION_DB_VERSION);
+          
+          request.onerror = () => reject(request.error);
+          
+          request.onsuccess = () => {
+            motionDB = request.result;
+            console.log("✅ MotionDB inicializado");
+            resolve(motionDB);
+          };
+          
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(MOTION_STORE_NAME)) {
+              const objectStore = db.createObjectStore(MOTION_STORE_NAME, {
+                keyPath: "id",
+                autoIncrement: true,
+              });
+              objectStore.createIndex("timestamp", "timestamp", { unique: false });
+              console.log("✅ ObjectStore motion_data criado");
+            }
+          };
+        });
+      }
+
+      let saveAttempts = 0;
+      let saveSuccesses = 0;
+      
+      async function saveMotionDataToDB(data) {
+        if (!motionDB || !chartRecording) return;
+        
+        saveAttempts++;
+        
+        return new Promise((resolve, reject) => {
+          try {
+            const transaction = motionDB.transaction([MOTION_STORE_NAME], "readwrite");
+            const store = transaction.objectStore(MOTION_STORE_NAME);
+            
+            // Handlers da transação
+            transaction.oncomplete = () => {
+              saveSuccesses++;
+              if (saveSuccesses % 10 === 0) {
+                console.log(`💾 IndexedDB: ${saveSuccesses} registros salvos (transação completa)`);
+              }
+              resolve();
+            };
+            
+            transaction.onerror = () => {
+              console.error("❌ Erro na transação:", transaction.error);
+              reject(transaction.error);
+            };
+            
+            transaction.onabort = () => {
+              console.error("❌ Transação abortada:", transaction.error);
+              reject(new Error("Transação abortada"));
+            };
+            
+            const request = store.add(data);
+            
+            request.onerror = () => {
+              console.error("❌ Erro no add():", request.error);
+              console.error("   Dados:", data);
+            };
+          } catch (error) {
+            console.error("❌ Exceção em saveMotionDataToDB:", error);
+            reject(error);
+          }
+        });
+      }
+
+      async function getAllMotionDataFromDB() {
+        if (!motionDB) return [];
+        
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], "readonly");
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+          const request = store.getAll();
+          
+          request.onsuccess = () => {
+            console.log(`📊 getAllMotionDataFromDB: ${request.result.length} registros`);
+            resolve(request.result);
+          };
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function clearMotionDataFromDB() {
+        if (!motionDB) return;
+        
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], "readwrite");
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+          const request = store.clear();
+          
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      // Função de debug global (use no console: debugMotionDB())
+      window.debugMotionDB = async function() {
+        console.log("🔍 DEBUG - Estado do MotionDB:");
+        console.log(`   motionDB: ${motionDB ? 'OK' : 'NÃO INICIALIZADO'}`);
+        console.log(`   chartRecording: ${chartRecording}`);
+        console.log(`   motionChart: ${motionChart ? 'OK' : 'NÃO INICIALIZADO'}`);
+        console.log(`   motionChartData.length: ${motionChartData.length}`);
+        console.log(`   saveAttempts: ${saveAttempts}`);
+        console.log(`   saveSuccesses: ${saveSuccesses}`);
+        
+        if (motionDB) {
+          try {
+            const data = await getAllMotionDataFromDB();
+            console.log(`   📊 Registros no IndexedDB: ${data.length}`);
+            if (data.length > 0) {
+              console.log("   Amostra (primeiro registro):", data[0]);
+              console.log("   Amostra (último registro):", data[data.length - 1]);
+            } else {
+              console.warn("   ⚠️ IndexedDB está vazio!");
+            }
+          } catch (error) {
+            console.error("   ❌ Erro ao buscar dados:", error);
+          }
+        } else {
+          console.error("   ❌ motionDB não foi inicializado - verifique se initMotionDB() foi chamado");
+        }
+      };
+      
+      // Função de teste - forçar gravação de um registro teste
+      window.testSaveMotionDB = async function() {
+        console.log("🧪 TESTE: Tentando salvar registro teste...");
+        
+        if (!motionDB) {
+          console.error("❌ motionDB não inicializado");
+          return;
+        }
+        
+        const testData = {
+          timestamp: Date.now(),
+          routine: "test",
+          pose: { x: 0, y: 0, z: 500, roll: 0, pitch: 0, yaw: 0 },
+          commanded: [100, 100, 100, 100, 100, 100],
+          actual: [100, 100, 100, 100, 100, 100]
+        };
+        
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], "readwrite");
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+          
+          transaction.oncomplete = () => {
+            console.log("✅ Transação completa - verificando...");
+            getAllMotionDataFromDB().then(data => {
+              console.log(`   Total de registros agora: ${data.length}`);
+              if (data.length > 0) {
+                console.log("   Último registro:", data[data.length - 1]);
+              }
+            });
+            resolve();
+          };
+          
+          transaction.onerror = () => {
+            console.error("❌ Erro na transação:", transaction.error);
+            reject(transaction.error);
+          };
+          
+          const request = store.add(testData);
+          
+          request.onsuccess = () => {
+            console.log("✅ add() bem-sucedido, key:", request.result);
+          };
+          
+          request.onerror = () => {
+            console.error("❌ Erro no add():", request.error);
+          };
+        });
+      };
+
+      // ========== Funções do Gráfico de Movimento ==========
+      async function toggleMotionChart() {
+        const section = document.getElementById("motion-chart-section");
+        const btn = document.getElementById("btn-toggle-motion-chart");
+        
+        motionChartVisible = !motionChartVisible;
+        
+        if (motionChartVisible) {
+          section.classList.remove("hidden");
+          btn.textContent = "📊 Esconder Gráfico";
+          if (!motionChart) {
+            initMotionChart();
+          }
+        } else {
+          section.classList.add("hidden");
+          btn.textContent = "📊 Mostrar Gráfico";
+        }
+      }
+
+      function initMotionChart() {
+        console.log('📈 Inicializando motionChart...');
+        const ctx = document.getElementById("motion-chart").getContext("2d");
+        
+        motionChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            datasets: [
+              // Comandados (setpoints) - linhas tracejadas
+              { label: "P1 CMD", borderColor: "#ef4444", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P2 CMD", borderColor: "#f59e0b", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P3 CMD", borderColor: "#eab308", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P4 CMD", borderColor: "#22c55e", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P5 CMD", borderColor: "#3b82f6", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P6 CMD", borderColor: "#a855f7", borderDash: [5, 5], borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              // Reais (atuadores) - linhas sólidas
+              { label: "P1 Real", borderColor: "#ef4444", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P2 Real", borderColor: "#f59e0b", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P3 Real", borderColor: "#eab308", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P4 Real", borderColor: "#22c55e", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P5 Real", borderColor: "#3b82f6", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+              { label: "P6 Real", borderColor: "#a855f7", borderWidth: 2, fill: false, data: [], tension: 0.4, pointRadius: 0 },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            parsing: false,
+            normalized: true,
+            scales: {
+              x: {
+                type: "linear",
+                title: { display: true, text: "Tempo (s)", color: "#9ca3af" },
+                ticks: { color: "#9ca3af" },
+                grid: { color: "#374151" },
+              },
+              y: {
+                title: { display: true, text: "Posição (mm)", color: "#9ca3af" },
+                ticks: { color: "#9ca3af" },
+                grid: { color: "#374151" },
+              },
+            },
+            plugins: {
+              legend: {
+                labels: { color: "#9ca3af", font: { size: 10 } },
+                position: "top",
+              },
+              zoom: {
+                pan: { enabled: true, mode: "xy" },
+                zoom: {
+                  wheel: { enabled: true },
+                  pinch: { enabled: true },
+                  mode: "xy",
+                },
+              },
+            },
+          },
+        });
+        
+        console.log("✅ Gráfico de movimento inicializado");
+        console.log(`   Total de datasets: ${motionChart.data.datasets.length}`);
+        console.log(`   Datasets 0-5: CMD (tracejadas)`);
+        console.log(`   Datasets 6-11: Real (sólidas)`);
+      }
+
+      function startMotionChart() {
+        console.log("▶️ startMotionChart() - Iniciando gravação...");
+        
+        chartRecording = true;
+        motionChartData = [];
+        motionStartTimestamp = null; // Reset timestamp
+        
+        console.log("🗑️ Limpando dados antigos do IndexedDB...");
+        clearMotionDataFromDB()
+          .then(() => console.log("✅ IndexedDB limpo com sucesso"))
+          .catch(error => console.error("❌ Erro ao limpar IndexedDB:", error));
+        
+        document.getElementById("btn-start-motion-chart").classList.add("hidden");
+        document.getElementById("btn-stop-motion-chart").classList.remove("hidden");
+        document.getElementById("motion-chart-status").textContent = 
+          `🔴 Gravando... (janela de ${CHART_WINDOW_SECONDS}s)`;
+        
+        console.log(`✅ Gravação ATIVADA (chartRecording = ${chartRecording})`);
+        console.log(`   - motionDB: ${motionDB ? 'OK' : 'NÃO INICIALIZADO'}`);
+        console.log(`   - motionChart: ${motionChart ? 'OK' : 'NÃO INICIALIZADO'}`);
+        console.log("💡 Aguardando dados de updateMotionGraph()...");
+      }
+
+      function stopMotionChart() {
+        console.log("🛑 stopMotionChart() chamado");
+        console.log(`   chartRecording antes: ${chartRecording}`);
+        
+        chartRecording = false;
+        
+        console.log(`   chartRecording depois: ${chartRecording}`);
+        console.log(`   Pontos gravados: ${motionChartData.length}`);
+        
+        const btnStart = document.getElementById("btn-start-motion-chart");
+        const btnStop = document.getElementById("btn-stop-motion-chart");
+        
+        if (!btnStart || !btnStop) {
+          console.error("❌ Botões não encontrados!");
+          return;
+        }
+        
+        btnStart.classList.remove("hidden");
+        btnStop.classList.add("hidden");
+        
+        document.getElementById("motion-chart-status").textContent = 
+          `⏸ Pausado (${motionChartData.length} pontos gravados)`;
+        
+        console.log("✅ Gráfico pausado com sucesso");
+      }
+
+      function resetMotionChartZoom() {
+        if (!motionChart) return;
+        motionChart.resetZoom();
+        console.log("🔍 Zoom resetado");
+      }
+
+      function toggleMotionPistonVisibility(pistonNum) {
+        if (!motionChart) {
+          console.warn("⚠️ motionChart não inicializado");
+          return;
+        }
+        
+        const checkbox = document.getElementById(`motion-piston-${pistonNum}-visible`);
+        if (!checkbox) {
+          console.error(`❌ Checkbox motion-piston-${pistonNum}-visible não encontrado`);
+          return;
+        }
+        
+        const isVisible = checkbox.checked;
+        
+        // Os datasets estão organizados: CMD 0-5, Real 6-11
+        // Para pistão N:
+        // - CMD está no índice: (N-1)
+        // - Real está no índice: (N-1) + 6
+        const cmdIndex = pistonNum - 1;
+        const realIndex = pistonNum - 1 + 6;
+        
+        console.log(`🔍 Pistão ${pistonNum}: checkbox.checked=${checkbox.checked}, isVisible=${isVisible}`);
+        console.log(`   CMD index: ${cmdIndex}, Real index: ${realIndex}`);
+        console.log(`   Total datasets: ${motionChart.data.datasets.length}`);
+        
+        if (!motionChart.data.datasets[cmdIndex]) {
+          console.error(`❌ Dataset CMD não encontrado no índice ${cmdIndex}`);
+          return;
+        }
+        if (!motionChart.data.datasets[realIndex]) {
+          console.error(`❌ Dataset Real não encontrado no índice ${realIndex}`);
+          return;
+        }
+        
+        // Ocultar/mostrar datasets
+        motionChart.data.datasets[cmdIndex].hidden = !isVisible;
+        motionChart.data.datasets[realIndex].hidden = !isVisible;
+        
+        console.log(`   Dataset[${cmdIndex}].hidden = ${motionChart.data.datasets[cmdIndex].hidden}`);
+        console.log(`   Dataset[${realIndex}].hidden = ${motionChart.data.datasets[realIndex].hidden}`);
+        
+        motionChart.update();
+        
+        console.log(`✅ Pistão ${pistonNum}: ${isVisible ? "visível" : "oculto"}`);
+      }
+
+      function toggleAllMotionPistons(visible) {
+        for (let i = 1; i <= 6; i++) {
+          const checkbox = document.getElementById(`motion-piston-${i}-visible`);
+          if (checkbox) {
+            checkbox.checked = visible;
+            toggleMotionPistonVisibility(i);
+          }
+        }
+      }
+
+      function toggleMotionPistonsByType(type) {
+        if (!motionChart) {
+          console.warn("⚠️ motionChart não inicializado");
+          return;
+        }
+        
+        for (let i = 1; i <= 6; i++) {
+          const checkbox = document.getElementById(`motion-piston-${i}-visible`);
+          if (!checkbox) continue;
+          
+          const cmdIndex = i - 1;
+          const realIndex = i - 1 + 6;
+          
+          if (type === 'cmd') {
+            // Mostrar apenas comandados (tracejados)
+            checkbox.checked = true;
+            motionChart.data.datasets[cmdIndex].hidden = false;
+            motionChart.data.datasets[realIndex].hidden = true;
+          } else if (type === 'real') {
+            // Mostrar apenas reais (sólidos)
+            checkbox.checked = true;
+            motionChart.data.datasets[cmdIndex].hidden = true;
+            motionChart.data.datasets[realIndex].hidden = false;
+          }
+        }
+        
+        motionChart.update();
+        console.log(`✅ Filtro aplicado: ${type === 'cmd' ? 'Apenas Comandados' : 'Apenas Reais'}`);
+      }
+
+      function clearMotionChart() {
+        chartRecording = false;
+        motionChartData = [];
+        saveAttempts = 0;
+        saveSuccesses = 0;
+        clearMotionDataFromDB();
+        
+        if (motionChart) {
+          motionChart.data.datasets.forEach(dataset => {
+            dataset.data = [];
+          });
+          motionChart.update("none");
+          motionChart.resetZoom();
+        }
+        
+        document.getElementById("btn-start-motion-chart").classList.remove("hidden");
+        document.getElementById("btn-stop-motion-chart").classList.add("hidden");
+        document.getElementById("motion-chart-status").textContent = 
+          "Pronto para iniciar gravação";
+        
+        console.log("🗑️ Gráfico limpo");
+      }
+
+      async function exportMotionToCSV() {
+        try {
+          const allData = await getAllMotionDataFromDB();
+          
+          if (allData.length === 0) {
+            alert("⚠️ Nenhum dado de movimento para exportar!");
+            return;
+          }
+          
+          // Cabeçalho CSV
+          let csvContent = "Timestamp,Routine,X_cmd,Y_cmd,Z_cmd,Roll_cmd,Pitch_cmd,Yaw_cmd," +
+                          "P1_cmd,P2_cmd,P3_cmd,P4_cmd,P5_cmd,P6_cmd," +
+                          "P1_real,P2_real,P3_real,P4_real,P5_real,P6_real\n";
+          
+          // Dados
+          allData.forEach(row => {
+            const timestamp = new Date(row.timestamp).toISOString();
+            const routine = row.routine || "unknown";
+            const pose = row.pose || {};
+            const cmd = row.commanded || [];
+            const real = row.actual || [];
+            
+            csvContent += `${timestamp},${routine},` +
+                         `${pose.x || 0},${pose.y || 0},${pose.z || 0},` +
+                         `${pose.roll || 0},${pose.pitch || 0},${pose.yaw || 0},` +
+                         `${cmd.join(",")},${real.join(",")}\n`;
+          });
+          
+          // Download
+          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+          const link = document.createElement("a");
+          const url = URL.createObjectURL(blob);
+          const filename = `motion_trajectory_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+          
+          link.setAttribute("href", url);
+          link.setAttribute("download", filename);
+          link.style.display = "none";
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          
+          console.log(`✅ CSV exportado: ${allData.length} registros`);
+        } catch (error) {
+          console.error("❌ Erro ao exportar CSV:", error);
+          alert(`Erro ao exportar CSV: ${error.message}`);
+        }
+      }
+
+      function startMotionGraph() {
+        // NÃO inicia automaticamente - usuário controla manualmente
+        console.log("ℹ️ Movimento iniciado (gráfico não inicia automaticamente)");
+      }
+
+      function stopMotionGraph() {
+        // NÃO para automaticamente - usuário controla manualmente
+        console.log("ℹ️ Movimento parado (gráfico continua se estiver gravando)");
+      }
+
+      function updateMotionGraph(timestamp, routine, pose, commandedLengths, actualLengths) {
+        // Só processa se estiver gravando
+        if (!chartRecording) {
+          // console.log("⏭️ updateMotionGraph: pulando (não está gravando)");
+          return;
+        }
+        
+        if (!motionChart) {
+          console.warn("⚠️ updateMotionGraph: motionChart não inicializado");
+          return;
+        }
+        
+        const now = Date.now();
+        
+        // Inicializar timestamp de referência no primeiro dado
+        if (motionStartTimestamp === null) {
+          motionStartTimestamp = now;
+          console.log(`🎬 Primeira captura de dados no gráfico (t=${timestamp.toFixed(3)}s)`);
+          console.log(`   commanded (CMD): [${commandedLengths.map(v => v.toFixed(1)).join(", ")}]`);
+          console.log(`   actual (Real): [${actualLengths.map(v => v.toFixed(1)).join(", ")}]`);
+        }
+        
+        // DEBUG: Log periódico dos valores reais
+        if (Math.floor(timestamp / 1000) % 5 === 0 && timestamp % 1000 < 100) {
+          const allZeros = actualLengths.every(v => v === 0);
+          if (allZeros) {
+            console.warn(`⚠️ actuators_real está TODO ZERO em t=${timestamp.toFixed(1)}ms`);
+          }
+        }
+        
+        const timeInSeconds = timestamp / 1000.0;
+        
+        // Adiciona aos dados em memória
+        const dataPoint = {
+          timestamp: now,
+          routine: routine,
+          pose: pose,
+          commanded: commandedLengths,
+          actual: actualLengths,
+        };
+        
+        motionChartData.push(dataPoint);
+        
+        // Log a cada 50 pontos para não poluir o console
+        if (motionChartData.length % 50 === 0) {
+          console.log(`📊 Capturados ${motionChartData.length} pontos`);
+        }
+        
+        // Salva no IndexedDB (sem limite)
+        saveMotionDataToDB(dataPoint).catch(err => 
+          console.error("❌ Erro ao salvar no DB:", err)
+        );
+        
+        // Atualizar datasets comandados (0-5)
+        commandedLengths.forEach((length, i) => {
+          if (motionChart.data.datasets[i]) {
+            motionChart.data.datasets[i].data.push({ x: timeInSeconds, y: length });
+          }
+        });
+        
+        // Atualizar datasets reais (6-11)
+        actualLengths.forEach((length, i) => {
+          if (motionChart.data.datasets[i + 6]) {
+            motionChart.data.datasets[i + 6].data.push({ x: timeInSeconds, y: length });
+          }
+        });
+        
+        // Limita pontos no gráfico para performance (janela deslizante)
+        if (motionChartData.length > maxDataPoints) {
+          motionChartData.shift();
+        }
+        
+        // Remove pontos antigos do gráfico (mantém janela de CHART_WINDOW_SECONDS)
+        const windowStart = timeInSeconds - CHART_WINDOW_SECONDS;
+        motionChart.data.datasets.forEach(dataset => {
+          while (dataset.data.length > 0 && dataset.data[0].x < windowStart) {
+            dataset.data.shift();
+          }
+        });
+        
+        // Atualizar gráfico (sem animação para melhor performance)
+        motionChart.update("none");
+        
+        // Atualiza status com contagem
+        document.getElementById("motion-chart-status").textContent = 
+          `🔴 Gravando... (${motionChartData.length} pontos em memória, janela de ${CHART_WINDOW_SECONDS}s)`;
+      }
+
       window.addEventListener("DOMContentLoaded", async () => {
         setupInputSync();
         init3D("canvas-preview");
         init3D("canvas-live");
         await loadSerialPorts();
         await checkExistingConnection();
+        
+        // Inicializar IndexedDB para gráfico de movimento
+        try {
+          await initMotionDB();
+          console.log("✅ MotionDB pronto");
+        } catch (error) {
+          console.error("❌ Erro ao inicializar MotionDB:", error);
+        }
         document
           .getElementById("btn-refresh-ports")
           .addEventListener("click", loadSerialPorts);
@@ -2232,28 +2959,14 @@
           axis: "roll",
           defaultParams: ["amp", "hz", "duration_s"],
         },
-        lissajous_xy: {
-          routine: "lissajous_xy",
-          defaultParams: ["ax", "ay", "fx", "fy", "duration_s"],
-          extraDefaults: { phx: 0, phy: 90 },
-        },
-        wobble_precession: {
-          routine: "wobble_precession",
-          defaultParams: [
-            "tilt_deg",
-            "prec_hz",
-            "yaw_hz",
-            "z_amp_mm",
-            "z_phase_deg",
-            "duration_s",
-          ],
-          extraDefaults: { tilt_bias_deg: 0.0 },
+        helix: {
+          routine: "helix",
+          defaultParams: ["ax", "ay", "z_amp_mm", "z_cycles", "hz", "duration_s"],
         },
       };
 
       let motionStatusInterval = null;
-      let motionElapsedInterval = null;
-      let motionStartTime = null;
+      // Timer agora vem direto do WebSocket motion_tick (elapsed_ms)
 
       // Iniciar preset
       document.querySelectorAll(".btn-start-motion").forEach((btn) => {
@@ -2274,6 +2987,15 @@
             Object.assign(payload, config.extraDefaults);
 
           try {
+            // Atualizar UI imediatamente para "Indo para HOME..."
+            const statusDot = document.getElementById("motion-status-dot");
+            const statusText = document.getElementById("motion-status-text");
+            const elapsedText = document.getElementById("motion-elapsed");
+            
+            statusDot.className = "w-3 h-3 rounded-full bg-yellow-500 pulse-dot";
+            statusText.textContent = "Indo para HOME...";
+            elapsedText.textContent = "00:00";
+            
             const response = await fetch(`${API_BASE}/motion/start`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -2285,11 +3007,25 @@
             if (response.ok) {
               ////console.log('✅ Rotina iniciada:', data);
               card.classList.add("active");
-              startMotionMonitoring();
+              
+              // Aguardar 1.5s (tempo de ir para HOME + calibração)
+              setTimeout(() => {
+                statusText.textContent = "Rodando";
+                statusDot.className = "w-3 h-3 rounded-full motion-status-running";
+                startMotionMonitoring();
+              }, 1500);
             } else {
+              // Voltar ao estado parado em caso de erro
+              statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
+              statusText.textContent = "Parado";
               alert(`Erro: ${data.detail || "Falha ao iniciar rotina"}`);
             }
           } catch (error) {
+            // Voltar ao estado parado em caso de erro
+            const statusDot = document.getElementById("motion-status-dot");
+            const statusText = document.getElementById("motion-status-text");
+            statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
+            statusText.textContent = "Parado";
             alert(`Erro de conexão: ${error.message}`);
           }
         });
@@ -2318,17 +3054,13 @@
       function startMotionMonitoring() {
         if (motionStatusInterval) return;
         motionStatusInterval = setInterval(checkMotionStatus, 500);
-        motionElapsedInterval = setInterval(updateMotionElapsedTime, 100);
+        // Timer agora é atualizado pelo WebSocket motion_tick (mais preciso)
       }
 
       function stopMotionMonitoring() {
         if (motionStatusInterval) {
           clearInterval(motionStatusInterval);
           motionStatusInterval = null;
-        }
-        if (motionElapsedInterval) {
-          clearInterval(motionElapsedInterval);
-          motionElapsedInterval = null;
         }
       }
 
@@ -2339,9 +3071,6 @@
 
           if (status.running) {
             updateMotionUIState(true, status);
-            if (!motionStartTime) {
-              motionStartTime = Date.now() - status.elapsed * 1000;
-            }
           } else {
             updateMotionUIState(false);
             stopMotionMonitoring();
@@ -2355,6 +3084,8 @@
         const statusDot = document.getElementById("motion-status-dot");
         const statusText = document.getElementById("motion-status-text");
         const btnStop = document.getElementById("btn-motion-stop");
+        const btnApply = document.getElementById("btn-apply");
+        const btnToggleChart = document.getElementById("btn-toggle-motion-chart");
 
         // Remover active de todos os cards
         document.querySelectorAll(".motion-preset-card").forEach((card) => {
@@ -2365,6 +3096,21 @@
           statusDot.className = "w-3 h-3 rounded-full motion-status-running";
           statusText.textContent = "Rodando";
           btnStop.disabled = false;
+          
+          // Desabilitar botão "Aplicar na Bancada" durante movimento
+          if (btnApply) {
+            btnApply.disabled = true;
+            btnApply.style.opacity = "0.5";
+            btnApply.style.cursor = "not-allowed";
+          }
+          
+          // Mostrar botão de toggle do gráfico
+          if (btnToggleChart) {
+            btnToggleChart.classList.remove("hidden");
+          }
+          
+          // Iniciar captura do gráfico
+          startMotionGraph();
 
           // Ativar card correspondente
           const presetKey = findMotionPresetKey(status.routine, status.params);
@@ -2377,20 +3123,23 @@
           statusText.textContent = "Parado";
           btnStop.disabled = true;
           document.getElementById("motion-elapsed").textContent = "00:00";
-          motionStartTime = null;
+          
+          // Reabilitar botão "Aplicar na Bancada" quando parar
+          if (btnApply) {
+            btnApply.disabled = false;
+            btnApply.style.opacity = "1";
+            btnApply.style.cursor = "pointer";
+          }
+          
+          // NÃO esconder botão de toggle se o gráfico estiver aberto
+          // Só esconde se o gráfico não estiver visível
+          if (btnToggleChart && !motionChartVisible) {
+            btnToggleChart.classList.add("hidden");
+          }
+          
+          // Finalizar captura do gráfico
+          stopMotionGraph();
         }
-      }
-
-      function updateMotionElapsedTime() {
-        if (!motionStartTime) return;
-
-        const elapsed = (Date.now() - motionStartTime) / 1000;
-        const minutes = Math.floor(elapsed / 60);
-        const seconds = Math.floor(elapsed % 60);
-
-        document.getElementById("motion-elapsed").textContent = `${String(
-          minutes
-        ).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
       }
 
       function findMotionPresetKey(routine, params) {
