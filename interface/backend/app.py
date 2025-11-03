@@ -96,7 +96,6 @@ class PIDFeedforward(BaseModel):
 
 class PIDSettings(BaseModel):
     dbmm: Optional[float] = None
-    fc: Optional[float] = None
     minpwm: Optional[int] = None
 
 class MotionRequest(BaseModel):
@@ -403,6 +402,21 @@ class SerialManager:
                 }), self.loop)
 
 serial_mgr = SerialManager()
+
+# -------------------- Cache de Ganhos PID --------------------
+# Cache dos últimos ganhos enviados (já que o ESP32 não tem comando para ler)
+pid_gains_cache = {
+    1: {"kp": 5.1478, "ki": 0.8226, "kd": 0.0},
+    2: {"kp": 5.0, "ki": 0.4, "kd": 0.0},
+    3: {"kp": 5.2552, "ki": 0.6391, "kd": 0.0},
+    4: {"kp": 5.0969, "ki": 1.5752, "kd": 0.0},
+    5: {"kp": 5.4362, "ki": 1.3039, "kd": 0.0},
+    6: {"kp": 5.1724, "ki": 0.8593, "kd": 0.0},
+}
+pid_settings_cache = {
+    "dbmm": 0.2,
+    "minpwm": 0
+}
 
 # -------------------- Motion Runner --------------------
 class MotionRunner:
@@ -865,16 +879,31 @@ def set_pid_gains(gains: PIDGains):
         if gains.kp is not None:
             serial_mgr.write_line(f"kpmm={gains.kp:.4f}")
             time.sleep(0.01)
+            pid_gains_cache[gains.piston]["kp"] = gains.kp
         if gains.ki is not None:
             serial_mgr.write_line(f"kimm={gains.ki:.4f}")
             time.sleep(0.01)
+            pid_gains_cache[gains.piston]["ki"] = gains.ki
         if gains.kd is not None:
             serial_mgr.write_line(f"kdmm={gains.kd:.4f}")
             time.sleep(0.01)
+            pid_gains_cache[gains.piston]["kd"] = gains.kd
         
         return {"message": f"Ganhos atualizados para pistão {gains.piston}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/pid/gains")
+def get_all_pid_gains():
+    """Retorna os ganhos PID de todos os pistões do cache"""
+    return pid_gains_cache
+
+@app.get("/pid/gains/{piston}")
+def get_pid_gains(piston: int):
+    """Retorna os ganhos PID de um pistão específico do cache"""
+    if not 1 <= piston <= 6:
+        raise HTTPException(status_code=400, detail="Pistão deve ser 1-6")
+    return pid_gains_cache[piston]
 
 @app.post("/pid/gains/all")
 def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None):
@@ -883,12 +912,18 @@ def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd
         if kp is not None:
             serial_mgr.write_line(f"kpall={kp:.4f}")
             time.sleep(0.01)
+            for piston in range(1, 7):
+                pid_gains_cache[piston]["kp"] = kp
         if ki is not None:
             serial_mgr.write_line(f"kiall={ki:.4f}")
             time.sleep(0.01)
+            for piston in range(1, 7):
+                pid_gains_cache[piston]["ki"] = ki
         if kd is not None:
             serial_mgr.write_line(f"kdall={kd:.4f}")
             time.sleep(0.01)
+            for piston in range(1, 7):
+                pid_gains_cache[piston]["kd"] = kd
         
         return {"message": "Ganhos aplicados para todos os pistões"}
     except Exception as e:
@@ -937,16 +972,20 @@ def set_pid_settings(settings: PIDSettings):
         if settings.dbmm is not None:
             serial_mgr.write_line(f"dbmm={settings.dbmm:.3f}")
             time.sleep(0.01)
-        if settings.fc is not None:
-            serial_mgr.write_line(f"fc={settings.fc:.2f}")
-            time.sleep(0.01)
+            pid_settings_cache["dbmm"] = settings.dbmm
         if settings.minpwm is not None:
             serial_mgr.write_line(f"minpwm={settings.minpwm}")
             time.sleep(0.01)
+            pid_settings_cache["minpwm"] = settings.minpwm
         
         return {"message": "Configurações atualizadas"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/pid/settings")
+def get_pid_settings():
+    """Retorna as configurações gerais do PID do cache"""
+    return pid_settings_cache
 
 @app.post("/pid/manual/{action}")
 def pid_manual_control(action: str):
