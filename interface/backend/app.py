@@ -100,7 +100,7 @@ class PIDSettings(BaseModel):
     minpwm: Optional[int] = None
 
 class MotionRequest(BaseModel):
-    routine: str  # "sine_axis", "circle_xy", "lissajous_xy", "heave_pitch", "wobble_precession"
+    routine: str  # "sine_axis", "circle_xy", "helix", "heave_pitch"
     duration_s: float = Field(60.0, gt=0, le=3600)
     hz: float = Field(0.2, gt=0, le=2.0)
     axis: Optional[str] = None  # Para sine_axis: x|y|z|roll|pitch|yaw
@@ -108,18 +108,9 @@ class MotionRequest(BaseModel):
     offset: Optional[float] = None
     ax: Optional[float] = None
     ay: Optional[float] = None
-    fx: Optional[float] = None
-    fy: Optional[float] = None
-    phx: Optional[float] = None  # Fase em graus (também usado como fase azimutal inicial para wobble_precession)
-    phy: Optional[float] = None  # Fase em graus
-    # Campos para wobble_precession
-    tilt_deg: Optional[float] = None        # amplitude de inclinação (graus pico) – default 3.0
-    tilt_bias_deg: Optional[float] = None   # inclinação constante adicional (graus) – default 0.0
-    prec_hz: Optional[float] = None         # frequência da precessão (Hz) – default 0.4
-    yaw_hz: Optional[float] = None          # rotação em yaw (Hz) – default 0.1
-    z_amp_mm: Optional[float] = None        # amplitude em z (mm) – default 6.0
-    z_hz: Optional[float] = None            # frequência em z (Hz) – default: igual a prec_hz
-    z_phase_deg: Optional[float] = None     # fase de z em graus – default 90°
+    phx: Optional[float] = None  # Fase em graus
+    z_amp_mm: Optional[float] = None  # Amplitude em Z para helix (mm)
+    z_cycles: Optional[float] = None  # Número de ciclos completos em Z durante uma volta no círculo XY
 
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
@@ -595,17 +586,49 @@ class MotionRunner:
                 
                 # Broadcast via WebSocket
                 try:
+                    # Pegar valores reais da telemetria
+                    latest_telem = self.serial_mgr.latest or {}
+                    actuators_real = [
+                        latest_telem.get(f"Y{i+1}", 0.0) for i in range(6)
+                    ]
+                    
+                    # DEBUG: Log primeira vez
+                    if not hasattr(self, '_motion_debug_logged'):
+                        print(f"🔍 DEBUG motion_tick:")
+                        print(f"   latest_telem keys: {list(latest_telem.keys())}")
+                        print(f"   actuators_real: {actuators_real}")
+                        self._motion_debug_logged = True
+                    
+                    # Converter L para lista Python
+                    if hasattr(L, 'tolist'):
+                        actuators_cmd = L.tolist()
+                    else:
+                        actuators_cmd = list(L)
+                    
+                    payload = {
+                        "type": "motion_tick",
+                        "t": float(t),
+                        "elapsed_ms": int(t * 1000),
+                        "pose_cmd": pose,
+                        "routine": routine_name,
+                        "actuators_cmd": actuators_cmd,
+                        "actuators_real": actuators_real
+                    }
+                    
+                    if step == 0:  # Log apenas no primeiro tick
+                        print(f"📊 Enviando motion_tick:")
+                        print(f"   actuators_cmd={actuators_cmd}")
+                        print(f"   actuators_real={actuators_real}")
+                        print(f"   payload keys: {list(payload.keys())}")
+                    
                     asyncio.run_coroutine_threadsafe(
-                        ws_mgr.broadcast_json({
-                            "type": "motion_tick",
-                            "t": t,
-                            "pose_cmd": pose,
-                            "routine": routine_name
-                        }),
+                        ws_mgr.broadcast_json(payload),
                         self.serial_mgr.loop
                     )
                 except Exception as e:
                     print(f"⚠️ Erro ao enviar motion_tick: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
                 # Aguardar próximo tick
                 t += dt
@@ -662,19 +685,39 @@ class MotionRunner:
             
             return {"x": x, "y": y, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
         
-        elif routine == "lissajous_xy":
-            # Lissajous XY
+        elif routine == "helix":
+            # Movimento helicoidal (parafuso): círculo XY contínuo + movimento linear em Z
+            # Comportamento: sobe girando em um sentido, desce girando no sentido oposto
             ax = req.ax if req.ax is not None else 10.0
-            ay = req.ay if req.ay is not None else 6.0
-            fx = req.fx if req.fx is not None else hz
-            fy = req.fy if req.fy is not None else hz * 1.5
+            ay = req.ay if req.ay is not None else 10.0
             phx = req.phx if req.phx is not None else 0.0
-            phy = req.phy if req.phy is not None else 90.0
+            z_amp_mm = req.z_amp_mm if req.z_amp_mm is not None else 8.0
+            z_cycles = req.z_cycles if req.z_cycles is not None else 1.0  # número de ciclos Z (subida+descida) por volta completa do círculo
             
-            x = ax * ramp * sin(tau * fx * t + tau * phx / 360.0)
-            y = ay * ramp * sin(tau * fy * t + tau * phy / 360.0)
+            # Fase do círculo (0 -> 1 a cada 1/hz segundos)
+            circle_phase = (hz * t) % 1.0
             
-            return {"x": x, "y": y, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+            # Fase do ciclo Z (0 -> 1 a cada ciclo completo de subida+descida)
+            z_phase = (hz * z_cycles * t) % 1.0
+            
+            # Dente-de-serra em Z: sobe de 0 a 0.5, desce de 0.5 a 1.0
+            if z_phase < 0.5:
+                # SUBINDO (primeira metade): 0 -> 0.5 mapeia para -z_amp_mm -> +z_amp_mm
+                z_offset = z_amp_mm * (4.0 * z_phase - 1.0)
+                # Gira no sentido positivo (horário)
+                angle = tau * circle_phase + tau * phx / 360.0
+            else:
+                # DESCENDO (segunda metade): 0.5 -> 1.0 mapeia para +z_amp_mm -> -z_amp_mm
+                z_offset = z_amp_mm * (3.0 - 4.0 * z_phase)
+                # Gira no sentido negativo (anti-horário) = inverte o sinal do ângulo
+                angle = -tau * circle_phase + tau * phx / 360.0
+            
+            # Círculo XY
+            x = ax * ramp * cos(angle)
+            y = ay * ramp * sin(angle)
+            z = h0 + z_offset * ramp
+            
+            return {"x": x, "y": y, "z": z, "roll": 0, "pitch": 0, "yaw": 0}
         
         elif routine == "heave_pitch":
             # Movimento combinado em z e pitch
@@ -685,37 +728,6 @@ class MotionRunner:
             pitch = amp_pitch * ramp * sin(tau * hz * t + tau * 0.25)  # +90° de fase
             
             return {"x": 0, "y": 0, "z": z, "roll": 0, "pitch": pitch, "yaw": 0}
-        
-        elif routine == "wobble_precession":
-            # Movimento tipo "Euler's Disk": inclinação precessionando + yaw lento + z oscilante
-            # Defaults seguros
-            tilt_deg = req.tilt_deg if req.tilt_deg is not None else 3.0
-            tilt_bias_deg = req.tilt_bias_deg if req.tilt_bias_deg is not None else 0.0
-            prec_hz = req.prec_hz if req.prec_hz is not None else 0.4
-            yaw_hz = req.yaw_hz if req.yaw_hz is not None else 0.1
-            z_amp_mm = req.z_amp_mm if req.z_amp_mm is not None else 6.0
-            z_hz = req.z_hz if req.z_hz is not None else prec_hz
-            z_phase_deg = req.z_phase_deg if req.z_phase_deg is not None else 90.0
-            phx = req.phx if req.phx is not None else 0.0  # fase azimutal inicial
-            
-            # Cálculos
-            # theta(t) = inclinação total em relação à vertical
-            theta_t = tilt_bias_deg + tilt_deg * ramp * sin(tau * prec_hz * t)
-            
-            # phi(t) = ângulo azimutal da precessão
-            phi_t_rad = tau * prec_hz * t + tau * phx / 360.0
-            
-            # Decompor inclinação em roll e pitch
-            roll = theta_t * cos(phi_t_rad)
-            pitch = theta_t * sin(phi_t_rad)
-            
-            # Yaw acumula linearmente
-            yaw = 360.0 * yaw_hz * t
-            
-            # Z oscila com fase configurável
-            z = h0 + z_amp_mm * ramp * sin(tau * z_hz * t + tau * z_phase_deg / 360.0)
-            
-            return {"x": 0, "y": 0, "z": z, "roll": 0, "pitch": pitch, "yaw": yaw}
         
         else:
             # Fallback: parado
@@ -984,17 +996,16 @@ Exemplos de uso das rotinas de movimento:
      "duration_s": 60
    }
 
-3. Lissajous XY com ax=10, ay=6, fx=0.2, fy=0.3, phx=0, phy=90, 90 s:
+3. Helix (parafuso) XY 10x10 mm, Z±8mm (sobe/desce linear), 1 ciclo completo por volta, 0.2 Hz, 60 s:
    POST /motion/start
    {
-     "routine": "lissajous_xy",
+     "routine": "helix",
      "ax": 10,
-     "ay": 6,
-     "fx": 0.2,
-     "fy": 0.3,
-     "phx": 0,
-     "phy": 90,
-     "duration_s": 90
+     "ay": 10,
+     "z_amp_mm": 8,
+     "z_cycles": 1.0,
+     "hz": 0.2,
+     "duration_s": 60
    }
 
 4. Heave-pitch z±8mm, pitch±2.5°, 0.2 Hz, 40 s:
@@ -1007,35 +1018,10 @@ Exemplos de uso das rotinas de movimento:
      "duration_s": 40
    }
 
-5. Wobble precession padrão (Euler's Disk): tilt 3°, precessão 0.4 Hz, yaw 0.1 Hz, z±6 mm com fase 90°, 40 s:
-   POST /motion/start
-   {
-     "routine": "wobble_precession",
-     "duration_s": 40,
-     "prec_hz": 0.4,
-     "yaw_hz": 0.1,
-     "tilt_deg": 3.0,
-     "tilt_bias_deg": 0.0,
-     "z_amp_mm": 6.0,
-     "z_phase_deg": 90
-   }
-
-6. Wobble mais rápido com z sincronizado em fase (0°):
-   POST /motion/start
-   {
-     "routine": "wobble_precession",
-     "duration_s": 30,
-     "prec_hz": 0.6,
-     "yaw_hz": 0.15,
-     "tilt_deg": 2.5,
-     "z_amp_mm": 5,
-     "z_phase_deg": 0
-   }
-
-7. Parar rotina:
+5. Parar rotina:
    POST /motion/stop
 
-8. Consultar status:
+6. Consultar status:
    GET /motion/status
 """
 
@@ -1044,7 +1030,7 @@ def motion_start(req: MotionRequest):
     """Inicia uma rotina de movimento"""
     try:
         # Validar routine
-        valid_routines = ["sine_axis", "circle_xy", "lissajous_xy", "heave_pitch", "wobble_precession"]
+        valid_routines = ["sine_axis", "circle_xy", "helix", "heave_pitch"]
         if req.routine not in valid_routines:
             raise ValueError(f"Rotina inválida. Use: {', '.join(valid_routines)}")
         
