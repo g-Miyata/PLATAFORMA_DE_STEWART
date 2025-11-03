@@ -12,6 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
       body {
@@ -1317,6 +1319,30 @@
       let currentPlatformData = null;
       window.__threeScenes = {};
       
+      // ========== Toast Helper ==========
+      function showToast(message, type = 'info') {
+        const backgrounds = {
+          success: 'linear-gradient(to right, #10b981, #059669)',
+          error: 'linear-gradient(to right, #ef4444, #dc2626)',
+          warning: 'linear-gradient(to right, #f59e0b, #d97706)',
+          info: 'linear-gradient(to right, #3b82f6, #2563eb)'
+        };
+
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: 'top',
+          position: 'right',
+          stopOnFocus: true,
+          style: {
+            background: backgrounds[type] || backgrounds.info,
+            borderRadius: '8px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: '500'
+          }
+        }).showToast();
+      }
+      
       // ========== Variáveis do Gráfico de Movimento ==========
       let motionChart = null;
       let motionChartVisible = false;
@@ -1742,8 +1768,10 @@
           applyErr.style.display = "none";
           if (data.valid) {
             applyBtn.style.display = "block";
+            showToast("Posição válida calculada", "success");
           } else {
             applyBtn.style.display = "none";
+            showToast("Posição inválida para a plataforma", "error");
           }
         } catch (e) {
           console.error(e);
@@ -1889,7 +1917,7 @@
       async function openSerial() {
         const port = document.getElementById("serial-port-select").value;
         if (!port) {
-          alert("Selecione uma porta serial");
+          showToast("Selecione uma porta serial", "warning");
           return;
         }
         try {
@@ -1905,7 +1933,7 @@
           // Conecta ao WebSocket
           initTelemetryWS();
         } catch (e) {
-          alert(`Erro ao conectar: ${e.message}`);
+          showToast(`Erro ao conectar: ${e.message}`, 'error');
         }
       }
 
@@ -1927,7 +1955,7 @@
             ws = null;
           }
         } catch (e) {
-          alert(`Erro ao desconectar: ${e.message}`);
+          showToast(`Erro ao desconectar: ${e.message}`, 'error');
         }
       }
 
@@ -2596,6 +2624,8 @@
         document.getElementById("motion-chart-status").textContent = 
           `🔴 Gravando... (janela de ${CHART_WINDOW_SECONDS}s)`;
         
+        showToast("Gravação do gráfico iniciada", "success");
+        
         console.log(`✅ Gravação ATIVADA (chartRecording = ${chartRecording})`);
         console.log(`   - motionDB: ${motionDB ? 'OK' : 'NÃO INICIALIZADO'}`);
         console.log(`   - motionChart: ${motionChart ? 'OK' : 'NÃO INICIALIZADO'}`);
@@ -2624,6 +2654,8 @@
         
         document.getElementById("motion-chart-status").textContent = 
           `⏸ Pausado (${motionChartData.length} pontos gravados)`;
+        
+        showToast(`Gravação pausada - ${motionChartData.length} pontos gravados`, "info");
         
         console.log("✅ Gráfico pausado com sucesso");
       }
@@ -2740,6 +2772,8 @@
         document.getElementById("motion-chart-status").textContent = 
           "Pronto para iniciar gravação";
         
+        showToast("Gráfico limpo com sucesso", "success");
+        
         console.log("🗑️ Gráfico limpo");
       }
 
@@ -2748,7 +2782,7 @@
           const allData = await getAllMotionDataFromDB();
           
           if (allData.length === 0) {
-            alert("⚠️ Nenhum dado de movimento para exportar!");
+            showToast("Nenhum dado de movimento para exportar!", "warning");
             return;
           }
           
@@ -2785,10 +2819,11 @@
           document.body.removeChild(link);
           URL.revokeObjectURL(url);
           
+          showToast(`CSV exportado com sucesso! ${allData.length} registros salvos`, 'success');
           console.log(`✅ CSV exportado: ${allData.length} registros`);
         } catch (error) {
           console.error("❌ Erro ao exportar CSV:", error);
-          alert(`Erro ao exportar CSV: ${error.message}`);
+          showToast(`Erro ao exportar CSV: ${error.message}`, 'error');
         }
       }
 
@@ -2937,29 +2972,35 @@
       // ============ MOTION ROUTINES ============
       const MOTION_PRESET_CONFIG = {
         sine_z: {
+          title: "Senoide Vertical (Z)",
           routine: "sine_axis",
           axis: "z",
           defaultParams: ["amp", "hz", "duration_s"],
         },
         circle_xy: {
+          title: "Círculo XY",
           routine: "circle_xy",
           defaultParams: ["ax", "ay", "hz", "duration_s"],
         },
         heave_pitch: {
+          title: "Heave & Pitch",
           routine: "heave_pitch",
           defaultParams: ["amp", "ay", "hz", "duration_s"],
         },
         sine_pitch: {
+          title: "Senoide Pitch",
           routine: "sine_axis",
           axis: "pitch",
           defaultParams: ["amp", "hz", "duration_s"],
         },
         sine_roll: {
+          title: "Senoide Roll",
           routine: "sine_axis",
           axis: "roll",
           defaultParams: ["amp", "hz", "duration_s"],
         },
         helix: {
+          title: "Helix (Espiral)",
           routine: "helix",
           defaultParams: ["ax", "ay", "z_amp_mm", "z_cycles", "hz", "duration_s"],
         },
@@ -3007,6 +3048,7 @@
             if (response.ok) {
               ////console.log('✅ Rotina iniciada:', data);
               card.classList.add("active");
+              showToast(`Rotina ${config.title} iniciada`, 'success');
               
               // Aguardar 1.5s (tempo de ir para HOME + calibração)
               setTimeout(() => {
@@ -3018,7 +3060,7 @@
               // Voltar ao estado parado em caso de erro
               statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
               statusText.textContent = "Parado";
-              alert(`Erro: ${data.detail || "Falha ao iniciar rotina"}`);
+              showToast(`Erro: ${data.detail || "Falha ao iniciar rotina"}`, 'error');
             }
           } catch (error) {
             // Voltar ao estado parado em caso de erro
@@ -3026,7 +3068,7 @@
             const statusText = document.getElementById("motion-status-text");
             statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
             statusText.textContent = "Parado";
-            alert(`Erro de conexão: ${error.message}`);
+            showToast(`Erro de conexão: ${error.message}`, 'error');
           }
         });
       });
@@ -3041,13 +3083,14 @@
             });
             if (response.ok) {
               ////console.log('⏹️ Rotina parada');
+              showToast("Rotina de movimento parada", 'info');
               stopMotionMonitoring();
               updateMotionUIState(false);
             } else {
-              alert("Erro ao parar rotina");
+              showToast("Erro ao parar rotina", 'error');
             }
           } catch (error) {
-            alert(`Erro: ${error.message}`);
+            showToast(`Erro: ${error.message}`, 'error');
           }
         });
 

@@ -9,6 +9,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
       body {
@@ -652,6 +654,30 @@
       let reconnectTimer = null;
       let isConnected = false;
 
+      // ========== Toast Helper ==========
+      function showToast(message, type = 'info') {
+        const backgrounds = {
+          success: 'linear-gradient(to right, #10b981, #059669)',
+          error: 'linear-gradient(to right, #ef4444, #dc2626)',
+          warning: 'linear-gradient(to right, #f59e0b, #d97706)',
+          info: 'linear-gradient(to right, #3b82f6, #2563eb)'
+        };
+
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: 'top',
+          position: 'right',
+          stopOnFocus: true,
+          style: {
+            background: backgrounds[type] || backgrounds.info,
+            borderRadius: '8px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: '500'
+          }
+        }).showToast();
+      }
+
       // ========== Gráfico de Telemetria ==========
       let telemetryChart = null;
       let chartRecording = false;
@@ -837,6 +863,7 @@
         document.getElementById("btn-stop-chart").classList.remove("hidden");
         document.getElementById("chart-status").textContent = "🔴 Gravando...";
 
+        showToast("Gravação da telemetria iniciada", "success");
         //console.log('📊 Gráfico iniciado');
       }
 
@@ -849,6 +876,7 @@
           "chart-status"
         ).textContent = `⏸ Pausado (${chartData.length} pontos gravados)`;
 
+        showToast(`Gravação pausada - ${chartData.length} pontos gravados`, "info");
         //console.log('⏸ Gráfico pausado');
       }
 
@@ -876,6 +904,7 @@
         document.getElementById("chart-status").textContent =
           "Pronto para iniciar gravação";
 
+        showToast("Gráfico limpo com sucesso", "success");
         //console.log('🗑️ Gráfico limpo');
       }
 
@@ -983,7 +1012,7 @@
           const allData = await getAllTelemetryFromDB();
 
           if (allData.length === 0) {
-            alert("Não há dados para exportar. Inicie a gravação primeiro.");
+            showToast("Não há dados para exportar. Inicie a gravação primeiro.", "warning");
             return;
           }
 
@@ -1012,12 +1041,10 @@
           URL.revokeObjectURL(url);
 
           //console.log(`✅ CSV exportado: ${allData.length} registros`);
-          alert(
-            `CSV exportado com sucesso! ${allData.length} registros salvos.`
-          );
+          showToast(`CSV exportado com sucesso! ${allData.length} registros salvos.`, 'success');
         } catch (err) {
           console.error("Erro ao exportar CSV:", err);
-          alert(`Erro ao exportar: ${err.message}`);
+          showToast(`Erro ao exportar: ${err.message}`, 'error');
         }
       }
 
@@ -1086,7 +1113,7 @@
       async function connectSerial() {
         const port = document.getElementById("serial-port").value;
         if (!port) {
-          alert("Selecione uma porta serial");
+          showToast("Selecione uma porta serial", "warning");
           return;
         }
 
@@ -1112,6 +1139,7 @@
             document.getElementById("status-port").textContent = port;
 
             logConsole(`Conectado em ${port}`, "info");
+            showToast(`Conectado em ${port}`, "success");
 
             // Salvar estado no localStorage
             localStorage.setItem("serial_connected", "true");
@@ -1123,7 +1151,7 @@
           }
         } catch (err) {
           logConsole(`Erro: ${err.message}`, "info");
-          alert(`Erro: ${err.message}`);
+          showToast(`Erro: ${err.message}`, 'error');
         }
       }
 
@@ -1141,6 +1169,7 @@
           document.getElementById("status-port").textContent = "--";
 
           logConsole("Desconectado", "info");
+          showToast("Desconectado da porta serial", "info");
 
           // Limpar estado no localStorage
           localStorage.setItem("serial_connected", "false");
@@ -1218,7 +1247,7 @@
       // ========== Commands ==========
       async function sendCommand(cmd) {
         if (!isConnected) {
-          alert("Conecte à porta serial primeiro");
+          showToast("Conecte à porta serial primeiro", "warning");
           return;
         }
 
@@ -1262,6 +1291,7 @@
               currentSetpoints[i] = value;
             }
             logConsole(`Setpoint global: ${value} mm`, "tx");
+            showToast(`Setpoint global aplicado: ${value} mm`, "success");
             //console.log('📊 Setpoints atualizados:', currentSetpoints);
           }
         } catch (err) {
@@ -1282,6 +1312,7 @@
             // Atualiza apenas o setpoint deste pistão (índice = piston - 1)
             currentSetpoints[piston - 1] = value;
             logConsole(`Setpoint pistão ${piston}: ${value} mm`, "tx");
+            showToast(`Setpoint pistão ${piston}: ${value} mm`, "success");
             //console.log(`📊 Setpoint pistão ${piston} atualizado:`, currentSetpoints);
           }
         } catch (err) {

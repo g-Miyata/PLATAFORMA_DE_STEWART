@@ -6,6 +6,8 @@
     <title>Plataforma de Stewart - Configurações</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
       body {
@@ -225,6 +227,30 @@
     <script>
       const API_BASE = 'http://localhost:8001';
 
+      // ========== Toast Helper ==========
+      function showToast(message, type = 'info') {
+        const backgrounds = {
+          success: 'linear-gradient(to right, #10b981, #059669)',
+          error: 'linear-gradient(to right, #ef4444, #dc2626)',
+          warning: 'linear-gradient(to right, #f59e0b, #d97706)',
+          info: 'linear-gradient(to right, #3b82f6, #2563eb)'
+        };
+
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: 'top',
+          position: 'right',
+          stopOnFocus: true,
+          style: {
+            background: backgrounds[type] || backgrounds.info,
+            borderRadius: '8px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: '500'
+          }
+        }).showToast();
+      }
+
       // ========== Compartilhar status de conexão via localStorage ==========
       async function updateConnectionStatus() {
         try {
@@ -347,12 +373,12 @@
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`✅ Ganhos aplicados no pistão ${piston}: Kp=${kp}, Ki=${ki}, Kd=${kd}`);
+            showToast(`Ganhos aplicados no pistão ${piston}: Kp=${kp}, Ki=${ki}, Kd=${kd}`, 'success');
           } else {
             throw new Error(data.detail || 'Erro ao aplicar ganhos');
           }
         } catch (err) {
-          alert(`❌ Erro: ${err.message}`);
+          showToast(`Erro: ${err.message}`, 'error');
         }
       }
 
@@ -368,12 +394,12 @@
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`✅ Ganhos aplicados em TODOS os pistões: Kp=${kp}, Ki=${ki}, Kd=${kd}`);
+            showToast(`Ganhos aplicados em TODOS os pistões: Kp=${kp}, Ki=${ki}, Kd=${kd}`, 'success');
           } else {
             throw new Error(data.detail || 'Erro ao aplicar ganhos');
           }
         } catch (err) {
-          alert(`❌ Erro: ${err.message}`);
+          showToast(`Erro: ${err.message}`, 'error');
         }
       }
 
@@ -389,12 +415,12 @@
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`✅ Ajustes aplicados: dbmm=${dbmm}, minpwm=${minpwm}`);
+            showToast(`Ajustes aplicados: dbmm=${dbmm}, minpwm=${minpwm}`, 'success');
           } else {
             throw new Error(data.detail || 'Erro ao aplicar ajustes');
           }
         } catch (err) {
-          alert(`❌ Erro: ${err.message}`);
+          showToast(`Erro: ${err.message}`, 'error');
         }
       }
     </script>
