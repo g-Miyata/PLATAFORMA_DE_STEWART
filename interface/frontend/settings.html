@@ -208,14 +208,10 @@
       <!-- Ajustes Gerais -->
       <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
         <h2 class="text-xl font-semibold text-white mb-4">🔧 Ajustes Gerais</h2>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-2">Deadband (mm)</label>
             <input id="dbmm" type="number" step="0.01" value="0.2" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2">Freq. Filtro (Hz)</label>
-            <input id="fc" type="number" step="0.1" value="4.0" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-300 mb-2">PWM Mínimo</label>
@@ -270,8 +266,72 @@
       }
 
       // Atualiza status ao carregar e periodicamente
-      window.addEventListener('DOMContentLoaded', updateConnectionStatus);
+      window.addEventListener('DOMContentLoaded', () => {
+        updateConnectionStatus();
+        loadPIDGains();
+        loadPIDSettings();
+      });
       setInterval(updateConnectionStatus, 2000);
+
+      // ========== Carregar Valores do Cache ==========
+      async function loadPIDGains() {
+        try {
+          console.log('Carregando ganhos PID do cache...');
+          const response = await fetch(`${API_BASE}/pid/gains`);
+          if (!response.ok) {
+            console.error('Erro na resposta:', response.status);
+            return;
+          }
+          
+          const gains = await response.json();
+          console.log('Ganhos recebidos:', gains);
+          
+          // Preenche os campos individuais de cada pistão
+          for (let piston = 1; piston <= 6; piston++) {
+            if (gains[piston]) {
+              document.getElementById(`kp-${piston}`).value = gains[piston].kp;
+              document.getElementById(`ki-${piston}`).value = gains[piston].ki;
+              document.getElementById(`kd-${piston}`).value = gains[piston].kd;
+            }
+          }
+          
+          // Preenche os campos "Todos os Pistões" com valores do pistão 1
+          if (gains[1]) {
+            document.getElementById('kp-all').value = gains[1].kp;
+            document.getElementById('ki-all').value = gains[1].ki;
+            document.getElementById('kd-all').value = gains[1].kd;
+          }
+          
+          console.log('Ganhos PID carregados com sucesso!');
+        } catch (error) {
+          console.error('Erro ao carregar ganhos PID:', error);
+        }
+      }
+
+      async function loadPIDSettings() {
+        try {
+          console.log('Carregando configurações PID do cache...');
+          const response = await fetch(`${API_BASE}/pid/settings`);
+          if (!response.ok) {
+            console.error('Erro na resposta:', response.status);
+            return;
+          }
+          
+          const settings = await response.json();
+          console.log('Configurações recebidas:', settings);
+          
+          if (settings.dbmm !== undefined) {
+            document.getElementById('dbmm').value = settings.dbmm;
+          }
+          if (settings.minpwm !== undefined) {
+            document.getElementById('minpwm').value = settings.minpwm;
+          }
+          
+          console.log('Configurações PID carregadas com sucesso!');
+        } catch (error) {
+          console.error('Erro ao carregar configurações PID:', error);
+        }
+      }
 
       // ========== Funções de Envio ==========
       async function sendGainsInd(piston) {
@@ -319,18 +379,17 @@
 
       async function sendSettings() {
         const dbmm = parseFloat(document.getElementById('dbmm').value);
-        const fc = parseFloat(document.getElementById('fc').value);
         const minpwm = parseInt(document.getElementById('minpwm').value);
 
         try {
           const res = await fetch(`${API_BASE}/pid/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dbmm, fc, minpwm }),
+            body: JSON.stringify({ dbmm, minpwm }),
           });
           const data = await res.json();
           if (res.ok) {
-            alert(`✅ Ajustes aplicados: dbmm=${dbmm}, fc=${fc}, minpwm=${minpwm}`);
+            alert(`✅ Ajustes aplicados: dbmm=${dbmm}, minpwm=${minpwm}`);
           } else {
             throw new Error(data.detail || 'Erro ao aplicar ajustes');
           }
