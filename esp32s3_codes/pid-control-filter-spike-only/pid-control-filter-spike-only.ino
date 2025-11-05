@@ -462,9 +462,9 @@ void loop() {
     }
   }
 
-  // ===== Telemetria (100 ms): ms;SP_mm;Y1..Y6;PWM1..PWM6 =====
+  // ===== Telemetria (33 ms): ms;SP_mm;Y1..Y6;PWM1..PWM6 =====
   static uint32_t t0 = 0;
-  if (millis() - t0 >= 100) {
+  if (millis() - t0 >= 33) {
     t0 = millis();
 
     if (!csv_header_done) {
