@@ -438,11 +438,11 @@ class MotionRunner:
 
         # --- NOVO: limites dinâmicos derivados da HOME ---
         self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
-        self._home_bias_mm: float = 23.0  # mesmo offset usado no go_home_smooth
+        self._home_bias_mm: float = 23.0  # altura inicial elevada (HOME e trajetórias)
         self._z_safety_mm: float = 5.0    # margem de segurança contra batente
     
     def _home_pose(self) -> dict:
-        """Pose HOME padronizada: XY e ângulos nulos, Z = h0 + bias."""
+        """Pose HOME padronizada: XY e ângulos nulos, Z = h0 + bias (altura inicial elevada)."""
         return {"x": 0.0, "y": 0.0, "z": self.platform.h0 + self._home_bias_mm,
                 "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
 
@@ -660,7 +660,8 @@ class MotionRunner:
     def _generate_pose(self, req: MotionRequest, t: float, hz: float, ramp: float) -> dict:
         """Gera a pose para um instante t baseado na rotina"""
         routine = req.routine
-        h0 = self.platform.h0 
+        h0 = self.platform.h0
+        z_base = h0 + self._home_bias_mm  # ✅ Altura base elevada (consistente com HOME)
         
         if routine == "sine_axis":
             # Movimento senoidal em um eixo
@@ -678,18 +679,18 @@ class MotionRunner:
             # Defaults de offset
             if offset is None:
                 if axis == "z":
-                    offset = h0 + 23
+                    offset = z_base  # ✅ Usa altura base elevada
                 else:
                     offset = 0.0
             
             value = offset + amp * ramp * sin(tau * hz * t)
             
-            pose = {"x": 0, "y": 0, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+            pose = {"x": 0, "y": 0, "z": z_base, "roll": 0, "pitch": 0, "yaw": 0}
             pose[axis] = value
             return pose
         
         elif routine == "circle_xy":
-            # Círculo no plano XY
+            # Círculo no plano XY (mantém Z na altura base elevada)
             ax = req.ax if req.ax is not None else 10.0
             ay = req.ay if req.ay is not None else 10.0
             phx = req.phx if req.phx is not None else 0.0
@@ -697,7 +698,7 @@ class MotionRunner:
             x = ax * ramp * cos(tau * hz * t + tau * phx / 360.0)
             y = ay * ramp * sin(tau * hz * t + tau * phx / 360.0)
             
-            return {"x": x, "y": y, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+            return {"x": x, "y": y, "z": z_base, "roll": 0, "pitch": 0, "yaw": 0}
         
         elif routine == "helix":
             # Movimento helicoidal (parafuso): círculo XY contínuo + movimento linear em Z
@@ -726,32 +727,33 @@ class MotionRunner:
                 # Gira no sentido negativo (anti-horário) = inverte o sinal do ângulo
                 angle = -tau * circle_phase + tau * phx / 360.0
             
-            # Círculo XY
+            # Círculo XY com oscilação em Z a partir da altura base elevada
             x = ax * ramp * cos(angle)
             y = ay * ramp * sin(angle)
-            z = h0 + z_offset * ramp
+            z = z_base + z_offset * ramp  # ✅ Oscila em torno da altura base elevada
             
             return {"x": x, "y": y, "z": z, "roll": 0, "pitch": 0, "yaw": 0}
         
         elif routine == "heave_pitch":
-            # Movimento combinado em z e pitch
+            # Movimento combinado em z e pitch a partir da altura base elevada
             amp_z = req.amp if req.amp is not None else 8.0  # mm
             amp_pitch = req.ay if req.ay is not None else 2.5  # graus
             
-            z = h0 + amp_z * ramp * sin(tau * hz * t)
+            z = z_base + amp_z * ramp * sin(tau * hz * t)  # ✅ Oscila em torno da altura base elevada
             pitch = amp_pitch * ramp * sin(tau * hz * t + tau * 0.25)  # +90° de fase
             
             return {"x": 0, "y": 0, "z": z, "roll": 0, "pitch": pitch, "yaw": 0}
         
         else:
-            # Fallback: parado
-            return {"x": 0, "y": 0, "z": h0, "roll": 0, "pitch": 0, "yaw": 0}
+            # Fallback: parado na altura base elevada
+            return {"x": 0, "y": 0, "z": z_base, "roll": 0, "pitch": 0, "yaw": 0}
     
     def _clamp_pose(self, pose: dict) -> dict:
         """Limita a pose para valores seguros.
            OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
         """
         h0 = self.platform.h0
+        z_base = h0 + self._home_bias_mm  # ✅ Altura base elevada (consistente)
         
         pose["x"] = float(np.clip(pose["x"], -50.0, 50.0))
         pose["y"] = float(np.clip(pose["y"], -50.0, 50.0))
@@ -759,9 +761,10 @@ class MotionRunner:
         # Z: usar limites dinâmicos calculados a partir da HOME quando disponíveis
         if self._z_limits_mm is not None:
             z_min, z_max = self._z_limits_mm
-            pose["z"] = float(np.clip(pose.get("z", h0), z_min, z_max))
+            pose["z"] = float(np.clip(pose.get("z", z_base), z_min, z_max))
         else:
-            pose["z"] = float(np.clip(pose.get("z", h0), h0 - 20.0, h0 + 64.0))
+            # Fallback: permite oscilação em torno da altura base elevada
+            pose["z"] = float(np.clip(pose.get("z", z_base), z_base - 20.0, z_base + 20.0))
 
         pose["roll"]  = float(np.clip(pose["roll"],  -10.0, 10.0))
         pose["pitch"] = float(np.clip(pose["pitch"], -10.0, 10.0))
