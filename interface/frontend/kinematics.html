@@ -1680,6 +1680,82 @@
 
         ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
 
+        // Cria eixos XYZ customizados com cilindros
+        const axisLength = 150;
+        const axisRadius = 5; // Raio dos cilindros (espessura)
+        
+        // Função helper para criar um eixo cilíndrico
+        const createAxisArrow = (color, direction) => {
+          const group = new THREE.Group();
+          
+          // Cilindro (corpo do eixo)
+          const geometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+          const material = new THREE.MeshPhongMaterial({ color: color });
+          const cylinder = new THREE.Mesh(geometry, material);
+          
+          // Cone (ponta da seta)
+          const coneGeometry = new THREE.ConeGeometry(axisRadius * 2, axisRadius * 6, 8);
+          const cone = new THREE.Mesh(coneGeometry, material);
+          
+          // Rotaciona e posiciona baseado na direção
+          if (direction === 'x') {
+            cylinder.rotation.z = -Math.PI / 2;
+            cylinder.position.x = axisLength / 2;
+            cone.rotation.z = -Math.PI / 2;
+            cone.position.x = axisLength + axisRadius * 3;
+          } else if (direction === 'y') {
+            // Y já está na vertical por padrão
+            cylinder.position.y = axisLength / 2;
+            cone.position.y = axisLength + axisRadius * 3;
+          } else if (direction === 'z') {
+            cylinder.rotation.x = Math.PI / 2;
+            cylinder.position.z = axisLength / 2;
+            cone.rotation.x = Math.PI / 2;
+            cone.position.z = axisLength + axisRadius * 3;
+          }
+          
+          group.add(cylinder);
+          group.add(cone);
+          return group;
+        };
+        
+        // Cria os 3 eixos (X=vermelho, Y=verde no Three.js, Z=azul no Three.js)
+        const axisX = createAxisArrow(0xff0000, 'x'); // Vermelho - X
+        const axisY = createAxisArrow(0x00ff00, 'y'); // Verde - Z da plataforma (altura)
+        const axisZ = createAxisArrow(0x0000ff, 'z'); // Azul - Y da plataforma (profundidade)
+        
+        const axesGroup = new THREE.Group();
+        axesGroup.add(axisX, axisY, axisZ);
+        axesGroup.position.set(cx, cy + 50, cz); // Elevado 50mm acima do centro da plataforma
+        platformGroup.add(axesGroup);
+        
+        // Adiciona labels nos eixos (maiores e mais visíveis)
+        const createAxisLabel = (text, color, position) => {
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = 256;
+          canvas.height = 128;
+          context.font = 'Bold 150px Arial';
+          context.fillStyle = color;
+          context.textAlign = 'center';
+          context.fillText(text, 128, 96);
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+          const sprite = new THREE.Sprite(spriteMaterial);
+          sprite.position.copy(position);
+          sprite.scale.set(60, 30, 30); // Labels maiores
+          return sprite;
+        };
+        
+
+        // Backend: X (lateral), Y (profundidade), Z (altura)
+        // Three.js: X (lateral), Z (profundidade), Y (altura)
+        // Elevados 50mm junto com os eixos
+        platformGroup.add(createAxisLabel('X', '#ff0000', new THREE.Vector3(cx + 190, cy + 50, cz))); // X = lateral (vermelho)
+        platformGroup.add(createAxisLabel('Z', '#00ff00', new THREE.Vector3(cx, cy + 50 + 190, cz))); // Z = altura (verde no Three.js Y)
+        platformGroup.add(createAxisLabel('Y', '#0000ff', new THREE.Vector3(cx, cy + 50, cz + 190))); // Y = profundidade (azul no Three.js Z)
+
         // 🔧 Conecta diretamente: base[i] -> platform[i]
         // O backend já retorna platform_points_live na ordem correta dos pistões
         ////console.log('📊 Conectando atuadores (base[i] -> platform[i]):');
