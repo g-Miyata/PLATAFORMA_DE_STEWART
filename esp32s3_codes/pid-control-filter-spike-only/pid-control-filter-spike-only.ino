@@ -19,8 +19,8 @@ uint8_t MIN_PWM = 0;                  // deixe 0 p/ identificação; depois pode
 // ================== CONTROLE EM mm (por pistão) ==================
 float Lmm[6]       = {250,250,250,250,250,250};  // curso útil (mm)
 float SP_mm[6]     = {10,10,10,10,10,10};        // setpoint em mm
-float Kp_mm[6] = {5.1478, 5.0000, 5.2552, 5.0969, 5.4362, 5.1724};
-float Ki_mm[6] = {0.8226, 0.4000, 0.6391, 1.5752, 1.3039, 0.8593};
+float Kp_mm[6] = {5.1478, 5.2, 5.2552, 5.0969, 5.4362, 5.1724};
+float Ki_mm[6] = {0.8226, 0.7, 1.124, 0.8, 0.8, 0.8593};
 float Kd_mm[6]     = {0,0,0,0,0,0};              // derivativo sobre a medição
 float integ[6]     = {0,0,0,0,0,0};
 float last_y_mm[6] = {0,0,0,0,0,0};              // memória p/ derivada
