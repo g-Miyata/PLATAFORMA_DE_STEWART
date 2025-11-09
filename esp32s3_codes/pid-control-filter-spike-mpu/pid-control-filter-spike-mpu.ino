@@ -279,6 +279,39 @@ void loop() {
         float v = cmd.substring(5).toFloat();
         apply_setpoint_all(v);
 
+      } else if (cmd.startsWith("spmm6x=")) {
+        // Comando para enviar 6 setpoints de uma vez: spmm6x=v1,v2,v3,v4,v5,v6
+        String values = cmd.substring(7);
+        int commaPos[5];
+        int count = 0;
+        
+        // Encontrar posições das vírgulas
+        for (int i = 0; i < values.length() && count < 5; i++) {
+          if (values.charAt(i) == ',') {
+            commaPos[count++] = i;
+          }
+        }
+        
+        if (count == 5) {
+          // Extrair os 6 valores
+          float sp_values[6];
+          sp_values[0] = values.substring(0, commaPos[0]).toFloat();
+          sp_values[1] = values.substring(commaPos[0] + 1, commaPos[1]).toFloat();
+          sp_values[2] = values.substring(commaPos[1] + 1, commaPos[2]).toFloat();
+          sp_values[3] = values.substring(commaPos[2] + 1, commaPos[3]).toFloat();
+          sp_values[4] = values.substring(commaPos[3] + 1, commaPos[4]).toFloat();
+          sp_values[5] = values.substring(commaPos[4] + 1).toFloat();
+          
+          // Aplicar e clampar todos os valores
+          for (int i = 0; i < 6; i++) {
+            SP_mm[i] = clampf(sp_values[i], 0.0f, Lmm[i]);
+          }
+          
+          Serial.println("OK spmm6x aplicado");
+        } else {
+          Serial.println("ERR spmm6x formato: spmm6x=v1,v2,v3,v4,v5,v6");
+        }
+
       } else if (cmd.startsWith("spmm1=") || cmd.startsWith("spmm2=") || cmd.startsWith("spmm3=") ||
                  cmd.startsWith("spmm4=") || cmd.startsWith("spmm5=") || cmd.startsWith("spmm6=")) {
         int idx = cmd.charAt(4) - '1';
