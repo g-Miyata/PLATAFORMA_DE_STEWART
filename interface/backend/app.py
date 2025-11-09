@@ -209,7 +209,7 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform(h0=500, stroke_min=498, stroke_max=680)  # 182mm de curso útil
+platform = StewartPlatform(h0=432, stroke_min=500, stroke_max=680)  # 182mm de curso útil
 
 # -------------------- WS Manager --------------------
 class WSManager:
@@ -608,11 +608,10 @@ class MotionRunner:
                 stroke_range = self.platform.stroke_max - self.platform.stroke_min
                 course_mm = np.clip(course_mm, 0.0, stroke_range)
                 
-                # Enviar setpoints via serial
+                # Enviar setpoints via serial (todos de uma vez)
                 try:
-                    for i in range(6):
-                        self.serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
-                        time.sleep(0.0015)  # 1.5 ms entre comandos
+                    cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+                    self.serial_mgr.write_line(cmd)
                 except Exception as e:
                     print(f"❌ Erro ao enviar comando serial: {e}")
                     break
@@ -809,9 +808,9 @@ class MotionRunner:
             course_mm = np.clip(course_mm, 0.0, stroke_range)
             
             try:
-                for j in range(6):
-                    self.serial_mgr.write_line(f"spmm{j+1}={course_mm[j]:.3f}")
-                    time.sleep(0.0015)
+                # Enviar todos os 6 setpoints de uma vez
+                cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+                self.serial_mgr.write_line(cmd)
             except Exception:
                 pass
             
@@ -1191,19 +1190,25 @@ def calculate_position(pose: PoseInput):
 
 @app.post("/apply_pose")
 def apply_pose(req: ApplyPoseRequest):
+    print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
     z_value = req.z if req.z is not None else platform.h0
     L, valid, _ = platform.inverse_kinematics(
         x=req.x, y=req.y, z=z_value,
         roll=req.roll, pitch=req.pitch, yaw=req.yaw
     )
     if not valid:
+        print("❌ Pose inválida")
         return {"applied": False, "valid": False, "message": "Pose inválida."}
     course_mm = platform.lengths_to_stroke_mm(L)
+    print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
-        for i in range(6):
-            serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
-            time.sleep(0.002)
+        # Enviar todos os 6 setpoints de uma vez
+        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+        print(f"📤 Enviando comando: {cmd}")
+        serial_mgr.write_line(cmd)
+        print("✅ Comando enviado com sucesso")
     except Exception as e:
+        print(f"❌ Erro ao enviar comando: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
 
@@ -1245,11 +1250,10 @@ def mpu_control(req: MPUControlRequest):
     
     course_mm = platform.lengths_to_stroke_mm(L)
     
-    # OTIMIZAÇÃO: Envia comandos de forma rápida (batch)
+    # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
-        for i in range(6):
-            serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
-            time.sleep(0.001)  # Delay mínimo entre comandos
+        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+        serial_mgr.write_line(cmd)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     
