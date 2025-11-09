@@ -759,6 +759,7 @@
       }
 
       function initChart() {
+        console.log('🎨 Inicializando gráfico...');
         const ctx = document.getElementById("telemetry-chart").getContext("2d");
 
         const datasets = [];
@@ -852,9 +853,12 @@
             },
           },
         });
+        
+        console.log('✅ Gráfico Chart.js criado:', telemetryChart);
       }
 
       function startChart() {
+        console.log('🎬 startChart chamado');
         chartRecording = true;
         chartData = [];
         clearTelemetryDB();
@@ -941,7 +945,14 @@
       }
 
       function updateChart(telemetryData) {
-        if (!chartRecording || !telemetryChart || !telemetryData.Y) return;
+        console.log('🎯 updateChart chamado. chartRecording:', chartRecording, 'telemetryChart:', !!telemetryChart, 'data.Y:', telemetryData.Y);
+        
+        if (!chartRecording || !telemetryChart || !telemetryData.Y) {
+          console.warn('⚠️ updateChart abortado:', {chartRecording, hasTelemetryChart: !!telemetryChart, hasY: !!telemetryData.Y});
+          return;
+        }
+
+        console.log('✅ updateChart prosseguindo...');
 
         const now = Date.now();
         const timeLabel = (
@@ -1223,11 +1234,11 @@
 
       function handleTelemetry(data) {
         // 🐛 DEBUG: Log de todas as mensagens recebidas
-        //console.log('📡 WebSocket recebeu:', data);
+        console.log('📡 WebSocket recebeu:', data);
 
         if (data.type === "raw") {
           logConsole(data.raw, "rx");
-        } else if (data.type === "telemetry" && data.Y) {
+        } else if ((data.type === "telemetry" || data.type === "telemetry_mpu") && data.Y) {
           // Atualiza telemetria (backend envia sp_mm, não SP)
           document.getElementById("telem-sp").textContent =
             data.sp_mm?.toFixed(2) || "--";
@@ -1237,9 +1248,9 @@
             document.getElementById(`telem-pwm${i + 1}`).textContent =
               data.PWM[i]?.toFixed(0) || "--";
           }
-          //console.log('✅ Telemetria atualizada na UI');
+          console.log('✅ Telemetria atualizada na UI, chamando updateChart...');
 
-          // Atualiza gráfico se estiver gravando
+          // ✅ CORREÇÃO: Atualizar gráfico
           updateChart(data);
         }
       }
