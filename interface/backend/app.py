@@ -333,62 +333,81 @@ class SerialManager:
         
         parts = text.split(CSV_DELIM)
         
-        # Verifica se tem formato de telemetria: 14 campos (ms;SP;Y1-Y6;PWM1-PWM6)
+        # OTIMIZAÇÃO: Detectar formato automaticamente
+        # Formato ANTIGO: 14 campos (ms;SP;Y1-Y6;PWM1-PWM6)
+        # Formato MPU-6050: 17 campos (ms;SP;Y1-Y6;PWM1-PWM6;Roll;Pitch;Yaw)
+        
         if len(parts) < 14:
             print(f"   ⚠️ Linha NÃO é telemetria (tem {len(parts)} campos, esperado 14+)")
             # Broadcast raw mínimo
             self.latest = {"raw": text, "ts": now}
-            self.loop.call_soon_threadsafe(asyncio.create_task, ws_mgr.broadcast_json({
-                "type": "raw",
-                "ts": now,
-                "raw": text,
-            }))
+            if self.loop:
+                asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json({
+                    "type": "raw",
+                    "ts": now,
+                    "raw": text,
+                }), self.loop)
             return
 
         try:
-            # Formato: ms_esp;SP;Y1;Y2;Y3;Y4;Y5;Y6;PWM1;PWM2;PWM3;PWM4;PWM5;PWM6
-            # Índices:  0      1   2  3  4  5  6  7   8    9    10   11   12   13
+            # Campos comuns a ambos os formatos
             ms_esp = float(parts[0].replace(",", "."))  # Tempo do ESP (ignorado)
             sp = float(parts[1].replace(",", "."))
             Y = [float(parts[2+i].replace(",", ".")) for i in range(6)]
             PWM = [int(float(parts[8+i].replace(",", "."))) for i in range(6)]
 
+            # OTIMIZAÇÃO: Detectar se tem dados do MPU-6050 (Roll, Pitch, Yaw)
+            has_mpu = len(parts) >= 17
+            mpu_data = None
+            
+            if has_mpu:
+                try:
+                    roll = float(parts[14].replace(",", "."))
+                    pitch = float(parts[15].replace(",", "."))
+                    yaw = float(parts[16].replace(",", "."))
+                    mpu_data = {"roll": roll, "pitch": pitch, "yaw": yaw}
+                    print(f"   🎯 MPU-6050: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
+                except Exception as e:
+                    print(f"   ⚠️ Erro ao parsear MPU-6050: {e}")
+                    has_mpu = False
+
             print(f"   ✅ Telemetria: SP={sp:.2f}mm, Y={[f'{y:.1f}' for y in Y]}, PWM={PWM}")
 
             self.latest = {
-                "ts": now, "sp_mm": sp, "Y": Y, "PWM": PWM, "raw": text, "format": "new"
+                "ts": now, 
+                "sp_mm": sp, 
+                "Y": Y, 
+                "PWM": PWM, 
+                "mpu": mpu_data,
+                "raw": text, 
+                "format": "mpu6050" if has_mpu else "standard"
             }
 
             # Reconstrução de pose a partir de Y (curso -> L abs)
             L_abs = platform.stroke_min + np.array(Y, dtype=float)
-            print(f"   🔧 L_abs calculado: {L_abs}")
             pose_live, P_live = platform.estimate_pose_from_lengths(
                 L_abs, x0=self._last_pose_guess
             )
             if pose_live is not None:
-                print(f"   ✅ Forward kinematics OK: pose={pose_live}")
                 self._last_pose_guess = np.array([
                     pose_live["x"], pose_live["y"], pose_live["z"],
                     pose_live["roll"], pose_live["pitch"], pose_live["yaw"]
                 ], dtype=float)
-            else:
-                print(f"   ❌ Forward kinematics FALHOU! estimate_pose_from_lengths retornou None")
 
             payload = {
-                "type": "telemetry",
+                "type": "telemetry_mpu" if has_mpu else "telemetry",
                 "ts": now,
                 "sp_mm": sp,
                 "Y": Y,
                 "PWM": PWM,
+                "mpu": mpu_data,  # Dados do acelerômetro (ou None)
                 "actuator_lengths_abs": L_abs.tolist(),
                 "pose_live": pose_live,  # dict ou None
                 "platform_points_live": P_live.tolist() if P_live is not None else None,
                 "base_points": platform.B.tolist(),
             }
-            print(f"   📤 Enviando via broadcast...")
-            if self.loop is None:
-                print(f"   ⚠️ Event loop ainda não configurado!")
-            else:
+            
+            if self.loop:
                 asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(payload), self.loop)
 
         except Exception as e:
@@ -407,10 +426,10 @@ serial_mgr = SerialManager()
 # Cache dos últimos ganhos enviados (já que o ESP32 não tem comando para ler)
 pid_gains_cache = {
     1: {"kp": 5.1478, "ki": 0.8226, "kd": 0.0},
-    2: {"kp": 5.0, "ki": 0.4, "kd": 0.0},
+    2: {"kp": 5.2, "ki": 0.7, "kd": 0.0},
     3: {"kp": 5.2552, "ki": 0.6391, "kd": 0.0},
-    4: {"kp": 5.0969, "ki": 1.5752, "kd": 0.0},
-    5: {"kp": 5.4362, "ki": 1.3039, "kd": 0.0},
+    4: {"kp": 5.0969, "ki": 0.8, "kd": 0.0},
+    5: {"kp": 5.4362, "ki": 1.124, "kd": 0.0},
     6: {"kp": 5.1724, "ki": 0.8593, "kd": 0.0},
 }
 pid_settings_cache = {
@@ -1187,6 +1206,63 @@ def apply_pose(req: ApplyPoseRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
+
+# OTIMIZAÇÃO: Endpoint para controle via MPU-6050 (acelerômetro)
+class MPUControlRequest(BaseModel):
+    roll: float = Field(0, description="Roll em graus do acelerômetro")
+    pitch: float = Field(0, description="Pitch em graus do acelerômetro")
+    yaw: float = Field(0, description="Yaw em graus do acelerômetro")
+    x: float = Field(0, description="Translação X (mm)")
+    y: float = Field(0, description="Translação Y (mm)")
+    z: Optional[float] = Field(None, description="Altura Z (mm), default=h0")
+    scale: float = Field(1.0, description="Fator de escala para os ângulos (0.0-1.0)")
+
+@app.post("/mpu/control")
+def mpu_control(req: MPUControlRequest):
+    """
+    OTIMIZAÇÃO: Aplica controle da plataforma baseado em dados do MPU-6050.
+    Calcula cinemática inversa e envia setpoints para os atuadores.
+    """
+    # Aplica escala aos ângulos (para suavizar movimento se necessário)
+    roll_scaled = req.roll * req.scale
+    pitch_scaled = req.pitch * req.scale
+    yaw_scaled = req.yaw * req.scale
+    
+    z_value = req.z if req.z is not None else platform.h0
+    
+    # Calcula cinemática inversa
+    L, valid, _ = platform.inverse_kinematics(
+        x=req.x, y=req.y, z=z_value,
+        roll=roll_scaled, pitch=pitch_scaled, yaw=yaw_scaled
+    )
+    
+    if not valid:
+        return {
+            "applied": False, 
+            "valid": False, 
+            "message": "Pose inválida (fora dos limites da plataforma)"
+        }
+    
+    course_mm = platform.lengths_to_stroke_mm(L)
+    
+    # OTIMIZAÇÃO: Envia comandos de forma rápida (batch)
+    try:
+        for i in range(6):
+            serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
+            time.sleep(0.001)  # Delay mínimo entre comandos
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
+    
+    return {
+        "applied": True, 
+        "valid": True,
+        "setpoints_mm": course_mm.tolist(),
+        "pose": {
+            "x": req.x, "y": req.y, "z": z_value,
+            "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
+        },
+        "lengths_abs": L.tolist()
+    }
 
 # -------------------- WebSocket --------------------
 @app.websocket("/ws/telemetry")
