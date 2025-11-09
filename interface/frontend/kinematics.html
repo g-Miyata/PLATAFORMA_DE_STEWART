@@ -8,10 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- Chart.js para gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <link
       rel="stylesheet"
       type="text/css"
@@ -305,54 +301,6 @@
         font-size: 1.1em;
         font-weight: 700;
         color: #10b981;
-      }
-      /* Motion Routines Styles */
-      .motion-preset-card {
-        background: #1f2937;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #374151;
-        transition: all 0.3s ease;
-        cursor: pointer;
-      }
-      .motion-preset-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        border-color: #4b5563;
-      }
-      .motion-preset-card.active {
-        border-color: #10b981;
-        background: linear-gradient(135deg, #1f2937 0%, #065f46 100%);
-      }
-      .motion-param-input {
-        background: #374151;
-        border: 1px solid #4b5563;
-        border-radius: 6px;
-        padding: 6px 10px;
-        color: #f3f4f6;
-        width: 100%;
-        font-size: 0.875em;
-      }
-      .motion-param-input:focus {
-        outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
-      }
-      .motion-status-running {
-        background: #10b981;
-        animation: pulse-motion 2s infinite;
-      }
-      .motion-status-stopped {
-        background: #6b7280;
-      }
-      @keyframes pulse-motion {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
       }
       @media (max-width: 1024px) {
         .main-content {
@@ -770,841 +718,20 @@
           </div>
         </div>
       </div>
-
-      <!-- === Motion Routines === -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-white">
-            🎬 Rotinas de Movimento
-          </h2>
-          <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2">
-              <span
-                class="w-3 h-3 rounded-full motion-status-stopped"
-                id="motion-status-dot"
-              ></span>
-              <span id="motion-status-text" class="text-sm text-gray-400"
-                >Parado</span
-              >
-            </div>
-            <span id="motion-elapsed" class="text-lg font-mono text-green-400"
-              >00:00</span
-            >
-            <button
-              id="btn-motion-stop"
-              class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled
-            >
-              ⏹️ Parar
-            </button>
-            <button
-              id="btn-toggle-motion-chart"
-              onclick="toggleMotionChart()"
-              class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm"
-            >
-              📊 Mostrar Gráfico
-            </button>
-          </div>
-        </div>
-
-        <!-- Seção dos Gráficos de Movimento (inicialmente oculta) -->
-        <div
-          id="motion-chart-section"
-          class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-6 border border-gray-700 hidden"
-        >
-          <div
-            class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3"
-          >
-            <h2 class="text-lg sm:text-xl font-semibold text-white">
-              📈 Trajetórias do Movimento em Tempo Real
-            </h2>
-            <div class="flex flex-wrap gap-2">
-              <button
-                id="btn-start-motion-chart"
-                onclick="startMotionChart()"
-                class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm"
-              >
-                ▶️ Iniciar Gravação
-              </button>
-              <button
-                id="btn-stop-motion-chart"
-                onclick="stopMotionChart()"
-                class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden"
-              >
-                ⏸ Pausar Gravação
-              </button>
-              <button
-                id="btn-clear-motion-chart"
-                onclick="clearMotionChart()"
-                class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm"
-              >
-                �️ Limpar Gráficos
-              </button>
-              <button
-                id="btn-export-motion-csv"
-                onclick="exportMotionToCSV()"
-                class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm"
-              >
-                � Exportar CSV
-              </button>
-            </div>
-          </div>
-
-          <!-- Gráfico 1: Setpoints Comandados (CMD) -->
-          <div class="mb-6">
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold text-gray-300">
-                📤 Trajetórias Comandadas (Setpoints)
-              </h3>
-              <button
-                onclick="resetMotionChartZoom('cmd')"
-                class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-              >
-                � Reset Zoom
-              </button>
-            </div>
-            <div
-              class="bg-gray-900 rounded-lg p-2 sm:p-4"
-              style="height: 320px"
-            >
-              <canvas id="motion-chart-cmd"></canvas>
-            </div>
-            <div class="mt-2">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-gray-400"
-                  >Pistões Visíveis:</span
-                >
-                <div class="flex gap-1">
-                  <button
-                    onclick="toggleAllMotionPistons('cmd', true)"
-                    class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-                  >
-                    Todos
-                  </button>
-                  <button
-                    onclick="toggleAllMotionPistons('cmd', false)"
-                    class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-                  >
-                    Nenhum
-                  </button>
-                </div>
-              </div>
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs"
-              >
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-1"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 1)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(59, 130, 246, 1)"
-                  ></div>
-                  <span class="text-gray-300">P1</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-2"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 2)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(168, 85, 247, 1)"
-                  ></div>
-                  <span class="text-gray-300">P2</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-3"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 3)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(236, 72, 153, 1)"
-                  ></div>
-                  <span class="text-gray-300">P3</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-4"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 4)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(249, 115, 22, 1)"
-                  ></div>
-                  <span class="text-gray-300">P4</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-5"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 5)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(20, 184, 166, 1)"
-                  ></div>
-                  <span class="text-gray-300">P5</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-cmd-piston-6"
-                    checked
-                    onchange="toggleMotionPistonVisibility('cmd', 6)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(99, 102, 241, 1)"
-                  ></div>
-                  <span class="text-gray-300">P6</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <!-- Gráfico 2: Posições Reais (Real) -->
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold text-gray-300">
-                📥 Trajetórias Reais (Feedback dos Atuadores)
-              </h3>
-              <button
-                onclick="resetMotionChartZoom('real')"
-                class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
-              >
-                🔍 Reset Zoom
-              </button>
-            </div>
-            <div
-              class="bg-gray-900 rounded-lg p-2 sm:p-4"
-              style="height: 320px"
-            >
-              <canvas id="motion-chart-real"></canvas>
-            </div>
-            <div class="mt-2">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-semibold text-gray-400"
-                  >Pistões Visíveis:</span
-                >
-                <div class="flex gap-1">
-                  <button
-                    onclick="toggleAllMotionPistons('real', true)"
-                    class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-                  >
-                    Todos
-                  </button>
-                  <button
-                    onclick="toggleAllMotionPistons('real', false)"
-                    class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded"
-                  >
-                    Nenhum
-                  </button>
-                </div>
-              </div>
-              <div
-                class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs"
-              >
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-1"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 1)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(59, 130, 246, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P1</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-2"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 2)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(168, 85, 247, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P2</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-3"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 3)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(236, 72, 153, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P3</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-4"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 4)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(249, 115, 22, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P4</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-5"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 5)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(20, 184, 166, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P5</span>
-                </label>
-                <label
-                  class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    id="motion-real-piston-6"
-                    checked
-                    onchange="toggleMotionPistonVisibility('real', 6)"
-                    class="w-3 h-3"
-                  />
-                  <div
-                    class="w-2 h-2 rounded-full"
-                    style="background: rgba(99, 102, 241, 0.8)"
-                  ></div>
-                  <span class="text-gray-300">P6</span>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div class="mt-3 text-xs text-gray-400 text-center">
-            💡 Dica: Use a roda do mouse para zoom, arraste para pan, ou clique
-            duplo para resetar cada gráfico
-          </div>
-          <div
-            id="motion-chart-status"
-            class="mt-2 text-sm text-gray-400 text-center"
-          >
-            Pronto para iniciar gravação
-          </div>
-        </div>
-
-        <!-- Grid de Presets -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <!-- Preset: Seno Z -->
-          <div class="motion-preset-card" data-preset="sine_z">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-blue-400">🔵 Seno Z</h3>
-              <span class="text-2xl">📊</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">
-              Movimento vertical senoidal
-            </p>
-            <div class="space-y-2 mb-3">
-              <div>
-                <label class="text-xs text-gray-400">Amplitude (mm)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="amp"
-                  value="10"
-                  min="10"
-                  max="40"
-                  step="0.5"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="hz"
-                  value="0.5"
-                  min="0.1"
-                  max="1.5"
-                  step="0.05"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="45"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-
-          <!-- Preset: Círculo XY -->
-          <div class="motion-preset-card" data-preset="circle_xy">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-purple-400">🟣 Círculo XY</h3>
-              <span class="text-2xl">⭕</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">
-              Movimento circular horizontal
-            </p>
-            <div class="space-y-2 mb-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Raio X (mm)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="ax"
-                    value="20"
-                    min="10"
-                    max="40"
-                    step="1"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Raio Y (mm)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="ay"
-                    value="20"
-                    min="10"
-                    max="40"
-                    step="1"
-                  />
-                </div>
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="hz"
-                  value="0.75"
-                  min="0.2"
-                  max="1.5"
-                  step="0.05"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="60"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-
-          <!-- Preset: Heave-Pitch -->
-          <div class="motion-preset-card" data-preset="heave_pitch">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-orange-400">
-                🟠 Heave-Pitch
-              </h3>
-              <span class="text-2xl">🌊</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">Simulação de onda marítima</p>
-            <div class="space-y-2 mb-3">
-              <div>
-                <label class="text-xs text-gray-400">Amplitude Z (mm)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="amp"
-                  value="20"
-                  min="10"
-                  max="25"
-                  step="0.5"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Amplitude Pitch (°)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="ay"
-                  value="3.5"
-                  min="1.5"
-                  max="3.5"
-                  step="0.5"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="hz"
-                  value="0.8"
-                  min="0.3"
-                  max="0.8"
-                  step="0.05"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="40"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-
-          <!-- Preset: Seno Pitch -->
-          <div class="motion-preset-card" data-preset="sine_pitch">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-teal-400">🔷 Seno Pitch</h3>
-              <span class="text-2xl">↕️</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">Balanço frontal angular</p>
-            <div class="space-y-2 mb-3">
-              <div>
-                <label class="text-xs text-gray-400">Amplitude (°)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="amp"
-                  value="5"
-                  min="0.5"
-                  max="5"
-                  step="0.5"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="hz"
-                  value="0.8"
-                  min="0.1"
-                  max="0.8"
-                  step="0.05"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="30"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-
-          <!-- Preset: Seno Roll -->
-          <div class="motion-preset-card" data-preset="sine_roll">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-indigo-400">🔶 Seno Roll</h3>
-              <span class="text-2xl">↔️</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">Balanço lateral angular</p>
-            <div class="space-y-2 mb-3">
-              <div>
-                <label class="text-xs text-gray-400">Amplitude (°)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="amp"
-                  value="5"
-                  min="0.2"
-                  max="5"
-                  step="0.5"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Frequência (Hz)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="hz"
-                  value="0.8"
-                  min="0.2"
-                  max="0.8"
-                  step="0.05"
-                />
-              </div>
-              <div>
-                <label class="text-xs text-gray-400">Duração (s)</label>
-                <input
-                  type="number"
-                  class="motion-param-input"
-                  data-param="duration_s"
-                  value="30"
-                  min="5"
-                  max="300"
-                  step="5"
-                />
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-
-          <!-- Preset: Helix (Parafuso) -->
-          <div class="motion-preset-card" data-preset="helix">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-base font-bold text-pink-400">🔩 Helix</h3>
-              <span class="text-2xl">🌀</span>
-            </div>
-            <p class="text-gray-400 text-xs mb-3">
-              Parafuso: sobe girando, desce voltando
-            </p>
-            <div class="space-y-2 mb-3">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Raio X</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="ax"
-                    value="10"
-                    min="10"
-                    max="40"
-                    step="1"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Raio Y</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="ay"
-                    value="10"
-                    min="10"
-                    max="40"
-                    step="1"
-                  />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Amp Z (mm)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="z_amp_mm"
-                    value="10"
-                    min="10"
-                    max="40"
-                    step="0.5"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Ciclos Z</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="z_cycles"
-                    value="1"
-                    min="0.2"
-                    max="1"
-                    step="0.5"
-                  />
-                </div>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="text-xs text-gray-400">Freq (Hz)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="hz"
-                    value="0.2"
-                    min="0.1"
-                    max="1.5"
-                    step="0.05"
-                  />
-                </div>
-                <div>
-                  <label class="text-xs text-gray-400">Duração (s)</label>
-                  <input
-                    type="number"
-                    class="motion-param-input"
-                    data-param="duration_s"
-                    value="60"
-                    min="5"
-                    max="300"
-                    step="5"
-                  />
-                </div>
-              </div>
-            </div>
-            <button
-              class="btn-start-motion w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg font-semibold text-sm transition"
-            >
-              ▶️ Iniciar
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <script>
-      /*
-       * ========== OTIMIZAÇÕES DE PERFORMANCE IMPLEMENTADAS ==========
-       *
-       * TAREFA 1: Throttle no WebSocket (~30 FPS)
-       *   - Variáveis: lastWSUpdate, WS_UPDATE_INTERVAL, lastWSMessage
-       *   - Implementação: ws.onmessage com performance.now()
-       *   - Benefício: Reduz processamento de ~60 FPS para ~30 FPS
-       *
-       * TAREFA 2: Cache de Objetos 3D - DESABILITADO
-       *   - Status: Removido por causar bugs de visualização
-       *   - Método atual: clear() + recreate (simples e funcional)
-       *   - Benefício: Estabilidade visual sem desmontagem da plataforma
-       *
-       * TAREFA 3: Batch Writes no IndexedDB
-       *   - Variáveis: dbWriteBuffer, dbWriteTimer, DB_BATCH_SIZE, DB_BATCH_INTERVAL
-       *   - Implementação: flushDBWriteBuffer() com Promise.all()
-       *   - Benefício: Reduz writes de ~60/s para ~6/s (batches de 10)
-       *
-       * TAREFA 4: Janela Deslizante Otimizada
-       *   - Método: findIndex() + slice() ao invés de shift() em loop
-       *   - Decimação: MAX_VISIBLE_POINTS com step inteligente
-       *   - Benefício: Complexidade O(n) ao invés de O(n²)
-       *
-       * TAREFA 5: Debounce em Atualizações 3D
-       *   - Variáveis: last3DData, update3DPending
-       *   - Implementação: requestAnimationFrame() em applyLiveTelemetry()
-       *   - Benefício: Agrupa updates no mesmo frame, max 60 FPS
-       *
-       * TAREFA 6: Redução de Configurações
-       *   - CHART_WINDOW_SECONDS: 60s → 30s
-       *   - MAX_VISIBLE_POINTS: 1000 → 500 por gráfico
-       *   - Benefício: Menos dados para renderizar
-       *
-       * TAREFA 7: Monitor de Performance
-       *   - Função: monitorPerformance() com requestAnimationFrame
-       *   - Avisos: FPS < 20 com sugestões de ajustes
-       *   - Benefício: Visibilidade de problemas de performance
-       *
-       * TAREFA 8: Chart.js Otimizado
-       *   - animation: false (sem animações)
-       *   - parsing: false (dados pré-formatados)
-       *   - normalized: true (coordenadas otimizadas)
-       *   - update("none") (sem re-renderização intermediária)
-       *   - Benefício: Renderização mais rápida dos gráficos
-       *
-       * MÉTRICAS ESPERADAS:
-       *   - FPS: 50-60 (antes: 15-20)
-       *   - CPU: 30-50% (antes: 80-100%)
-       *   - Updates/s: 30 (antes: ilimitado)
-       *   - DB writes/s: ~6 batches (antes: ~100 individuais)
-       */
-
       const API_BASE = "http://localhost:8001";
       const WS_URL = "ws://localhost:8001/ws/telemetry";
       let currentPlatformData = null;
       window.__threeScenes = {};
 
-      // OTIMIZAÇÃO: Constantes globais para throttle do WebSocket
-      const WS_UPDATE_INTERVAL = 33; // ~30 FPS máximo
+      // Throttle WebSocket (~30 FPS)
+      const WS_UPDATE_INTERVAL = 33;
       let lastWSUpdate = 0;
       let lastWSMessage = null;
 
-      // ========== Toast Helper ==========
+      // Toast helper
       function showToast(message, type = "info") {
         const backgrounds = {
           success: "linear-gradient(to right, #10b981, #059669)",
@@ -1627,29 +754,6 @@
           },
         }).showToast();
       }
-
-      // ========== Variáveis do Gráfico de Movimento ==========
-      let motionChartCmd = null; // Gráfico de comandos (setpoints)
-      let motionChartReal = null; // Gráfico de posições reais
-      let motionChartVisible = false;
-      let motionDB = null;
-      const MOTION_DB_NAME = "MotionTrajectoryDB";
-      const MOTION_DB_VERSION = 1;
-      const MOTION_STORE_NAME = "motion_data";
-
-      // Configuração da janela de visualização (mais ampla que actuators.html)
-      const CHART_WINDOW_SECONDS = 30; // OTIMIZAÇÃO: Reduzido de 60 para 30 segundos
-      const MAX_VISIBLE_POINTS = 500; // OTIMIZAÇÃO: Reduzido de 1000 para 500 pontos por gráfico
-      let maxDataPoints = MAX_VISIBLE_POINTS;
-      let motionStartTimestamp = null; // Timestamp do primeiro dado
-      let chartRecording = false; // Controla se está gravando ou não
-      let motionChartData = []; // Dados em memória
-
-      // OTIMIZAÇÃO: Variáveis para batch writes no IndexedDB
-      let dbWriteBuffer = [];
-      let dbWriteTimer = null;
-      const DB_BATCH_SIZE = 10; // Acumula 10 registros antes de gravar
-      const DB_BATCH_INTERVAL = 500; // Ou grava após 500ms
 
       function setupInputSync() {
         const inputs = ["x-pos", "y-pos", "z-pos", "roll", "pitch", "yaw"];
@@ -1685,14 +789,12 @@
         };
       }
 
-      // Atualiza medidas dos pistões do Preview (calculado manualmente)
       function updatePreviewMeasures(actuators) {
         (actuators || []).forEach((a, index) => {
           const el = document.getElementById(`preview-piston-${index + 1}`);
           const card = el?.parentElement;
           if (el && card) {
             el.textContent = Number(a.length).toFixed(1) + " mm";
-            // Aplica estilo válido ou inválido
             if (a.valid) {
               card.style.borderColor = "#10b981";
               card.style.backgroundColor = "#1f2937";
@@ -1706,21 +808,12 @@
         });
       }
 
-      // Atualiza medidas dos pistões do Live (WebSocket real-time)
       function updateLiveMeasures(actuators) {
-        // Capturar os valores reais para usar no gráfico
-        if (actuators && actuators.length >= 6) {
-          window.lastActuatorsReal = actuators.map(
-            (a) => Number(a.length) || 0
-          );
-        }
-
         (actuators || []).forEach((a, index) => {
           const el = document.getElementById(`live-piston-${index + 1}`);
           const card = el?.parentElement;
           if (el && card) {
             el.textContent = Number(a.length).toFixed(1) + " mm";
-            // Aplica estilo válido ou inválido
             if (a.valid) {
               card.style.borderColor = "#10b981";
               card.style.backgroundColor = "#1f2937";
@@ -1868,14 +961,13 @@
       }
 
       let update3DPending = false;
+      let last3DData = null;
 
       function draw3DPlatform(containerId, data) {
         const ctx = window.__threeScenes[containerId];
         if (!ctx) return;
-        const { scene, controls, baseGroup, platformGroup, actuatorGroup } =
-          ctx;
+        const { baseGroup, platformGroup, actuatorGroup } = ctx;
 
-        // Limpar grupos existentes e recriar do zero (método simples que funciona)
         baseGroup.clear();
         platformGroup.clear();
         actuatorGroup.clear();
@@ -1970,25 +1062,20 @@
 
         ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
 
-        // Cria eixos XYZ customizados com cilindros
+        // Eixos XYZ na plataforma
         const axisLength = 150;
-        const axisRadius = 5; // Raio dos cilindros (espessura)
+        const axisRadius = 5;
 
-        // Função helper para criar um eixo cilíndrico
         const createAxisArrow = (color, direction) => {
           const group = new THREE.Group();
-
-          // Cilindro (corpo do eixo)
           const geometry = new THREE.CylinderGeometry(
             axisRadius,
             axisRadius,
             axisLength,
             8
           );
-          const material = new THREE.MeshPhongMaterial({ color: color });
+          const material = new THREE.MeshPhongMaterial({ color });
           const cylinder = new THREE.Mesh(geometry, material);
-
-          // Cone (ponta da seta)
           const coneGeometry = new THREE.ConeGeometry(
             axisRadius * 2,
             axisRadius * 6,
@@ -1996,14 +1083,12 @@
           );
           const cone = new THREE.Mesh(coneGeometry, material);
 
-          // Rotaciona e posiciona baseado na direção
           if (direction === "x") {
             cylinder.rotation.z = -Math.PI / 2;
             cylinder.position.x = axisLength / 2;
             cone.rotation.z = -Math.PI / 2;
             cone.position.x = axisLength + axisRadius * 3;
           } else if (direction === "y") {
-            // Y já está na vertical por padrão
             cylinder.position.y = axisLength / 2;
             cone.position.y = axisLength + axisRadius * 3;
           } else if (direction === "z") {
@@ -2018,17 +1103,15 @@
           return group;
         };
 
-        // Cria os 3 eixos (X=vermelho, Y=verde no Three.js, Z=azul no Three.js)
-        const axisX = createAxisArrow(0xff0000, "x"); // Vermelho - X
-        const axisY = createAxisArrow(0x00ff00, "y"); // Verde - Z da plataforma (altura)
-        const axisZ = createAxisArrow(0x0000ff, "z"); // Azul - Y da plataforma (profundidade)
+        const axisX = createAxisArrow(0xff0000, "x");
+        const axisY = createAxisArrow(0x00ff00, "y");
+        const axisZ = createAxisArrow(0x0000ff, "z");
 
         const axesGroup = new THREE.Group();
         axesGroup.add(axisX, axisY, axisZ);
-        axesGroup.position.set(cx, cy + 50, cz); // Elevado 50mm acima do centro da plataforma
+        axesGroup.position.set(cx, cy + 50, cz);
         platformGroup.add(axesGroup);
 
-        // Adiciona labels nos eixos (maiores e mais visíveis)
         const createAxisLabel = (text, color, position) => {
           const canvas = document.createElement("canvas");
           const context = canvas.getContext("2d");
@@ -2043,27 +1126,24 @@
           const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
           const sprite = new THREE.Sprite(spriteMaterial);
           sprite.position.copy(position);
-          sprite.scale.set(60, 30, 30); // Labels maiores
+          sprite.scale.set(60, 30, 30);
           return sprite;
         };
 
-        // Backend: X (lateral), Y (profundidade), Z (altura)
-        // Three.js: X (lateral), Z (profundidade), Y (altura)
-        // Elevados 50mm junto com os eixos
         platformGroup.add(
           createAxisLabel(
             "X",
             "#ff0000",
             new THREE.Vector3(cx + 190, cy + 50, cz)
           )
-        ); // X = lateral (vermelho)
+        );
         platformGroup.add(
           createAxisLabel(
             "Z",
             "#00ff00",
             new THREE.Vector3(cx, cy + 50 + 190, cz)
           )
-        ); // Z = altura (verde no Three.js Y)
+        );
         platformGroup.add(
           createAxisLabel(
             "Y",
@@ -2075,43 +1155,6 @@
         (data.actuators || []).forEach((a, i) => {
           actuatorGroup.add(createActuator(bs[i], ps[i], a));
         });
-
-        if (controls) {
-          const h = ps[0][2] || 432;
-          controls.target.set(0, h / 2, 0);
-        }
-      }
-
-      // Função auxiliar para encontrar a melhor correspondência entre pontos da base e plataforma
-      function findBestConnections(basePoints, platformPoints) {
-        // Para cada ponto da base, encontra o ponto da plataforma mais próximo
-        const connections = [];
-        const usedPlatform = new Set();
-
-        for (let i = 0; i < basePoints.length; i++) {
-          let minDist = Infinity;
-          let bestIdx = -1;
-
-          for (let j = 0; j < platformPoints.length; j++) {
-            if (usedPlatform.has(j)) continue; // Já foi usado
-
-            // Distância 3D entre base[i] e platform[j]
-            const dx = basePoints[i][0] - platformPoints[j][0];
-            const dy = basePoints[i][1] - platformPoints[j][1];
-            const dz = (basePoints[i][2] || 0) - platformPoints[j][2];
-            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-            if (dist < minDist) {
-              minDist = dist;
-              bestIdx = j;
-            }
-          }
-
-          connections.push(bestIdx);
-          usedPlatform.add(bestIdx);
-        }
-
-        return connections;
       }
 
       function resetCamera(containerId) {
@@ -2149,7 +1192,6 @@
           updatePreviewMeasures(data.actuators);
           draw3DPlatform("canvas-preview", data);
 
-          // Mostra/oculta botão "Aplicar na Bancada" baseado na validade
           const applyBtn = document.getElementById("btn-apply");
           const applyErr = document.getElementById("apply-error");
           applyErr.style.display = "none";
@@ -2200,6 +1242,8 @@
           }
 
           const pose = currentPlatformData.pose;
+          console.log('🚀 Aplicando pose na bancada:', pose);
+          
           const resp = await fetch(`${API_BASE}/apply_pose`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2212,8 +1256,10 @@
           }
 
           const data = await resp.json();
+          console.log('✅ Resposta do backend:', data);
 
           if (data.applied) {
+            console.log('✅ Setpoints aplicados:', data.setpoints_mm);
             applyBtn.textContent = "✅ Aplicado!";
             setTimeout(() => {
               applyBtn.textContent = originalText;
@@ -2233,7 +1279,6 @@
 
       let serialConnected = false;
 
-      // ========== Atualização de Status ==========
       async function updateConnectionStatus() {
         try {
           const res = await fetch(`${API_BASE}/serial/status`);
@@ -2316,8 +1361,6 @@
           const data = await resp.json();
           if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
           setSerialStatus(true, port);
-
-          // Conecta ao WebSocket
           initTelemetryWS();
         } catch (e) {
           showToast(`Erro ao conectar: ${e.message}`, "error");
@@ -2332,7 +1375,6 @@
           if (!resp.ok) throw new Error("Erro ao desconectar");
           setSerialStatus(false);
 
-          // Fecha o WebSocket e cancela reconexão
           if (wsTimer) {
             clearTimeout(wsTimer);
             wsTimer = null;
@@ -2346,19 +1388,9 @@
         }
       }
 
-      //   function markLiveOnWS() {
-      //     if (serialConnected) {
-      //       const el = document.getElementById('serial-status');
-      //       if (el && el.classList.contains('status-valid')) {
-      //         el.textContent = el.textContent.replace('✅ Conectado', '✅ Conectado — recebendo dados');
-      //       }
-      //     }
-      //   }
-
       let ws = null,
         wsTimer = null;
 
-      // Pontos fixos da base (mesmos do backend) - formato [x, y, z]
       const BASE_POINTS_FIXED = [
         [305.5, -17, 0],
         [305.5, 17, 0],
@@ -2370,19 +1402,17 @@
 
       function normalizeTelemetry(msg) {
         const out = {};
+
         if (msg.pose) out.pose = msg.pose;
 
-        // Base points - usa os fixos se não vier no WebSocket
         if (msg.base_points) {
           out.base_points = msg.base_points;
         } else if (msg.base_points_live) {
           out.base_points = msg.base_points_live;
         } else {
-          // Usa os pontos fixos da base como fallback
           out.base_points = BASE_POINTS_FIXED;
         }
 
-        // Platform points - PRIORIZA platform_points_live (do backend)
         if (msg.platform_points_live) {
           out.platform_points = msg.platform_points_live;
         } else if (msg.platform_points) {
@@ -2391,7 +1421,6 @@
 
         if (typeof msg.valid === "boolean") out.valid = msg.valid;
 
-        // Processa os atuadores
         if (msg.actuators) {
           out.actuators = msg.actuators.map((a, i) => ({
             id: a.id ?? i + 1,
@@ -2419,11 +1448,7 @@
           }));
         }
 
-        // Se temos comprimentos mas não temos platform_points, tenta reconstruir
         if (out.actuators && !out.platform_points && out.base_points) {
-          console.warn(
-            "⚠️ platform_points não veio do backend, reconstruindo localmente (menos preciso)"
-          );
           out.platform_points = reconstructPlatformPoints(
             out.base_points,
             out.actuators
@@ -2434,51 +1459,29 @@
       }
 
       function reconstructPlatformPoints(basePoints, actuators) {
-        // Se não temos 6 atuadores válidos, não conseguimos reconstruir
         if (!actuators || actuators.length !== 6) return null;
-
         const platformPoints = [];
-
-        // Para cada atuador, calcula a posição aproximada do ponto da plataforma
         for (let i = 0; i < 6; i++) {
           const base = basePoints[i];
           const length = actuators[i].length;
-
-          // Ponto base em 3D (z=0 para a base)
           const bx = base[0];
           const by = base[1];
           const bz = 0;
-
-          // Estimativa simples: assumindo movimento principalmente vertical
-          // A plataforma sobe/desce mas mantém relação com a base
-          const angle = Math.PI / 6; // Ângulo aproximado dos atuadores
-          const pz = length * Math.cos(angle); // Componente vertical
-          const horizontalDist = length * Math.sin(angle); // Componente horizontal
-
-          // Calcula direção da base para o centro (0,0)
+          const angle = Math.PI / 6;
+          const pz = length * Math.cos(angle);
+          const horizontalDist = length * Math.sin(angle);
           const dist = Math.sqrt(bx * bx + by * by);
           const dirX = -bx / dist;
           const dirY = -by / dist;
-
-          // Ponto da plataforma (mais próximo do centro)
           const px = bx + dirX * (dist - horizontalDist);
           const py = by + dirY * (dist - horizontalDist);
-
           platformPoints.push([px, py, pz]);
         }
-
         return platformPoints;
       }
 
-      // OTIMIZAÇÃO: Variáveis para throttle de atualizações 3D
-      let last3DData = null;
-
       function applyLiveTelemetry(data) {
-        // OTIMIZAÇÃO: Guardar última data recebida
         last3DData = data;
-
-        // OTIMIZAÇÃO: Usar requestAnimationFrame para throttle de atualizações 3D
-        // Isso garante no máximo 60 FPS e agrupa updates no mesmo frame
         if (!update3DPending) {
           update3DPending = true;
           requestAnimationFrame(() => {
@@ -2497,9 +1500,6 @@
                 draw3DPlatform("canvas-live", last3DData);
               } else if (Array.isArray(last3DData.actuators)) {
                 updateLiveMeasures(last3DData.actuators);
-                console.warn(
-                  "⚠️ WebSocket sem platform_points, aguardando dados completos..."
-                );
               }
             }
             update3DPending = false;
@@ -2535,76 +1535,33 @@
           console.error("❌ WebSocket error:", e);
         };
 
-        // OTIMIZAÇÃO: Throttle no WebSocket (~30 FPS) usando variáveis globais
         ws.onmessage = (evt) => {
           const now = performance.now();
 
-          // OTIMIZAÇÃO: Ignora mensagens se estiver dentro do intervalo de throttle
           if (now - lastWSUpdate < WS_UPDATE_INTERVAL) {
-            // Guarda última mensagem em buffer para não perder dados importantes
             lastWSMessage = evt.data;
             return;
           }
 
           lastWSUpdate = now;
 
-          // Se tinha mensagem no buffer, processa a mais recente
           const dataToProcess = lastWSMessage || evt.data;
           lastWSMessage = null;
 
           try {
             const msg = JSON.parse(dataToProcess);
 
-            // Detectar eventos de motion_tick
+            // Se vier motion_tick com pose_cmd, apenas atualiza Preview (visualização 3D)
             if (msg.type === "motion_tick" && msg.pose_cmd) {
               updateVisualizationFromMotion(msg.pose_cmd);
-
-              // Atualizar timer do movimento em tempo real usando elapsed_ms
-              if (msg.elapsed_ms !== undefined) {
-                const elapsedSeconds = Math.floor(msg.elapsed_ms / 1000);
-                const minutes = Math.floor(elapsedSeconds / 60);
-                const seconds = elapsedSeconds % 60;
-                const elapsedEl = document.getElementById("motion-elapsed");
-                if (elapsedEl) {
-                  elapsedEl.textContent = `${String(minutes).padStart(
-                    2,
-                    "0"
-                  )}:${String(seconds).padStart(2, "0")}`;
-                }
-              }
-
-              // Capturar dados para o gráfico de movimento
-              if (msg.actuators_cmd) {
-                // Se actuators_real vier como zeros, usar os valores da telemetria
-                let actuators_real = msg.actuators_real || [];
-                const allZeros = actuators_real.every((v) => v === 0);
-
-                if (allZeros && window.lastActuatorsReal) {
-                  actuators_real = window.lastActuatorsReal;
-                }
-
-                updateMotionGraph(
-                  msg.elapsed_ms || 0,
-                  msg.routine || "unknown",
-                  msg.pose_cmd,
-                  msg.actuators_cmd,
-                  actuators_real
-                );
-              } else if (chartRecording) {
-                console.warn("⚠️ motion_tick sem actuators_cmd:", msg);
-              }
-            } else {
-              // Telemetria normal
-              const data = normalizeTelemetry(msg);
-              applyLiveTelemetry(data);
-              // Os valores reais são capturados em updateLiveMeasures()
+              return;
             }
+
+            // Telemetria normal
+            const data = normalizeTelemetry(msg);
+            applyLiveTelemetry(data);
           } catch (e) {
-            console.error(
-              "❌ Erro ao processar mensagem WS:",
-              e,
-              dataToProcess
-            );
+            console.error("❌ Erro ao processar mensagem WS:", e, dataToProcess);
           }
         };
       }
@@ -2620,16 +1577,13 @@
 
       async function checkExistingConnection() {
         try {
-          // Verifica o status real no backend
           const res = await fetch(`${API_BASE}/serial/status`);
           const status = await res.json();
 
           if (status.connected && status.port) {
-            // Backend está conectado
             serialConnected = true;
             setSerialStatus(true, status.port);
 
-            // Preenche o select com a porta conectada
             const select = document.getElementById("serial-port-select");
             if (![...select.options].some((opt) => opt.value === status.port)) {
               const opt = document.createElement("option");
@@ -2641,36 +1595,23 @@
               select.value = status.port;
             }
 
-            // Reconecta ao WebSocket
             initTelemetryWS();
-          } else {
-            console.log("❌ Backend não está conectado");
           }
-
-          // Verificar se há movimento rodando
-          await checkMotionStatus();
         } catch (err) {
           console.error("⚠️ Erro ao verificar status:", err);
         }
       }
 
-      // Atualizar visualização 3D a partir de pose do motion routine
+      // Atualiza Preview com pose de rotina (somente visual)
       let motionUpdatePending = false;
       let lastMotionPose = null;
 
       async function updateVisualizationFromMotion(pose_cmd) {
-        // Guardar a última pose recebida
         lastMotionPose = pose_cmd;
-
-        // Se já tem uma atualização pendente, skip (throttle)
-        if (motionUpdatePending) {
-          return;
-        }
-
+        if (motionUpdatePending) return;
         motionUpdatePending = true;
 
         try {
-          // Calcular cinemática inversa para a pose
           const response = await fetch(`${API_BASE}/calculate`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2678,17 +1619,12 @@
           });
 
           if (!response.ok) {
-            console.warn(
-              "⚠️ Falha ao calcular IK para motion:",
-              lastMotionPose
-            );
             motionUpdatePending = false;
             return;
           }
 
           const calcData = await response.json();
 
-          // Atualizar APENAS Preview (simulado) - Live é atualizado pela telemetria real
           if (
             calcData.base_points &&
             calcData.platform_points &&
@@ -2699,731 +1635,23 @@
         } catch (error) {
           console.error("❌ Erro ao atualizar visualização de motion:", error);
         } finally {
-          // Libera após um pequeno delay para throttle (máximo ~30 FPS)
           setTimeout(() => {
             motionUpdatePending = false;
           }, 33);
         }
       }
 
-      // ========== IndexedDB para Gráfico de Movimento ==========
-      function initMotionDB() {
-        return new Promise((resolve, reject) => {
-          const request = indexedDB.open(MOTION_DB_NAME, MOTION_DB_VERSION);
-
-          request.onerror = () => reject(request.error);
-
-          request.onsuccess = () => {
-            motionDB = request.result;
-            resolve(motionDB);
-          };
-
-          request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains(MOTION_STORE_NAME)) {
-              const objectStore = db.createObjectStore(MOTION_STORE_NAME, {
-                keyPath: "id",
-                autoIncrement: true,
-              });
-              objectStore.createIndex("timestamp", "timestamp", {
-                unique: false,
-              });
-            }
-          };
-        });
-      }
-
-      let saveAttempts = 0;
-      let saveSuccesses = 0;
-
-      async function saveMotionDataToDB(data) {
-        if (!motionDB || !chartRecording) return;
-
-        saveAttempts++;
-
-        return new Promise((resolve, reject) => {
-          try {
-            const transaction = motionDB.transaction(
-              [MOTION_STORE_NAME],
-              "readwrite"
-            );
-            const store = transaction.objectStore(MOTION_STORE_NAME);
-
-            // Handlers da transação
-            transaction.oncomplete = () => {
-              saveSuccesses++;
-              if (saveSuccesses % 10 === 0) {
-                console.log(
-                  `💾 IndexedDB: ${saveSuccesses} registros salvos (transação completa)`
-                );
-              }
-              resolve();
-            };
-
-            transaction.onerror = () => {
-              console.error("❌ Erro na transação:", transaction.error);
-              reject(transaction.error);
-            };
-
-            transaction.onabort = () => {
-              console.error("❌ Transação abortada:", transaction.error);
-              reject(new Error("Transação abortada"));
-            };
-
-            const request = store.add(data);
-
-            request.onerror = () => {
-              console.error("❌ Erro no add():", request.error);
-              console.error("   Dados:", data);
-            };
-          } catch (error) {
-            console.error("❌ Exceção em saveMotionDataToDB:", error);
-            reject(error);
-          }
-        });
-      }
-
-      // OTIMIZAÇÃO: Função para flush do buffer de gravação em batch
-      async function flushDBWriteBuffer() {
-        if (dbWriteBuffer.length === 0) return;
-
-        const batch = [...dbWriteBuffer];
-        dbWriteBuffer = [];
-
-        if (dbWriteTimer) {
-          clearTimeout(dbWriteTimer);
-          dbWriteTimer = null;
-        }
-
-        try {
-          console.log(
-            `💾 Gravando batch de ${batch.length} registros no IndexedDB...`
-          );
-          await Promise.all(batch.map((data) => saveMotionDataToDB(data)));
-          console.log(
-            `✅ Batch de ${batch.length} registros gravado com sucesso`
-          );
-        } catch (error) {
-          console.error("❌ Erro ao gravar batch no IndexedDB:", error);
-        }
-      }
-
-      async function getAllMotionDataFromDB() {
-        if (!motionDB) return [];
-
-        return new Promise((resolve, reject) => {
-          const transaction = motionDB.transaction(
-            [MOTION_STORE_NAME],
-            "readonly"
-          );
-          const store = transaction.objectStore(MOTION_STORE_NAME);
-          const request = store.getAll();
-
-          request.onsuccess = () => {
-            resolve(request.result);
-          };
-          request.onerror = () => reject(request.error);
-        });
-      }
-
-      async function clearMotionDataFromDB() {
-        if (!motionDB) return;
-
-        return new Promise((resolve, reject) => {
-          const transaction = motionDB.transaction(
-            [MOTION_STORE_NAME],
-            "readwrite"
-          );
-          const store = transaction.objectStore(MOTION_STORE_NAME);
-          const request = store.clear();
-
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }
-
-      // Função de debug global (use no console: debugMotionDB())
-      window.debugMotionDB = async function () {
-        if (motionDB) {
-          try {
-            const data = await getAllMotionDataFromDB();
-
-            if (data.length > 0) {
-              console.log("   Amostra (primeiro registro):", data[0]);
-              console.log(
-                "   Amostra (último registro):",
-                data[data.length - 1]
-              );
-            } else {
-              console.warn("   ⚠️ IndexedDB está vazio!");
-            }
-          } catch (error) {
-            console.error("   ❌ Erro ao buscar dados:", error);
-          }
-        } else {
-          console.error(
-            "   ❌ motionDB não foi inicializado - verifique se initMotionDB() foi chamado"
-          );
-        }
-      };
-
-      window.testSaveMotionDB = async function () {
-        if (!motionDB) {
-          return;
-        }
-
-        const testData = {
-          timestamp: Date.now(),
-          routine: "test",
-          pose: { x: 0, y: 0, z: 500, roll: 0, pitch: 0, yaw: 0 },
-          commanded: [100, 100, 100, 100, 100, 100],
-          actual: [100, 100, 100, 100, 100, 100],
-        };
-
-        return new Promise((resolve, reject) => {
-          const transaction = motionDB.transaction(
-            [MOTION_STORE_NAME],
-            "readwrite"
-          );
-          const store = transaction.objectStore(MOTION_STORE_NAME);
-
-          transaction.oncomplete = () => {
-            getAllMotionDataFromDB().then((data) => {});
-            resolve();
-          };
-
-          transaction.onerror = () => {
-            console.error("❌ Erro na transação:", transaction.error);
-            reject(transaction.error);
-          };
-
-          const request = store.add(testData);
-
-          request.onsuccess = () => {
-            console.log("✅ add() bem-sucedido, key:", request.result);
-          };
-
-          request.onerror = () => {
-            console.error("❌ Erro no add():", request.error);
-          };
-        });
-      };
-
-      // ========== Funções do Gráfico de Movimento ==========
-
-      async function toggleMotionChart() {
-        const section = document.getElementById("motion-chart-section");
-        const btn = document.getElementById("btn-toggle-motion-chart");
-
-        motionChartVisible = !motionChartVisible;
-
-        if (motionChartVisible) {
-          section.classList.remove("hidden");
-          btn.textContent = "📊 Esconder Gráfico";
-          if (!motionChartCmd || !motionChartReal) {
-            initMotionCharts();
-          }
-        } else {
-          section.classList.add("hidden");
-          btn.textContent = "📊 Mostrar Gráfico";
-        }
-      }
-
-      // Cores dos pistões (seguindo padrão de actuators.html)
-      const MOTION_COLORS = {
-        1: { cmd: "rgba(59, 130, 246, 1)", real: "rgba(59, 130, 246, 0.8)" }, // blue
-        2: { cmd: "rgba(168, 85, 247, 1)", real: "rgba(168, 85, 247, 0.8)" }, // purple
-        3: { cmd: "rgba(236, 72, 153, 1)", real: "rgba(236, 72, 153, 0.8)" }, // pink
-        4: { cmd: "rgba(249, 115, 22, 1)", real: "rgba(249, 115, 22, 0.8)" }, // orange
-        5: { cmd: "rgba(20, 184, 166, 1)", real: "rgba(20, 184, 166, 0.8)" }, // teal
-        6: { cmd: "rgba(99, 102, 241, 1)", real: "rgba(99, 102, 241, 0.8)" }, // indigo
-      };
-
-      function initMotionCharts() {
-        // Gráfico 1: Comandos (Setpoints)
-        const ctxCmd = document
-          .getElementById("motion-chart-cmd")
-          .getContext("2d");
-        const cmdDatasets = [];
-        for (let i = 1; i <= 6; i++) {
-          cmdDatasets.push({
-            label: `Pistão ${i} (CMD)`,
-            data: [],
-            borderColor: MOTION_COLORS[i].cmd,
-            backgroundColor: "transparent",
-            borderWidth: 2,
-            borderDash: [5, 5],
-            pointRadius: 0,
-            tension: 0.4,
-          });
-        }
-
-        motionChartCmd = new Chart(ctxCmd, {
-          type: "line",
-          data: { datasets: cmdDatasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false, // OTIMIZAÇÃO: sem animação
-            parsing: false, // OTIMIZAÇÃO: dados já parsed
-            normalized: true, // OTIMIZAÇÃO: coordenadas normalizadas
-            interaction: {
-              mode: "index",
-              intersect: false,
-            },
-            scales: {
-              x: {
-                type: "linear",
-                title: { display: true, text: "Tempo (s)", color: "#9ca3af" },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "#374151" },
-              },
-              y: {
-                title: {
-                  display: true,
-                  text: "Setpoint (mm)",
-                  color: "#9ca3af",
-                },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "#374151" },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                mode: "index",
-                intersect: false,
-              },
-              zoom: {
-                pan: { enabled: true, mode: "xy" },
-                zoom: {
-                  wheel: { enabled: true, speed: 0.1 },
-                  pinch: { enabled: true },
-                  mode: "xy",
-                },
-              },
-            },
-          },
-        });
-
-        // Gráfico 2: Posições Reais
-        const ctxReal = document
-          .getElementById("motion-chart-real")
-          .getContext("2d");
-        const realDatasets = [];
-        for (let i = 1; i <= 6; i++) {
-          realDatasets.push({
-            label: `Pistão ${i} (Real)`,
-            data: [],
-            borderColor: MOTION_COLORS[i].real,
-            backgroundColor: MOTION_COLORS[i].real.replace("0.8", "0.1"),
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.4,
-            fill: false,
-          });
-        }
-
-        motionChartReal = new Chart(ctxReal, {
-          type: "line",
-          data: { datasets: realDatasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false, // OTIMIZAÇÃO: sem animação
-            parsing: false, // OTIMIZAÇÃO: dados já parsed
-            normalized: true, // OTIMIZAÇÃO: coordenadas normalizadas
-            interaction: {
-              mode: "index",
-              intersect: false,
-            },
-            scales: {
-              x: {
-                type: "linear",
-                title: { display: true, text: "Tempo (s)", color: "#9ca3af" },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "#374151" },
-              },
-              y: {
-                title: {
-                  display: true,
-                  text: "Posição Real (mm)",
-                  color: "#9ca3af",
-                },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "#374151" },
-              },
-            },
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                mode: "index",
-                intersect: false,
-              },
-              zoom: {
-                pan: { enabled: true, mode: "xy" },
-                zoom: {
-                  wheel: { enabled: true, speed: 0.1 },
-                  pinch: { enabled: true },
-                  mode: "xy",
-                },
-              },
-            },
-          },
-        });
-      }
-
-      function startMotionChart() {
-        chartRecording = true;
-        motionChartData = [];
-        motionStartTimestamp = null;
-
-        // Limpar dados antigos dos gráficos
-        if (motionChartCmd) {
-          motionChartCmd.data.datasets.forEach((ds) => (ds.data = []));
-          motionChartCmd.update("none");
-        }
-        if (motionChartReal) {
-          motionChartReal.data.datasets.forEach((ds) => (ds.data = []));
-          motionChartReal.update("none");
-        }
-
-        clearMotionDataFromDB()
-          .then(() => console.log("✅ IndexedDB limpo com sucesso"))
-          .catch((error) =>
-            console.error("❌ Erro ao limpar IndexedDB:", error)
-          );
-
-        document
-          .getElementById("btn-start-motion-chart")
-          .classList.add("hidden");
-        document
-          .getElementById("btn-stop-motion-chart")
-          .classList.remove("hidden");
-        document.getElementById(
-          "motion-chart-status"
-        ).textContent = `🔴 Gravando... (janela de ${CHART_WINDOW_SECONDS}s)`;
-
-        showToast("Gravação dos gráficos iniciada", "success");
-      }
-
-      function stopMotionChart() {
-        chartRecording = false;
-
-        document
-          .getElementById("btn-start-motion-chart")
-          .classList.remove("hidden");
-        document
-          .getElementById("btn-stop-motion-chart")
-          .classList.add("hidden");
-        document.getElementById(
-          "motion-chart-status"
-        ).textContent = `⏸ Pausado (${motionChartData.length} pontos gravados)`;
-
-        showToast(
-          `Gravação pausada - ${motionChartData.length} pontos gravados`,
-          "info"
-        );
-      }
-
-      function resetMotionChartZoom(type) {
-        if (type === "cmd" && motionChartCmd) {
-          motionChartCmd.resetZoom();
-        } else if (type === "real" && motionChartReal) {
-          motionChartReal.resetZoom();
-        }
-      }
-
-      function toggleMotionPistonVisibility(type, pistonNum) {
-        const chart = type === "cmd" ? motionChartCmd : motionChartReal;
-        if (!chart) {
-          console.warn(`⚠️ motionChart${type} não inicializado`);
-          return;
-        }
-
-        const checkbox = document.getElementById(
-          `motion-${type}-piston-${pistonNum}`
-        );
-        if (!checkbox) {
-          console.error(
-            `❌ Checkbox motion-${type}-piston-${pistonNum} não encontrado`
-          );
-          return;
-        }
-
-        const isVisible = checkbox.checked;
-        const datasetIndex = pistonNum - 1;
-
-        if (!chart.data.datasets[datasetIndex]) {
-          console.error(`❌ Dataset não encontrado no índice ${datasetIndex}`);
-          return;
-        }
-
-        chart.data.datasets[datasetIndex].hidden = !isVisible;
-        chart.update();
-      }
-
-      function toggleAllMotionPistons(type, visible) {
-        for (let i = 1; i <= 6; i++) {
-          const checkbox = document.getElementById(
-            `motion-${type}-piston-${i}`
-          );
-          if (checkbox) {
-            checkbox.checked = visible;
-            toggleMotionPistonVisibility(type, i);
-          }
-        }
-      }
-
-      function clearMotionChart() {
-        chartRecording = false;
-        motionChartData = [];
-        motionStartTimestamp = null;
-        saveAttempts = 0;
-        saveSuccesses = 0;
-        clearMotionDataFromDB();
-
-        // Limpar ambos os gráficos
-        if (motionChartCmd) {
-          motionChartCmd.data.datasets.forEach((dataset) => {
-            dataset.data = [];
-          });
-          motionChartCmd.update("none");
-          motionChartCmd.resetZoom();
-        }
-
-        if (motionChartReal) {
-          motionChartReal.data.datasets.forEach((dataset) => {
-            dataset.data = [];
-          });
-          motionChartReal.update("none");
-          motionChartReal.resetZoom();
-        }
-
-        document
-          .getElementById("btn-start-motion-chart")
-          .classList.remove("hidden");
-        document
-          .getElementById("btn-stop-motion-chart")
-          .classList.add("hidden");
-        document.getElementById("motion-chart-status").textContent =
-          "Pronto para iniciar gravação";
-
-        showToast("Gráficos limpos com sucesso", "success");
-      }
-
-      async function exportMotionToCSV() {
-        try {
-          const allData = await getAllMotionDataFromDB();
-
-          if (allData.length === 0) {
-            showToast("Nenhum dado de movimento para exportar!", "warning");
-            return;
-          }
-
-          // Cabeçalho CSV
-          let csvContent =
-            "Timestamp,Routine,X_cmd,Y_cmd,Z_cmd,Roll_cmd,Pitch_cmd,Yaw_cmd," +
-            "P1_cmd,P2_cmd,P3_cmd,P4_cmd,P5_cmd,P6_cmd," +
-            "P1_real,P2_real,P3_real,P4_real,P5_real,P6_real\n";
-
-          // Dados
-          allData.forEach((row) => {
-            const timestamp = new Date(row.timestamp).toISOString();
-            const routine = row.routine || "unknown";
-            const pose = row.pose || {};
-            const cmd = row.commanded || [];
-            const real = row.actual || [];
-
-            csvContent +=
-              `${timestamp},${routine},` +
-              `${pose.x || 0},${pose.y || 0},${pose.z || 0},` +
-              `${pose.roll || 0},${pose.pitch || 0},${pose.yaw || 0},` +
-              `${cmd.join(",")},${real.join(",")}\n`;
-          });
-
-          // Download
-          const blob = new Blob([csvContent], {
-            type: "text/csv;charset=utf-8;",
-          });
-          const link = document.createElement("a");
-          const url = URL.createObjectURL(blob);
-          const filename = `motion_trajectory_${new Date()
-            .toISOString()
-            .replace(/[:.]/g, "-")}.csv`;
-
-          link.setAttribute("href", url);
-          link.setAttribute("download", filename);
-          link.style.display = "none";
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-
-          showToast(
-            `CSV exportado com sucesso! ${allData.length} registros salvos`,
-            "success"
-          );
-        } catch (error) {
-          console.error("❌ Erro ao exportar CSV:", error);
-          showToast(`Erro ao exportar CSV: ${error.message}`, "error");
-        }
-      }
-
-      function updateMotionGraph(
-        timestamp,
-        routine,
-        pose,
-        commandedLengths,
-        actualLengths
-      ) {
-        // Só processa se estiver gravando
-        if (!chartRecording) {
-          return;
-        }
-
-        if (!motionChartCmd || !motionChartReal) {
-          console.warn("⚠️ updateMotionGraph: gráficos não inicializados");
-          return;
-        }
-
-        const now = Date.now();
-
-        // Inicializar timestamp de referência no primeiro dado
-        if (motionStartTimestamp === null) {
-          motionStartTimestamp = now;
-        }
-
-        const timeInSeconds = timestamp / 1000.0;
-
-        const dataPoint = {
-          timestamp: now,
-          routine: routine,
-          pose: pose,
-          commanded: commandedLengths,
-          actual: actualLengths,
-        };
-
-        motionChartData.push(dataPoint);
-
-        // OTIMIZAÇÃO: Batch writes no IndexedDB
-        dbWriteBuffer.push(dataPoint);
-
-        if (dbWriteBuffer.length >= DB_BATCH_SIZE) {
-          // Buffer cheio, flush imediatamente
-          flushDBWriteBuffer();
-        } else if (!dbWriteTimer) {
-          // Inicia timer para flush após intervalo
-          dbWriteTimer = setTimeout(flushDBWriteBuffer, DB_BATCH_INTERVAL);
-        }
-
-        // OTIMIZAÇÃO: Atualizar gráficos de forma eficiente
-        // Gráfico 1: Comandos (Setpoints)
-        commandedLengths.forEach((length, i) => {
-          motionChartCmd.data.datasets[i].data.push({
-            x: timeInSeconds,
-            y: length,
-          });
-        });
-
-        // Gráfico 2: Posições Reais
-        actualLengths.forEach((length, i) => {
-          motionChartReal.data.datasets[i].data.push({
-            x: timeInSeconds,
-            y: length,
-          });
-        });
-
-        // Limita pontos no gráfico para performance (janela deslizante)
-        if (motionChartData.length > maxDataPoints) {
-          motionChartData.shift();
-        }
-
-        // OTIMIZAÇÃO: Remove pontos antigos do gráfico de forma eficiente (O(n) ao invés de O(n²))
-        const windowStart = timeInSeconds - CHART_WINDOW_SECONDS;
-
-        motionChartCmd.data.datasets.forEach((dataset) => {
-          // Encontra primeiro índice dentro da janela
-          const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
-          if (cutIndex > 0) {
-            dataset.data = dataset.data.slice(cutIndex);
-          }
-
-          // OTIMIZAÇÃO: Decimação se exceder limite de pontos visíveis
-          if (dataset.data.length > MAX_VISIBLE_POINTS) {
-            const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
-            const decimated = [];
-            for (let i = 0; i < dataset.data.length - 1; i += step) {
-              decimated.push(dataset.data[i]);
-            }
-            // Sempre mantém o último ponto para garantir continuidade
-            decimated.push(dataset.data[dataset.data.length - 1]);
-            dataset.data = decimated;
-          }
-        });
-
-        motionChartReal.data.datasets.forEach((dataset) => {
-          // Encontra primeiro índice dentro da janela
-          const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
-          if (cutIndex > 0) {
-            dataset.data = dataset.data.slice(cutIndex);
-          }
-
-          // OTIMIZAÇÃO: Decimação se exceder limite de pontos visíveis
-          if (dataset.data.length > MAX_VISIBLE_POINTS) {
-            const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
-            const decimated = [];
-            for (let i = 0; i < dataset.data.length - 1; i += step) {
-              decimated.push(dataset.data[i]);
-            }
-            // Sempre mantém o último ponto para garantir continuidade
-            decimated.push(dataset.data[dataset.data.length - 1]);
-            dataset.data = decimated;
-          }
-        });
-
-        // OTIMIZAÇÃO: Atualizar gráficos sem animação (modo "none" = mais rápido)
-        motionChartCmd.update("none");
-        motionChartReal.update("none");
-
-        // Atualiza status com contagem
-        document.getElementById(
-          "motion-chart-status"
-        ).textContent = `🔴 Gravando... (${motionChartData.length} pontos em memória, janela de ${CHART_WINDOW_SECONDS}s)`;
-      }
-
-      // OTIMIZAÇÃO: Monitor de Performance (TAREFA 7)
+      // Monitor simples de FPS (opcional)
       let frameCount = 0;
       let lastFPSCheck = performance.now();
-      let performanceWarningShown = false;
 
       function monitorPerformance() {
         frameCount++;
         const now = performance.now();
 
         if (now - lastFPSCheck >= 1000) {
-          const fps = frameCount;
           frameCount = 0;
           lastFPSCheck = now;
-
-          if (fps < 20 && !performanceWarningShown) {
-            console.warn(`⚠️ FPS BAIXO: ${fps} FPS`);
-            console.warn(`   Considere:
-              - Reduzir CHART_WINDOW_SECONDS (atual: ${CHART_WINDOW_SECONDS}s)
-              - Reduzir MAX_VISIBLE_POINTS (atual: ${MAX_VISIBLE_POINTS})
-              - Aumentar DB_BATCH_SIZE (atual: ${DB_BATCH_SIZE})
-              - Aumentar WS_UPDATE_INTERVAL (atual: ${33}ms)
-            `);
-            performanceWarningShown = true;
-
-            // Reset warning após 30 segundos para permitir novo aviso se continuar ruim
-            setTimeout(() => {
-              performanceWarningShown = false;
-            }, 30000);
-          } else if (fps >= 50) {
-            // FPS está bom, pode mostrar aviso novamente se piorar
-            performanceWarningShown = false;
-          }
         }
 
         requestAnimationFrame(monitorPerformance);
@@ -3436,13 +1664,6 @@
         await loadSerialPorts();
         await checkExistingConnection();
 
-        // Inicializar IndexedDB para gráfico de movimento
-        try {
-          await initMotionDB();
-          console.log("✅ MotionDB pronto");
-        } catch (error) {
-          console.error("❌ Erro ao inicializar MotionDB:", error);
-        }
         document
           .getElementById("btn-refresh-ports")
           .addEventListener("click", loadSerialPorts);
@@ -3467,256 +1688,11 @@
         document
           .getElementById("btn-reset-cam-live")
           .addEventListener("click", () => resetCamera("canvas-live"));
+
         calculatePosition();
-
-        // Atualiza status periodicamente
         setInterval(updateConnectionStatus, 2000);
-
-        // OTIMIZAÇÃO: Iniciar monitor de performance
         requestAnimationFrame(monitorPerformance);
       });
-
-      // ============ MOTION ROUTINES ============
-      const MOTION_PRESET_CONFIG = {
-        sine_z: {
-          title: "Senoide Vertical (Z)",
-          routine: "sine_axis",
-          axis: "z",
-          defaultParams: ["amp", "hz", "duration_s"],
-        },
-        circle_xy: {
-          title: "Círculo XY",
-          routine: "circle_xy",
-          defaultParams: ["ax", "ay", "hz", "duration_s"],
-        },
-        heave_pitch: {
-          title: "Heave & Pitch",
-          routine: "heave_pitch",
-          defaultParams: ["amp", "ay", "hz", "duration_s"],
-        },
-        sine_pitch: {
-          title: "Senoide Pitch",
-          routine: "sine_axis",
-          axis: "pitch",
-          defaultParams: ["amp", "hz", "duration_s"],
-        },
-        sine_roll: {
-          title: "Senoide Roll",
-          routine: "sine_axis",
-          axis: "roll",
-          defaultParams: ["amp", "hz", "duration_s"],
-        },
-        helix: {
-          title: "Helix (Espiral)",
-          routine: "helix",
-          defaultParams: [
-            "ax",
-            "ay",
-            "z_amp_mm",
-            "z_cycles",
-            "hz",
-            "duration_s",
-          ],
-        },
-      };
-
-      let motionStatusInterval = null;
-      // Timer agora vem direto do WebSocket motion_tick (elapsed_ms)
-
-      // Iniciar preset
-      document.querySelectorAll(".btn-start-motion").forEach((btn) => {
-        btn.addEventListener("click", async function () {
-          const card = this.closest(".motion-preset-card");
-          const presetKey = card.dataset.preset;
-          const config = MOTION_PRESET_CONFIG[presetKey];
-
-          const payload = { routine: config.routine };
-          if (config.axis) payload.axis = config.axis;
-
-          config.defaultParams.forEach((param) => {
-            const input = card.querySelector(`[data-param="${param}"]`);
-            if (input) payload[param] = parseFloat(input.value);
-          });
-
-          if (config.extraDefaults)
-            Object.assign(payload, config.extraDefaults);
-
-          try {
-            // Atualizar UI imediatamente para "Indo para HOME..."
-            const statusDot = document.getElementById("motion-status-dot");
-            const statusText = document.getElementById("motion-status-text");
-            const elapsedText = document.getElementById("motion-elapsed");
-
-            statusDot.className =
-              "w-3 h-3 rounded-full bg-yellow-500 pulse-dot";
-            statusText.textContent = "Indo para HOME...";
-            elapsedText.textContent = "00:00";
-
-            const response = await fetch(`${API_BASE}/motion/start`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-              card.classList.add("active");
-              showToast(`Rotina ${config.title} iniciada`, "success");
-
-              // Aguardar 1.5s (tempo de ir para HOME + calibração)
-              setTimeout(() => {
-                statusText.textContent = "Rodando";
-                statusDot.className =
-                  "w-3 h-3 rounded-full motion-status-running";
-                startMotionMonitoring();
-              }, 1500);
-            } else {
-              // Voltar ao estado parado em caso de erro
-              statusDot.className =
-                "w-3 h-3 rounded-full motion-status-stopped";
-              statusText.textContent = "Parado";
-              showToast(
-                `Erro: ${data.detail || "Falha ao iniciar rotina"}`,
-                "error"
-              );
-            }
-          } catch (error) {
-            // Voltar ao estado parado em caso de erro
-            const statusDot = document.getElementById("motion-status-dot");
-            const statusText = document.getElementById("motion-status-text");
-            statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
-            statusText.textContent = "Parado";
-            showToast(`Erro de conexão: ${error.message}`, "error");
-          }
-        });
-      });
-
-      // Parar rotina
-      document
-        .getElementById("btn-motion-stop")
-        .addEventListener("click", async function () {
-          try {
-            const response = await fetch(`${API_BASE}/motion/stop`, {
-              method: "POST",
-            });
-            if (response.ok) {
-              showToast("Rotina de movimento parada", "info");
-              stopMotionMonitoring();
-              updateMotionUIState(false);
-            } else {
-              showToast("Erro ao parar rotina", "error");
-            }
-          } catch (error) {
-            showToast(`Erro: ${error.message}`, "error");
-          }
-        });
-
-      function startMotionMonitoring() {
-        if (motionStatusInterval) return;
-        motionStatusInterval = setInterval(checkMotionStatus, 500);
-        // Timer agora é atualizado pelo WebSocket motion_tick (mais preciso)
-      }
-
-      function stopMotionMonitoring() {
-        if (motionStatusInterval) {
-          clearInterval(motionStatusInterval);
-          motionStatusInterval = null;
-        }
-      }
-
-      async function checkMotionStatus() {
-        try {
-          const response = await fetch(`${API_BASE}/motion/status`);
-          const status = await response.json();
-
-          if (status.running) {
-            updateMotionUIState(true, status);
-          } else {
-            updateMotionUIState(false);
-            stopMotionMonitoring();
-          }
-        } catch (error) {
-          console.error("Erro ao verificar status da rotina:", error);
-        }
-      }
-
-      function updateMotionUIState(running, status = null) {
-        const statusDot = document.getElementById("motion-status-dot");
-        const statusText = document.getElementById("motion-status-text");
-        const btnStop = document.getElementById("btn-motion-stop");
-        const btnApply = document.getElementById("btn-apply");
-        const btnToggleChart = document.getElementById(
-          "btn-toggle-motion-chart"
-        );
-
-        // Remover active de todos os cards
-        document.querySelectorAll(".motion-preset-card").forEach((card) => {
-          card.classList.remove("active");
-        });
-
-        if (running && status) {
-          statusDot.className = "w-3 h-3 rounded-full motion-status-running";
-          statusText.textContent = "Rodando";
-          btnStop.disabled = false;
-
-          // Desabilitar botão "Aplicar na Bancada" durante movimento
-          if (btnApply) {
-            btnApply.disabled = true;
-            btnApply.style.opacity = "0.5";
-            btnApply.style.cursor = "not-allowed";
-          }
-
-          // Mostrar botão de toggle do gráfico
-          if (btnToggleChart) {
-            btnToggleChart.classList.remove("hidden");
-          }
-
-          // Iniciar captura do gráfico
-          startMotionGraph();
-
-          // Ativar card correspondente
-          const presetKey = findMotionPresetKey(status.routine, status.params);
-          if (presetKey) {
-            const card = document.querySelector(`[data-preset="${presetKey}"]`);
-            if (card) card.classList.add("active");
-          }
-        } else {
-          statusDot.className = "w-3 h-3 rounded-full motion-status-stopped";
-          statusText.textContent = "Parado";
-          btnStop.disabled = true;
-          document.getElementById("motion-elapsed").textContent = "00:00";
-
-          // Reabilitar botão "Aplicar na Bancada" quando parar
-          if (btnApply) {
-            btnApply.disabled = false;
-            btnApply.style.opacity = "1";
-            btnApply.style.cursor = "pointer";
-          }
-
-          // NÃO esconder botão de toggle se o gráfico estiver aberto
-          // Só esconde se o gráfico não estiver visível
-          if (btnToggleChart && !motionChartVisible) {
-            btnToggleChart.classList.add("hidden");
-          }
-
-          // Finalizar captura do gráfico
-          stopMotionGraph();
-        }
-      }
-
-      function findMotionPresetKey(routine, params) {
-        for (const [key, config] of Object.entries(MOTION_PRESET_CONFIG)) {
-          if (config.routine === routine) {
-            if (routine === "sine_axis" && config.axis === params?.axis) {
-              return key;
-            } else if (routine !== "sine_axis") {
-              return key;
-            }
-          }
-        }
-        return null;
-      }
     </script>
   </body>
 </html>
