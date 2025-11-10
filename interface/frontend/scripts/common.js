@@ -222,6 +222,92 @@ function scheduleReconnect() {
   }, 1000);
 }
 
+// ========== Icon Helper (Material Icons) ==========
+/**
+ * Cria um ícone usando Material Icons
+ * @param {string} iconName - Nome do ícone (ex: 'home', 'settings', 'dashboard')
+ * @param {string} className - Classes CSS adicionais (opcional)
+ * @param {string} style - Estilo inline (opcional)
+ * @returns {string} HTML do ícone
+ */
+function icon(iconName, className = '', style = '') {
+  const classes = className ? ` ${className}` : '';
+  const styleAttr = style ? ` style="${style}"` : '';
+  return `<span class="material-icons${classes}"${styleAttr}>${iconName}</span>`;
+}
+
+/**
+ * Cria um ícone outlined (contorno)
+ */
+function iconOutlined(iconName, className = '', style = '') {
+  const classes = className ? ` ${className}` : '';
+  const styleAttr = style ? ` style="${style}"` : '';
+  return `<span class="material-icons-outlined${classes}"${styleAttr}>${iconName}</span>`;
+}
+
+/**
+ * Carrega os ícones do Material Icons (deve ser chamado no <head>)
+ */
+function loadMaterialIcons() {
+  if (!document.querySelector('link[href*="material-icons"]')) {
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+
+    const linkOutlined = document.createElement('link');
+    linkOutlined.href = 'https://fonts.googleapis.com/icon?family=Material+Icons+Outlined';
+    linkOutlined.rel = 'stylesheet';
+    document.head.appendChild(linkOutlined);
+  }
+}
+
+// Mapeamento de emojis para ícones Material Icons
+const ICON_MAP = {
+  '🏠': 'home',
+  '🎮': 'videogame_asset',
+  '📐': 'straighten',
+  '🔄': 'autorenew',
+  '🎯': 'gps_fixed',
+  '⚙️': 'settings',
+  '📊': 'bar_chart',
+  '📈': 'show_chart',
+  '📡': 'wifi_tethering',
+  '🔌': 'power',
+  '✅': 'check_circle',
+  '🚀': 'rocket_launch',
+  '🎬': 'movie',
+  '📟': 'devices',
+  '🕹️': 'sports_esports',
+  '💾': 'save',
+  '🗑️': 'delete',
+  '🔍': 'zoom_in',
+  '⏸': 'pause',
+  '▶': 'play_arrow',
+  '⏹': 'stop',
+  '↻': 'refresh',
+  '←': 'arrow_back',
+  '→': 'arrow_forward',
+  '▲': 'keyboard_arrow_up',
+  '▼': 'keyboard_arrow_down',
+  ℹ️: 'info',
+  '💡': 'lightbulb',
+  '🔧': 'build',
+  '🎨': 'palette',
+  '⚡': 'bolt',
+};
+
+/**
+ * Converte emoji para ícone Material Icons
+ * @param {string} emoji - Emoji para converter
+ * @param {string} className - Classes CSS adicionais
+ * @returns {string} HTML do ícone ou emoji original
+ */
+function emojiToIcon(emoji, className = '') {
+  const iconName = ICON_MAP[emoji];
+  return iconName ? icon(iconName, className) : emoji;
+}
+
 // ========== Inicialização Comum ==========
 function initCommonSerialControls() {
   const btnRefresh = document.getElementById('btn-refresh-ports');
@@ -255,3 +341,8 @@ window.checkExistingConnection = checkExistingConnection;
 window.initTelemetryWS = initTelemetryWS;
 window.scheduleReconnect = scheduleReconnect;
 window.initCommonSerialControls = initCommonSerialControls;
+window.icon = icon;
+window.iconOutlined = iconOutlined;
+window.loadMaterialIcons = loadMaterialIcons;
+window.emojiToIcon = emojiToIcon;
+window.ICON_MAP = ICON_MAP;

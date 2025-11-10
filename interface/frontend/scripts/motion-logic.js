@@ -887,7 +887,7 @@ function createPresetHTML(presetKey, config) {
   const presetData = {
     sine_z: {
       color: 'blue',
-      emoji: '📊',
+      icon: 'show_chart',
       description: 'Movimento vertical senoidal',
       params: [
         { label: 'Amplitude (mm)', name: 'amp', value: 10, min: 10, max: 40, step: 0.5 },
@@ -897,7 +897,7 @@ function createPresetHTML(presetKey, config) {
     },
     circle_xy: {
       color: 'purple',
-      emoji: '⭕',
+      icon: 'trip_origin',
       description: 'Movimento circular horizontal',
       params: [
         { label: 'Raio X (mm)', name: 'ax', value: 20, min: 10, max: 40, step: 1, grid: true },
@@ -908,7 +908,7 @@ function createPresetHTML(presetKey, config) {
     },
     heave_pitch: {
       color: 'orange',
-      emoji: '🌊',
+      icon: 'waves',
       description: 'Simulação de onda marítima',
       params: [
         { label: 'Amplitude Z (mm)', name: 'amp', value: 20, min: 10, max: 25, step: 0.5 },
@@ -919,7 +919,7 @@ function createPresetHTML(presetKey, config) {
     },
     sine_pitch: {
       color: 'teal',
-      emoji: '↕️',
+      icon: 'unfold_more',
       description: 'Balanço frontal angular',
       params: [
         { label: 'Amplitude (°)', name: 'amp', value: 5, min: 0.5, max: 5, step: 0.5 },
@@ -929,7 +929,7 @@ function createPresetHTML(presetKey, config) {
     },
     sine_roll: {
       color: 'indigo',
-      emoji: '↔️',
+      icon: 'unfold_less',
       description: 'Balanço lateral angular',
       params: [
         { label: 'Amplitude (°)', name: 'amp', value: 5, min: 0.2, max: 5, step: 0.5 },
@@ -939,7 +939,7 @@ function createPresetHTML(presetKey, config) {
     },
     helix: {
       color: 'pink',
-      emoji: '🌀',
+      icon: 'cyclone',
       description: 'Parafuso: sobe girando, desce voltando',
       params: [
         { label: 'Raio X', name: 'ax', value: 10, min: 10, max: 40, step: 1, grid: true },
@@ -998,8 +998,10 @@ function createPresetHTML(presetKey, config) {
   return `
     <div class="motion-preset-card" data-preset="${presetKey}">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-bold text-${preset.color}-400">${presetKey === 'sine_z' ? '🔵' : presetKey === 'circle_xy' ? '🟣' : presetKey === 'heave_pitch' ? '🟠' : presetKey === 'sine_pitch' ? '🔷' : presetKey === 'sine_roll' ? '🔶' : '🔩'} ${config.title}</h3>
-        <span class="text-2xl">${preset.emoji}</span>
+        <h3 class="text-base font-bold text-${preset.color}-400 flex items-center gap-2">
+          <span class="material-icons">${preset.icon}</span>
+          <span>${config.title}</span>
+        </h3>
       </div>
       <p class="text-gray-400 text-xs mb-3">
         ${preset.description}
@@ -1008,9 +1010,10 @@ function createPresetHTML(presetKey, config) {
         ${hasGrid ? `<div class="${gridClass}">${paramsHTML}</div>` : paramsHTML}
       </div>
       <button
-        class="btn-start-motion w-full bg-${preset.color}-600 hover:bg-${preset.color}-700 text-white py-2 rounded-lg font-semibold text-sm transition"
+        class="btn-start-motion w-full bg-${preset.color}-600 hover:bg-${preset.color}-700 text-white py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2"
       >
-        ▶️ Iniciar
+        <span class="material-icons text-sm">play_arrow</span>
+        <span>Iniciar</span>
       </button>
     </div>
   `;
