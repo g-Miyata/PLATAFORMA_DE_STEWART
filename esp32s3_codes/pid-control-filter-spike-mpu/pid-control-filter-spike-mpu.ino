@@ -79,6 +79,9 @@ float deadband_mm  = 0.2f;
 float U0_adv[6] = {11,17,10.5,14,14.5,12.5};     // SUBIR
 float U0_ret[6] = {8,12,9.4,14.5,11.4,11.4};     // DESCER
 
+// ===== OFFSET DE CALIBRAÇÃO (compensação de erro sistemático) =====
+float offset_mm[6] = {2.0, 2.0, 2.0, 2.0, 2.0, 2.0};  // offset em mm (+2mm para compensar)
+
 // ================== CALIBRAÇÃO (V0 / V100) ==================
 float V0[6]     = {0.25,0.25,0.25,0.25,0.25,0.25};
 float V100[6]   = {3.3,3.3,3.3,3.3,3.3,3.3};
@@ -196,13 +199,13 @@ inline float ma_update(int idx, float sampleV) {
 float voltsToMM(int i, float V){
   if (!hasCal[i]) {
     float pct = clampf((V/3.3f)*100.0f, 0.0f, 100.0f);
-    return (Lmm[i]/100.0f)*pct;
+    return (Lmm[i]/100.0f)*pct + offset_mm[i];  // ✅ Aplica offset
   }
   float span = V100[i] - V0[i];
   if (span < 1e-3f) span = 3.3f;
   float pct = (V - V0[i]) / span * 100.0f;
   pct = clampf(pct, 0.0f, 100.0f);
-  return (Lmm[i]/100.0f) * pct;
+  return (Lmm[i]/100.0f) * pct + offset_mm[i];  // ✅ Aplica offset
 }
 
 inline float volts_per_mm(int i){
@@ -399,6 +402,15 @@ void loop() {
       } else if (cmd.startsWith("u0rall=")) {
         apply_feedforward_all(U0_ret, cmd.substring(7).toFloat());
         Serial.println("OK U0_ret para todos");
+
+      } else if (cmd.startsWith("offset=")) {
+        offset_mm[selIdx] = cmd.substring(7).toFloat();
+        Serial.printf("OK offset[%d]=%.3f mm\n", selIdx+1, offset_mm[selIdx]);
+
+      } else if (cmd.startsWith("offsetall=")) {
+        float val = cmd.substring(10).toFloat();
+        for (int k = 0; k < 6; k++) offset_mm[k] = val;
+        Serial.printf("OK offset para todos = %.3f mm\n", val);
 
       } else if (cmd.equalsIgnoreCase("R")) {
         manual_retract = true; manual_advance = false;

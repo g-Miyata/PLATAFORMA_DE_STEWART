@@ -1032,6 +1032,30 @@ def pid_select_piston(piston: int):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/pid/offset")
+def set_pid_offset(piston: int, offset: float):
+    """Define offset de calibração para um pistão específico (compensação de erro sistemático)"""
+    try:
+        if not 1 <= piston <= 6:
+            raise ValueError("Pistão deve ser 1-6")
+        
+        serial_mgr.write_line(f"sel={piston}")
+        time.sleep(0.01)
+        serial_mgr.write_line(f"offset={offset:.3f}")
+        
+        return {"message": f"Offset do pistão {piston} = {offset:.3f} mm"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/pid/offset/all")
+def set_pid_offset_all(offset: float):
+    """Define offset de calibração para todos os pistões"""
+    try:
+        serial_mgr.write_line(f"offsetall={offset:.3f}")
+        return {"message": f"Offset aplicado para todos = {offset:.3f} mm"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 # -------------------- Endpoints Motion --------------------
 """
 Exemplos de uso das rotinas de movimento:
@@ -1306,6 +1330,8 @@ def root():
             "POST /pid/feedforward",
             "POST /pid/feedforward/all",
             "POST /pid/settings",
+            "POST /pid/offset",
+            "POST /pid/offset/all",
             "POST /pid/manual/{action}",
             "POST /pid/select/{piston}",
             "POST /motion/start",
