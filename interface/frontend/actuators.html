@@ -5,193 +5,101 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plataforma de Stewart - Controle</title>
     <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <link rel="stylesheet" href="./styles/actuators.css" />
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-      body {
-        font-family: "Inter", sans-serif;
-      }
-      .console-line {
-        padding: 2px 0;
-        font-family: "Courier New", monospace;
-        font-size: 13px;
-      }
-      .console-rx {
-        color: #10b981;
-      }
-      .console-tx {
-        color: #3b82f6;
-      }
-      .console-info {
-        color: #6b7280;
-      }
-      .pulse-dot {
-        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
+      /* Previne FOUC */
+      html { visibility: visible; opacity: 1; }
     </style>
   </head>
   <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
-    <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-8 max-w-7xl">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
       <!-- Header -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-8 mb-4 sm:mb-6 border border-gray-700"
-      >
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
         <div class="text-center">
-          <h1 class="text-2xl sm:text-4xl font-bold text-white mb-2">
-            Plataforma de Stewart - Controle
+          <h1 class="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+            <span class="material-icons text-green-400" style="font-size: 2.5rem;">precision_manufacturing</span>
+            <span>Controle de Atuadores - Stewart Platform</span>
           </h1>
           <div class="flex justify-center items-center gap-2">
-            <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-5 sm:w-6" />
-            <p class="text-sm sm:text-base text-gray-300">Instituto Federal de São Paulo</p>
+            <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
+            <p class="text-gray-300">Instituto Federal de São Paulo</p>
           </div>
         </div>
       </div>
 
       <!-- Navegação -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-700"
-      >
-        <div class="flex flex-wrap gap-2 justify-center text-sm sm:text-base">
-          <a
-            href="index.html"
-            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
-            >🏠 Início</a
-          >
-          <a
-            href="kinematics.html"
-            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
-            >📐 Cinemática</a
-          >
-          <a
-            href="actuators.html"
-            class="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold"
-            >🎮 Controle</a
-          >
-          <a
-            href="settings.html"
-            class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium"
-            >⚙️ Configurações</a
-          >
-        </div>
-      </div>
+      <div id="nav-container"></div>
 
       <!-- Status da Conexão -->
-      <div
-        id="connection-status"
-        class="bg-gray-800 rounded-2xl shadow-sm p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-700"
-      >
+      <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div
-              id="status-indicator"
-              class="w-3 h-3 rounded-full bg-red-500"
-            ></div>
-            <span id="status-text" class="font-medium text-gray-300"
-              >Desconectado</span
-            >
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span id="status-text" class="font-medium text-gray-300">Desconectado</span>
           </div>
           <span id="status-port" class="text-sm text-gray-400">--</span>
         </div>
       </div>
 
       <!-- Conexão Serial -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-700"
-      >
-        <h2 class="text-lg sm:text-xl font-semibold text-white mb-4">Conexão Serial</h2>
-        <div class="flex flex-wrap gap-3 sm:gap-4 items-end">
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
+        <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[200px]">
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Porta Serial</label
-            >
-            <select
-              id="serial-port"
-              class="w-full px-3 sm:px-4 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-green-500 text-sm sm:text-base"
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
+            <select id="serial-port" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent">
               <option value="">Selecione...</option>
             </select>
           </div>
-          <button
-            onclick="refreshPorts()"
-            class="px-3 sm:px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium text-sm sm:text-base"
-          >
-            ↻ Atualizar
+          <button onclick="refreshPorts()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+            <span class="material-icons text-sm">refresh</span>
+            <span>Atualizar</span>
           </button>
-          <button
-            id="btn-connect"
-            onclick="connectSerial()"
-            class="px-4 sm:px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base"
-          >
-            Conectar
+          <button id="btn-connect" onclick="connectSerial()" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2">
+            <span class="material-icons text-sm">power</span>
+            <span>Conectar</span>
           </button>
-          <button
-            id="btn-disconnect"
-            onclick="disconnectSerial()"
-            class="px-4 sm:px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm sm:text-base hidden"
-          >
-            Desconectar
+          <button id="btn-disconnect" onclick="disconnectSerial()" class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2">
+            <span class="material-icons text-sm">power_off</span>
+            <span>Desconectar</span>
           </button>
         </div>
       </div>
 
       <!-- Gráfico de Telemetria -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-700"
-      >
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-4 sm:mb-6 border border-gray-700">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-          <h2 class="text-lg sm:text-xl font-semibold text-white">
-            📈 Gráfico de Telemetria em Tempo Real
+          <h2 class="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+            <span class="material-icons text-blue-400">show_chart</span>
+            <span>Gráfico de Telemetria em Tempo Real</span>
           </h2>
           <div class="flex flex-wrap gap-2">
-            <button
-              id="btn-start-chart"
-              onclick="startChart()"
-              class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm"
-            >
-              ▶ Começar
+            <button id="btn-start-chart" onclick="startChart()" class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-sm">play_arrow</span>
+              <span>Começar</span>
             </button>
-            <button
-              id="btn-stop-chart"
-              onclick="stopChart()"
-              class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden"
-            >
-              ⏸ Pausar
+            <button id="btn-stop-chart" onclick="stopChart()" class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden flex items-center gap-1">
+              <span class="material-icons text-sm">pause</span>
+              <span>Pausar</span>
             </button>
-            <button
-              id="btn-reset-zoom"
-              onclick="resetZoom()"
-              class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm"
-              title="Resetar Zoom (clique duplo no gráfico também funciona)"
-            >
-              🔍 Reset Zoom
+            <button id="btn-reset-zoom" onclick="resetZoom()" class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1" title="Resetar Zoom (clique duplo no gráfico também funciona)">
+              <span class="material-icons text-sm">zoom_out_map</span>
+              <span>Reset Zoom</span>
             </button>
-            <button
-              id="btn-clear-chart"
-              onclick="clearChart()"
-              class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm"
-            >
-              🗑️ Limpar
+            <button id="btn-clear-chart" onclick="clearChart()" class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-sm">delete</span>
+              <span>Limpar</span>
             </button>
-            <button
-              id="btn-export-csv"
-              onclick="exportToCSV()"
-              class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-sm"
-            >
-              💾 Exportar CSV
+            <button id="btn-export-csv" onclick="exportToCSV()" class="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+              <span class="material-icons text-sm">save</span>
+              <span>Exportar CSV</span>
             </button>
           </div>
         </div>
@@ -202,115 +110,84 @@
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-semibold text-gray-300">Visibilidade dos Pistões</h3>
             <div class="flex gap-2">
-              <button onclick="toggleAllPistons(true)" class="px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded text-xs font-medium transition-colors">
-                Todos
-              </button>
-              <button onclick="toggleAllPistons(false)" class="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-medium transition-colors">
-                Nenhum
-              </button>
+              <button onclick="toggleAllPistons(true)" class="px-3 py-1 bg-green-700 hover:bg-green-600 text-white rounded text-xs font-medium transition-colors">Todos</button>
+              <button onclick="toggleAllPistons(false)" class="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-medium transition-colors">Nenhum</button>
             </div>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-1-visible" checked onchange="togglePistonVisibility(1)" class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+              <input type="checkbox" id="piston-1-visible" checked onchange="togglePistonVisibility(1)" class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-blue-500"></div>
               <span class="text-gray-300">Pistão 1</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-2-visible" checked onchange="togglePistonVisibility(2)" class="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2">
+              <input type="checkbox" id="piston-2-visible" checked onchange="togglePistonVisibility(2)" class="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-purple-500"></div>
               <span class="text-gray-300">Pistão 2</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-3-visible" checked onchange="togglePistonVisibility(3)" class="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2">
+              <input type="checkbox" id="piston-3-visible" checked onchange="togglePistonVisibility(3)" class="w-4 h-4 text-pink-600 bg-gray-700 border-gray-600 rounded focus:ring-pink-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-pink-500"></div>
               <span class="text-gray-300">Pistão 3</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-4-visible" checked onchange="togglePistonVisibility(4)" class="w-4 h-4 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2">
+              <input type="checkbox" id="piston-4-visible" checked onchange="togglePistonVisibility(4)" class="w-4 h-4 text-orange-600 bg-gray-700 border-gray-600 rounded focus:ring-orange-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-orange-500"></div>
               <span class="text-gray-300">Pistão 4</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-5-visible" checked onchange="togglePistonVisibility(5)" class="w-4 h-4 text-teal-600 bg-gray-700 border-gray-600 rounded focus:ring-teal-500 focus:ring-2">
+              <input type="checkbox" id="piston-5-visible" checked onchange="togglePistonVisibility(5)" class="w-4 h-4 text-teal-600 bg-gray-700 border-gray-600 rounded focus:ring-teal-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-teal-500"></div>
               <span class="text-gray-300">Pistão 5</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors">
-              <input type="checkbox" id="piston-6-visible" checked onchange="togglePistonVisibility(6)" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2">
+              <input type="checkbox" id="piston-6-visible" checked onchange="togglePistonVisibility(6)" class="w-4 h-4 text-indigo-600 bg-gray-700 border-gray-600 rounded focus:ring-indigo-500 focus:ring-2" />
               <div class="w-3 h-3 rounded-full bg-indigo-500"></div>
               <span class="text-gray-300">Pistão 6</span>
             </label>
           </div>
         </div>
-        <div class="mt-3 text-xs text-gray-400 text-center">
-          💡 Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar
+        <div class="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+          <span class="material-icons text-yellow-400" style="font-size: 1rem;">lightbulb</span>
+          <span>Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar</span>
         </div>
-        <div id="chart-status" class="mt-2 text-sm text-gray-400 text-center">
-          Pronto para iniciar gravação
-        </div>
+        <div id="chart-status" class="mt-2 text-sm text-gray-400 text-center">Pronto para iniciar gravação</div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <!-- Console -->
-        <div
-          class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-700"
-        >
-          <h2 class="text-lg sm:text-xl font-semibold text-white mb-4">
-            📟 Console RX/TX
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-700">
+          <h2 class="text-lg sm:text-xl font-semibold text-white mb-4 flex items-center gap-2">
+            <span class="material-icons text-green-400">terminal</span>
+            <span>Console RX/TX</span>
           </h2>
-          <div
-            id="console"
-            class="bg-gray-900 rounded-lg p-4 h-96 overflow-y-auto text-sm text-gray-300 font-mono"
-          >
+          <div id="console" class="bg-gray-900 rounded-lg p-4 h-96 overflow-y-auto text-sm text-gray-300 font-mono">
             <div class="console-info">Aguardando conexão...</div>
           </div>
           <div class="mt-4">
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Comando Livre</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Comando Livre</label>
             <div class="flex flex-col sm:flex-row gap-2">
-              <input
-                id="free-command"
-                type="text"
-                placeholder="Digite comando..."
-                class="flex-1 px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                onkeypress="if(event.key==='Enter') sendFreeCommand()"
-              />
-              <button
-                onclick="sendFreeCommand()"
-                class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap"
-              >
-                Enviar
-              </button>
+              <input id="free-command" type="text" placeholder="Digite comando..." class="flex-1 px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" onkeypress="if(event.key==='Enter') sendFreeCommand()" />
+              <button onclick="sendFreeCommand()" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap">Enviar</button>
             </div>
           </div>
         </div>
 
         <!-- Telemetria -->
-        <div
-          class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-700"
-        >
-          <h2 class="text-lg sm:text-xl font-semibold text-gray-300 mb-4">
-            📊 Telemetria em Tempo Real
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 border border-gray-700">
+          <h2 class="text-lg sm:text-xl font-semibold text-gray-300 mb-4 flex items-center gap-2">
+            <span class="material-icons text-blue-400">bar_chart</span>
+            <span>Telemetria em Tempo Real</span>
           </h2>
           <div class="mb-4">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-sm font-medium text-gray-300"
-                >Setpoint Global (mm):</span
-              >
-              <span id="telem-sp" class="text-lg font-bold text-green-400"
-                >--</span
-              >
+              <span class="text-sm font-medium text-gray-300">Setpoint Global (mm):</span>
+              <span id="telem-sp" class="text-lg font-bold text-green-400">--</span>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-blue-500"
-            >
-              <div class="text-xs font-semibold text-blue-400 mb-1">
-                Pistão 1
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-blue-500">
+              <div class="text-xs font-semibold text-blue-400 mb-1">Pistão 1</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y1" class="font-bold text-white">--</span>
@@ -320,12 +197,8 @@
                 <span id="telem-pwm1" class="font-bold text-white">--</span>
               </div>
             </div>
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-purple-500"
-            >
-              <div class="text-xs font-semibold text-purple-400 mb-1">
-                Pistão 2
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-purple-500">
+              <div class="text-xs font-semibold text-purple-400 mb-1">Pistão 2</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y2" class="font-bold text-white">--</span>
@@ -335,12 +208,8 @@
                 <span id="telem-pwm2" class="font-bold text-white">--</span>
               </div>
             </div>
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-pink-500"
-            >
-              <div class="text-xs font-semibold text-pink-400 mb-1">
-                Pistão 3
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-pink-500">
+              <div class="text-xs font-semibold text-pink-400 mb-1">Pistão 3</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y3" class="font-bold text-white">--</span>
@@ -350,12 +219,8 @@
                 <span id="telem-pwm3" class="font-bold text-white">--</span>
               </div>
             </div>
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-orange-500"
-            >
-              <div class="text-xs font-semibold text-orange-400 mb-1">
-                Pistão 4
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-orange-500">
+              <div class="text-xs font-semibold text-orange-400 mb-1">Pistão 4</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y4" class="font-bold text-white">--</span>
@@ -365,12 +230,8 @@
                 <span id="telem-pwm4" class="font-bold text-white">--</span>
               </div>
             </div>
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-teal-500"
-            >
-              <div class="text-xs font-semibold text-teal-400 mb-1">
-                Pistão 5
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-teal-500">
+              <div class="text-xs font-semibold text-teal-400 mb-1">Pistão 5</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y5" class="font-bold text-white">--</span>
@@ -380,12 +241,8 @@
                 <span id="telem-pwm5" class="font-bold text-white">--</span>
               </div>
             </div>
-            <div
-              class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-indigo-500"
-            >
-              <div class="text-xs font-semibold text-indigo-400 mb-1">
-                Pistão 6
-              </div>
+            <div class="bg-gradient-to-br from-gray-700 to-gray-600 rounded-lg p-4 border border-indigo-500">
+              <div class="text-xs font-semibold text-indigo-400 mb-1">Pistão 6</div>
               <div class="flex justify-between items-center">
                 <span class="text-sm text-gray-300">Y:</span>
                 <span id="telem-y6" class="font-bold text-white">--</span>
@@ -400,194 +257,91 @@
       </div>
 
       <!-- Setpoints -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mt-6 border border-gray-700"
-      >
-        <h2 class="text-xl font-semibold text-white mb-4">🎯 Setpoints (mm)</h2>
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mt-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-blue-400">adjust</span>
+          <span>Setpoints (mm)</span>
+        </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Setpoint Global (aplicar em todos)</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Setpoint Global (aplicar em todos)</label>
             <div class="flex flex-col sm:flex-row gap-2">
-              <input
-                id="sp-global"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointGlobal()"
-                class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap"
-              >
-                Aplicar em Todos
-              </button>
+              <input id="sp-global" type="number" step="0.1" value="0" class="flex-1 px-4 py-2 text-white bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+              <button onclick="sendSetpointGlobal()" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap">Aplicar em Todos</button>
             </div>
           </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 1</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 1</label>
             <div class="flex gap-2">
-              <input
-                id="sp-1"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(1)"
-                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-1" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(1)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 2</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 2</label>
             <div class="flex gap-2">
-              <input
-                id="sp-2"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(2)"
-                class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-2" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(2)" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 3</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 3</label>
             <div class="flex gap-2">
-              <input
-                id="sp-3"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(3)"
-                class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-3" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(3)" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 4</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 4</label>
             <div class="flex gap-2">
-              <input
-                id="sp-4"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(4)"
-                class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-4" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(4)" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 5</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 5</label>
             <div class="flex gap-2">
-              <input
-                id="sp-5"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(5)"
-                class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-5" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(5)" class="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Pistão 6</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Pistão 6</label>
             <div class="flex gap-2">
-              <input
-                id="sp-6"
-                type="number"
-                step="0.1"
-                value="0"
-                class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-              <button
-                onclick="sendSetpointInd(6)"
-                class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium"
-              >
-                ✓
-              </button>
+              <input id="sp-6" type="number" step="0.1" value="0" class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+              <button onclick="sendSetpointInd(6)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium">✓</button>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Link para Configurações -->
-      <div
-        class="bg-gray-800 rounded-2xl shadow-sm p-6 mt-6 border border-gray-700"
-      >
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mt-6 border border-gray-700">
         <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div>
-            <h2 class="text-xl font-semibold text-gray-300 mb-2">
-              ⚙️ Ganhos PID e Configurações
+            <h2 class="text-xl font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <span class="material-icons text-purple-400">tune</span>
+              <span>Ganhos PID e Configurações</span>
             </h2>
-            <p class="text-gray-400">
-              Configure os ganhos PID de cada pistão e ajustes gerais do sistema
-            </p>
+            <p class="text-gray-400">Configure os ganhos PID de cada pistão e ajustes gerais do sistema</p>
           </div>
-          <a
-            href="settings.html"
-            class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap"
-            >Ir para Configurações →</a
-          >
+          <a href="settings.html" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold whitespace-nowrap">Ir para Configurações →</a>
         </div>
       </div>
 
       <!-- Controle Manual -->
-      <div
-        class="rounded-2xl shadow-sm p-6 mt-6 bg-gray-800 border border-gray-700"
-      >
-        <h2 class="text-xl font-semibold text-white mb-4">
-          🕹️ Controle Manual
+      <div class="rounded-2xl shadow-sm p-6 mt-6 bg-gray-800 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-green-400">gamepad</span>
+          <span>Controle Manual</span>
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Selecionar Pistão</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Selecionar Pistão</label>
             <div class="flex gap-2">
-              <select
-                id="manual-piston"
-                class="flex-1 px-4 py-2 border border-gray-600 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
+              <select id="manual-piston" class="flex-1 px-4 py-2 border border-gray-600 bg-gray-800 text-white rounded-lg focus:ring-2 focus:ring-blue-500">
                 <option value="1">Pistão 1</option>
                 <option value="2">Pistão 2</option>
                 <option value="3">Pistão 3</option>
@@ -595,36 +349,17 @@
                 <option value="5">Pistão 5</option>
                 <option value="6">Pistão 6</option>
               </select>
-              <button
-                onclick="selectPiston()"
-                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold"
-              >
-                Selecionar
-              </button>
+              <button onclick="selectPiston()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-semibold">Selecionar</button>
             </div>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-2"
-              >Ações</label
-            >
+            <label class="block text-sm font-medium text-gray-300 mb-2">Ações</label>
             <div class="flex gap-2">
-              <button
-                onclick="manualAdvance()"
-                class="flex-1 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold"
-              >
-                ▲ Avanço
-              </button>
-              <button
-                onclick="manualRetract()"
-                class="flex-1 px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold"
-              >
-                ▼ Recuo
-              </button>
-              <button
-                onclick="manualStop()"
-                class="flex-1 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold"
-              >
-                ⏹ Parar
+              <button onclick="manualAdvance()" class="flex-1 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">▲ Avanço</button>
+              <button onclick="manualRetract()" class="flex-1 px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold">▼ Recuo</button>
+              <button onclick="manualStop()" class="flex-1 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center justify-center gap-1">
+                <span class="material-icons text-sm">stop</span>
+                <span>Parar</span>
               </button>
             </div>
           </div>
@@ -633,836 +368,33 @@
 
       <!-- Footer -->
       <div class="text-center text-gray-400 text-sm mt-8">
-        <p>
-          💡 Dica: Use comandos como
-          <code class="bg-gray-700 px-2 py-1 rounded text-green-400"
-            >spmm=100</code
-          >
-          para setpoint global ou
-          <code class="bg-gray-700 px-2 py-1 rounded text-green-400"
-            >spmm1=50</code
-          >
-          para individual
+        <p class="flex items-center justify-center gap-2">
+          <span class="material-icons text-yellow-400" style="font-size: 1rem;">lightbulb</span>
+          <span>Dica: Use comandos como
+            <code class="bg-gray-700 px-2 py-1 rounded text-green-400">spmm=100</code>
+            para setpoint global ou
+            <code class="bg-gray-700 px-2 py-1 rounded text-green-400">spmm1=50</code>
+            para individual
+          </span>
         </p>
       </div>
     </div>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="./scripts/common.js"></script>
+    <script src="./scripts/console-utils.js"></script>
+    <script src="./scripts/common.js"></script>
+    <script src="./scripts/console-utils.js"></script>
+    <script src="./scripts/chart-utils.js"></script>
+    <script src="nav-menu.js"></script>
     <script>
-      const API_BASE = "http://localhost:8001";
-      const WS_URL = "ws://localhost:8001/ws/telemetry";
-      let ws = null;
-      let reconnectTimer = null;
-      let isConnected = false;
-
-      // ========== Toast Helper ==========
-      function showToast(message, type = 'info') {
-        const backgrounds = {
-          success: 'linear-gradient(to right, #10b981, #059669)',
-          error: 'linear-gradient(to right, #ef4444, #dc2626)',
-          warning: 'linear-gradient(to right, #f59e0b, #d97706)',
-          info: 'linear-gradient(to right, #3b82f6, #2563eb)'
-        };
-
-        Toastify({
-          text: message,
-          duration: 3000,
-          gravity: 'top',
-          position: 'right',
-          stopOnFocus: true,
-          style: {
-            background: backgrounds[type] || backgrounds.info,
-            borderRadius: '8px',
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: '500'
-          }
-        }).showToast();
-      }
-
-      // ========== Gráfico de Telemetria ==========
-      let telemetryChart = null;
-      let chartRecording = false;
-      let chartData = [];
-      let maxDataPoints = 500; // Máximo de pontos no gráfico (evita lag)
-      let db = null;
-      let currentSetpoints = [0, 0, 0, 0, 0, 0]; // Rastreia setpoint individual de cada pistão
-
-      const PISTON_COLORS = {
-        1: { y: "rgba(59, 130, 246, 0.8)", sp: "rgba(59, 130, 246, 1)" }, // blue
-        2: { y: "rgba(168, 85, 247, 0.8)", sp: "rgba(168, 85, 247, 1)" }, // purple
-        3: { y: "rgba(236, 72, 153, 0.8)", sp: "rgba(236, 72, 153, 1)" }, // pink
-        4: { y: "rgba(249, 115, 22, 0.8)", sp: "rgba(249, 115, 22, 1)" }, // orange
-        5: { y: "rgba(20, 184, 166, 0.8)", sp: "rgba(20, 184, 166, 1)" }, // teal
-        6: { y: "rgba(99, 102, 241, 0.8)", sp: "rgba(99, 102, 241, 1)" }, // indigo
-      };
-
-      // IndexedDB para armazenamento local
-      function initDB() {
-        return new Promise((resolve, reject) => {
-          const request = indexedDB.open("TelemetryDB", 1);
-
-          request.onerror = () => reject(request.error);
-          request.onsuccess = () => {
-            db = request.result;
-            resolve(db);
-          };
-
-          request.onupgradeneeded = (event) => {
-            const db = event.target.result;
-            if (!db.objectStoreNames.contains("telemetry")) {
-              const store = db.createObjectStore("telemetry", {
-                keyPath: "id",
-                autoIncrement: true,
-              });
-              store.createIndex("timestamp", "timestamp", { unique: false });
-            }
-          };
-        });
-      }
-
-      async function saveTelemetryToDB(data) {
-        if (!db || !chartRecording) return;
-
-        return new Promise((resolve, reject) => {
-          const transaction = db.transaction(["telemetry"], "readwrite");
-          const store = transaction.objectStore("telemetry");
-          const request = store.add(data);
-
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }
-
-      async function clearTelemetryDB() {
-        if (!db) return;
-
-        return new Promise((resolve, reject) => {
-          const transaction = db.transaction(["telemetry"], "readwrite");
-          const store = transaction.objectStore("telemetry");
-          const request = store.clear();
-
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }
-
-      async function getAllTelemetryFromDB() {
-        if (!db) return [];
-
-        return new Promise((resolve, reject) => {
-          const transaction = db.transaction(["telemetry"], "readonly");
-          const store = transaction.objectStore("telemetry");
-          const request = store.getAll();
-
-          request.onsuccess = () => resolve(request.result);
-          request.onerror = () => reject(request.error);
-        });
-      }
-
-      function initChart() {
-        console.log('🎨 Inicializando gráfico...');
-        const ctx = document.getElementById("telemetry-chart").getContext("2d");
-
-        const datasets = [];
-        for (let i = 1; i <= 6; i++) {
-          // Dataset para Y (posição atual)
-          datasets.push({
-            label: `Pistão ${i} (Y)`,
-            data: [],
-            borderColor: PISTON_COLORS[i].y,
-            backgroundColor: PISTON_COLORS[i].y.replace("0.8", "0.1"),
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.4,
-          });
-
-          // Dataset para Setpoint (linha mais forte)
-          datasets.push({
-            label: `Pistão ${i} (SP)`,
-            data: [],
-            borderColor: PISTON_COLORS[i].sp,
-            backgroundColor: "transparent",
-            borderWidth: 3,
-            borderDash: [5, 5],
-            pointRadius: 0,
-            tension: 0,
-          });
-        }
-
-        telemetryChart = new Chart(ctx, {
-          type: "line",
-          data: { labels: [], datasets },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            interaction: {
-              mode: "index",
-              intersect: false,
-            },
-            plugins: {
-              legend: {
-                display: false,
-              },
-              tooltip: {
-                mode: "index",
-                intersect: false,
-              },
-              zoom: {
-                pan: {
-                  enabled: true,
-                  mode: 'xy',
-                  modifierKey: null,
-                },
-                zoom: {
-                  wheel: {
-                    enabled: true,
-                    speed: 0.1,
-                  },
-                  pinch: {
-                    enabled: true,
-                  },
-                  mode: 'xy',
-                },
-                limits: {
-                  x: {min: 'original', max: 'original'},
-                  y: {min: 'original', max: 'original'},
-                },
-              },
-            },
-            scales: {
-              x: {
-                display: true,
-                title: {
-                  display: true,
-                  text: "Tempo (s)",
-                  color: "#9ca3af",
-                },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "rgba(75, 85, 99, 0.3)" },
-              },
-              y: {
-                display: true,
-                title: {
-                  display: true,
-                  text: "Posição (mm)",
-                  color: "#9ca3af",
-                },
-                ticks: { color: "#9ca3af" },
-                grid: { color: "rgba(75, 85, 99, 0.3)" },
-              },
-            },
-          },
-        });
-        
-        console.log('✅ Gráfico Chart.js criado:', telemetryChart);
-      }
-
-      function startChart() {
-        console.log('🎬 startChart chamado');
-        chartRecording = true;
-        chartData = [];
-        clearTelemetryDB();
-
-        document.getElementById("btn-start-chart").classList.add("hidden");
-        document.getElementById("btn-stop-chart").classList.remove("hidden");
-        document.getElementById("chart-status").textContent = "🔴 Gravando...";
-
-        showToast("Gravação da telemetria iniciada", "success");
-        //console.log('📊 Gráfico iniciado');
-      }
-
-      function stopChart() {
-        chartRecording = false;
-
-        document.getElementById("btn-start-chart").classList.remove("hidden");
-        document.getElementById("btn-stop-chart").classList.add("hidden");
-        document.getElementById(
-          "chart-status"
-        ).textContent = `⏸ Pausado (${chartData.length} pontos gravados)`;
-
-        showToast(`Gravação pausada - ${chartData.length} pontos gravados`, "info");
-        //console.log('⏸ Gráfico pausado');
-      }
-
-      function resetZoom() {
-        if (telemetryChart) {
-          telemetryChart.resetZoom();
-          console.log('🔍 Zoom resetado');
-        }
-      }
-
-      function clearChart() {
-        chartRecording = false;
-        chartData = [];
-        clearTelemetryDB();
-
-        if (telemetryChart) {
-          telemetryChart.data.labels = [];
-          telemetryChart.data.datasets.forEach((ds) => (ds.data = []));
-          telemetryChart.update();
-          telemetryChart.resetZoom();
-        }
-
-        document.getElementById("btn-start-chart").classList.remove("hidden");
-        document.getElementById("btn-stop-chart").classList.add("hidden");
-        document.getElementById("chart-status").textContent =
-          "Pronto para iniciar gravação";
-
-        showToast("Gráfico limpo com sucesso", "success");
-        //console.log('🗑️ Gráfico limpo');
-      }
-
-      function togglePistonVisibility(pistonNum) {
-        if (!telemetryChart) return;
-        
-        const checkbox = document.getElementById(`piston-${pistonNum}-visible`);
-        const isVisible = checkbox.checked;
-        
-        // Os datasets estão organizados alternadamente: Y1, SP1, Y2, SP2, Y3, SP3...
-        // Para pistão N:
-        // - Y está no índice: (N-1) * 2
-        // - SP está no índice: (N-1) * 2 + 1
-        const yIndex = (pistonNum - 1) * 2;
-        const spIndex = (pistonNum - 1) * 2 + 1;
-        
-        // Ocultar/mostrar datasets
-        telemetryChart.data.datasets[yIndex].hidden = !isVisible;
-        telemetryChart.data.datasets[spIndex].hidden = !isVisible;
-        
-        telemetryChart.update();
-        
-        console.log(`Pistão ${pistonNum}: ${isVisible ? 'visível' : 'oculto'} (Y:${yIndex}, SP:${spIndex})`);
-      }
-
-      function toggleAllPistons(visible) {
-        for (let i = 1; i <= 6; i++) {
-          const checkbox = document.getElementById(`piston-${i}-visible`);
-          if (checkbox) {
-            checkbox.checked = visible;
-            togglePistonVisibility(i);
-          }
-        }
-      }
-
-      function updateChart(telemetryData) {
-        console.log('🎯 updateChart chamado. chartRecording:', chartRecording, 'telemetryChart:', !!telemetryChart, 'data.Y:', telemetryData.Y);
-        
-        if (!chartRecording || !telemetryChart || !telemetryData.Y) {
-          console.warn('⚠️ updateChart abortado:', {chartRecording, hasTelemetryChart: !!telemetryChart, hasY: !!telemetryData.Y});
-          return;
-        }
-
-        console.log('✅ updateChart prosseguindo...');
-
-        const now = Date.now();
-        const timeLabel = (
-          (now - (chartData[0]?.timestamp || now)) /
-          1000
-        ).toFixed(1);
-
-        // Se recebeu setpoint global, atualiza todos os pistões com esse valor
-        // (apenas se for diferente de zero - zero significa "sem mudança")
-        if (telemetryData.sp_mm && telemetryData.sp_mm !== 0) {
-          // Mantém os setpoints individuais, mas registra o global também
-          // Não sobrescreve os individuais automaticamente
-        }
-
-        // Usa os setpoints individuais rastreados de cada pistão
-        const setpoints = [...currentSetpoints];
-
-        // Adiciona aos dados em memória (limitado)
-        const dataPoint = {
-          timestamp: now,
-          sp_mm: telemetryData.sp_mm || 0,
-          SP: setpoints,
-          Y: [...telemetryData.Y],
-        };
-
-        chartData.push(dataPoint);
-
-        // Salva no IndexedDB (sem limite)
-        saveTelemetryToDB(dataPoint).catch((err) =>
-          console.error("Erro ao salvar no DB:", err)
-        );
-
-        // Limita pontos no gráfico para performance
-        if (chartData.length > maxDataPoints) {
-          chartData.shift();
-        }
-
-        // Atualiza gráfico
-        telemetryChart.data.labels.push(timeLabel);
-
-        for (let i = 0; i < 6; i++) {
-          // Y (posição atual)
-          telemetryChart.data.datasets[i * 2].data.push(
-            telemetryData.Y[i] || 0
-          );
-          // SP (setpoint individual de cada pistão)
-          const setpointValue =
-            setpoints[i] !== null ? setpoints[i] : telemetryData.Y[i] || 0;
-          telemetryChart.data.datasets[i * 2 + 1].data.push(setpointValue);
-        }
-
-        // Remove pontos antigos do gráfico
-        if (telemetryChart.data.labels.length > maxDataPoints) {
-          telemetryChart.data.labels.shift();
-          telemetryChart.data.datasets.forEach((ds) => ds.data.shift());
-        }
-
-        telemetryChart.update("none"); // 'none' = sem animação (melhor performance)
-
-        // Atualiza status
-        document.getElementById(
-          "chart-status"
-        ).textContent = `🔴 Gravando... (${chartData.length} pontos em memória)`;
-      }
-
-      async function exportToCSV() {
-        try {
-          const allData = await getAllTelemetryFromDB();
-
-          if (allData.length === 0) {
-            showToast("Não há dados para exportar. Inicie a gravação primeiro.", "warning");
-            return;
-          }
-
-          // Cabeçalho CSV
-          let csv =
-            "Timestamp,SP_Global,SP1,SP2,SP3,SP4,SP5,SP6,Y1,Y2,Y3,Y4,Y5,Y6\n";
-
-          // Dados
-          allData.forEach((row) => {
-            const timestamp = new Date(row.timestamp).toISOString();
-            const sp_global = row.sp_mm || 0;
-            const sp = row.SP ? row.SP.join(",") : "0,0,0,0,0,0";
-            const y = row.Y.join(",");
-            csv += `${timestamp},${sp_global},${sp},${y}\n`;
-          });
-
-          // Download
-          const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `telemetria_${new Date()
-            .toISOString()
-            .replace(/[:.]/g, "-")}.csv`;
-          link.click();
-          URL.revokeObjectURL(url);
-
-          //console.log(`✅ CSV exportado: ${allData.length} registros`);
-          showToast(`CSV exportado com sucesso! ${allData.length} registros salvos.`, 'success');
-        } catch (err) {
-          console.error("Erro ao exportar CSV:", err);
-          showToast(`Erro ao exportar: ${err.message}`, 'error');
-        }
-      }
-
-      // ========== Atualização de Status ==========
-      async function updateConnectionStatus() {
-        try {
-          const res = await fetch(`${API_BASE}/serial/status`);
-          const status = await res.json();
-
-          const indicator = document.getElementById("status-indicator");
-          const text = document.getElementById("status-text");
-          const portSpan = document.getElementById("status-port");
-
-          if (status.connected && status.port) {
-            indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-            text.textContent = "Conectado";
-            portSpan.textContent = status.port;
-          } else {
-            indicator.className = "w-3 h-3 rounded-full bg-red-500";
-            text.textContent = "Desconectado";
-            portSpan.textContent = "--";
-          }
-        } catch (err) {
-          console.error("Erro ao verificar status:", err);
-        }
-      }
-
-      // ========== Console ==========
-      function logConsole(text, type = "info") {
-        const console = document.getElementById("console");
-        const line = document.createElement("div");
-        line.className = `console-line console-${type}`;
-
-        const timestamp = new Date().toLocaleTimeString("pt-BR");
-        const prefix = type === "tx" ? "→ TX" : type === "rx" ? "← RX" : "  ";
-        line.textContent = `[${timestamp}] ${prefix}: ${text}`;
-
-        console.appendChild(line);
-        console.scrollTop = console.scrollHeight;
-
-        // Limita a 500 linhas
-        while (console.children.length > 500) {
-          console.removeChild(console.firstChild);
-        }
-      }
-
-      // ========== Serial Connection ==========
-      async function refreshPorts() {
-        try {
-          const res = await fetch(`${API_BASE}/serial/ports`);
-          const data = await res.json();
-          const select = document.getElementById("serial-port");
-          select.innerHTML = '<option value="">Selecione...</option>';
-          data.ports.forEach((port) => {
-            const opt = document.createElement("option");
-            opt.value = port;
-            opt.textContent = port;
-            select.appendChild(opt);
-          });
-          logConsole("Portas atualizadas", "info");
-        } catch (err) {
-          logConsole(`Erro ao listar portas: ${err.message}`, "info");
-        }
-      }
-
-      async function connectSerial() {
-        const port = document.getElementById("serial-port").value;
-        if (!port) {
-          showToast("Selecione uma porta serial", "warning");
-          return;
-        }
-
-        try {
-          const res = await fetch(`${API_BASE}/serial/open`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ port, baud: 115200 }),
-          });
-          const data = await res.json();
-
-          if (res.ok) {
-            isConnected = true;
-            document.getElementById("btn-connect").classList.add("hidden");
-            document
-              .getElementById("btn-disconnect")
-              .classList.remove("hidden");
-
-            // Atualiza o indicador de status
-            document.getElementById("status-indicator").className =
-              "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-            document.getElementById("status-text").textContent = "Conectado";
-            document.getElementById("status-port").textContent = port;
-
-            logConsole(`Conectado em ${port}`, "info");
-            showToast(`Conectado em ${port}`, "success");
-
-            // Salvar estado no localStorage
-            localStorage.setItem("serial_connected", "true");
-            localStorage.setItem("serial_port", port);
-
-            initWebSocket();
-          } else {
-            throw new Error(data.detail || "Erro ao conectar");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-          showToast(`Erro: ${err.message}`, 'error');
-        }
-      }
-
-      async function disconnectSerial() {
-        try {
-          await fetch(`${API_BASE}/serial/close`, { method: "POST" });
-          isConnected = false;
-          document.getElementById("btn-connect").classList.remove("hidden");
-          document.getElementById("btn-disconnect").classList.add("hidden");
-
-          // Atualiza o indicador de status
-          document.getElementById("status-indicator").className =
-            "w-3 h-3 rounded-full bg-red-500";
-          document.getElementById("status-text").textContent = "Desconectado";
-          document.getElementById("status-port").textContent = "--";
-
-          logConsole("Desconectado", "info");
-          showToast("Desconectado da porta serial", "info");
-
-          // Limpar estado no localStorage
-          localStorage.setItem("serial_connected", "false");
-          localStorage.removeItem("serial_port");
-
-          if (ws) {
-            ws.close();
-            ws = null;
-          }
-        } catch (err) {
-          logConsole(`Erro ao desconectar: ${err.message}`, "info");
-        }
-      }
-
-      // ========== WebSocket ==========
-      function initWebSocket() {
-        if (ws) {
-          ws.close();
-        }
-
-        //console.log('🔌 Conectando WebSocket:', WS_URL);
-        ws = new WebSocket(WS_URL);
-
-        ws.onopen = () => {
-          //console.log('✅ WebSocket conectado!');
-          logConsole("WebSocket conectado", "info");
-          clearTimeout(reconnectTimer);
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            handleTelemetry(data);
-          } catch (err) {
-            console.error("❌ Erro ao processar mensagem WS:", err, event.data);
-          }
-        };
-
-        ws.onerror = (err) => {
-          console.error("❌ WebSocket error:", err);
-        };
-
-        ws.onclose = () => {
-          //console.log('🔌 WebSocket desconectado');
-          logConsole("WebSocket desconectado", "info");
-          if (isConnected) {
-            reconnectTimer = setTimeout(initWebSocket, 2000);
-          }
-        };
-      }
-
-      function handleTelemetry(data) {
-        // 🐛 DEBUG: Log de todas as mensagens recebidas
-        console.log('📡 WebSocket recebeu:', data);
-
-        if (data.type === "raw") {
-          logConsole(data.raw, "rx");
-        } else if ((data.type === "telemetry" || data.type === "telemetry_mpu") && data.Y) {
-          // Atualiza telemetria (backend envia sp_mm, não SP)
-          document.getElementById("telem-sp").textContent =
-            data.sp_mm?.toFixed(2) || "--";
-          for (let i = 0; i < 6; i++) {
-            document.getElementById(`telem-y${i + 1}`).textContent =
-              data.Y[i]?.toFixed(2) || "--";
-            document.getElementById(`telem-pwm${i + 1}`).textContent =
-              data.PWM[i]?.toFixed(0) || "--";
-          }
-          console.log('✅ Telemetria atualizada na UI, chamando updateChart...');
-
-          // ✅ CORREÇÃO: Atualizar gráfico
-          updateChart(data);
-        }
-      }
-
-      // ========== Commands ==========
-      async function sendCommand(cmd) {
-        if (!isConnected) {
-          showToast("Conecte à porta serial primeiro", "warning");
-          return;
-        }
-
-        try {
-          const res = await fetch(`${API_BASE}/serial/send`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ command: cmd }),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            logConsole(cmd, "tx");
-          } else {
-            throw new Error(data.detail || "Erro ao enviar");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      function sendFreeCommand() {
-        const cmd = document.getElementById("free-command").value.trim();
-        if (!cmd) return;
-        sendCommand(cmd);
-        document.getElementById("free-command").value = "";
-      }
-
-      // ========== Setpoints ==========
-      async function sendSetpointGlobal() {
-        const value = parseFloat(document.getElementById("sp-global").value);
-        try {
-          const res = await fetch(`${API_BASE}/pid/setpoint`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ piston: null, value }),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            // Atualiza todos os setpoints para o valor global
-            for (let i = 0; i < 6; i++) {
-              currentSetpoints[i] = value;
-            }
-            logConsole(`Setpoint global: ${value} mm`, "tx");
-            showToast(`Setpoint global aplicado: ${value} mm`, "success");
-            //console.log('📊 Setpoints atualizados:', currentSetpoints);
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      async function sendSetpointInd(piston) {
-        const value = parseFloat(document.getElementById(`sp-${piston}`).value);
-        try {
-          const res = await fetch(`${API_BASE}/pid/setpoint`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ piston, value }),
-          });
-          const data = await res.json();
-          if (res.ok) {
-            // Atualiza apenas o setpoint deste pistão (índice = piston - 1)
-            currentSetpoints[piston - 1] = value;
-            logConsole(`Setpoint pistão ${piston}: ${value} mm`, "tx");
-            showToast(`Setpoint pistão ${piston}: ${value} mm`, "success");
-            //console.log(`📊 Setpoint pistão ${piston} atualizado:`, currentSetpoints);
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      // ========== Manual Control ==========
-      async function selectPiston() {
-        const piston = parseInt(document.getElementById("manual-piston").value);
-        try {
-          const res = await fetch(`${API_BASE}/pid/select/${piston}`, {
-            method: "POST",
-          });
-          const data = await res.json();
-          if (res.ok) {
-            logConsole(`Pistão ${piston} selecionado`, "tx");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      async function manualAdvance() {
-        try {
-          const res = await fetch(`${API_BASE}/pid/manual/A`, {
-            method: "POST",
-          });
-          if (res.ok) {
-            logConsole("Manual: Avanço (A)", "tx");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      async function manualRetract() {
-        try {
-          const res = await fetch(`${API_BASE}/pid/manual/R`, {
-            method: "POST",
-          });
-          if (res.ok) {
-            logConsole("Manual: Recuo (R)", "tx");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      async function manualStop() {
-        try {
-          const res = await fetch(`${API_BASE}/pid/manual/ok`, {
-            method: "POST",
-          });
-          if (res.ok) {
-            logConsole("Manual: Parar (ok)", "tx");
-          }
-        } catch (err) {
-          logConsole(`Erro: ${err.message}`, "info");
-        }
-      }
-
-      // ========== Init ==========
-      async function checkExistingConnection() {
-        //console.log('🔍 Verificando conexão existente...');
-
-        try {
-          // Verifica o status real no backend
-          const res = await fetch(`${API_BASE}/serial/status`);
-          const status = await res.json();
-
-          //console.log('� Status do backend:', status);
-
-          if (status.connected && status.port) {
-            // Backend está conectado
-            isConnected = true;
-            document.getElementById("btn-connect").classList.add("hidden");
-            document
-              .getElementById("btn-disconnect")
-              .classList.remove("hidden");
-
-            // Atualiza o indicador de status
-            document.getElementById("status-indicator").className =
-              "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-            document.getElementById("status-text").textContent = "Conectado";
-            document.getElementById("status-port").textContent = status.port;
-
-            // Preenche o select com a porta conectada
-            const select = document.getElementById("serial-port");
-            if (![...select.options].some((opt) => opt.value === status.port)) {
-              const opt = document.createElement("option");
-              opt.value = status.port;
-              opt.textContent = status.port;
-              opt.selected = true;
-              select.appendChild(opt);
-            } else {
-              select.value = status.port;
-            }
-
-            // Atualiza localStorage
-            localStorage.setItem("serial_connected", "true");
-            localStorage.setItem("serial_port", status.port);
-
-            logConsole(`Reconectado à sessão: ${status.port}`, "info");
-
-            // Reconecta ao WebSocket
-            initWebSocket();
-          } else {
-            // Backend não está conectado
-            //console.log('❌ Backend não está conectado');
-            localStorage.setItem("serial_connected", "false");
-            localStorage.removeItem("serial_port");
-          }
-        } catch (err) {
-          console.error("⚠️ Erro ao verificar status:", err);
-          localStorage.setItem("serial_connected", "false");
-          localStorage.removeItem("serial_port");
-        }
-      }
-
-      window.addEventListener("DOMContentLoaded", async () => {
-        // Inicializa banco de dados e gráfico
-        try {
-          await initDB();
-          //console.log('✅ IndexedDB inicializado');
-        } catch (err) {
-          console.error("❌ Erro ao inicializar DB:", err);
-        }
-
-        initChart();
-        //console.log('✅ Gráfico inicializado');
-
-        await refreshPorts();
-        await checkExistingConnection();
-        logConsole("Interface PID carregada.", "info");
-
-        // Atualiza status periodicamente
-        setInterval(updateConnectionStatus, 2000);
+      // Insere navegação ao carregar
+      document.addEventListener('DOMContentLoaded', () => {
+        insertNavMenu('nav-container', 'actuators.html');
       });
     </script>
+    <script src="./scripts/actuators.js"></script>
   </body>
 </html>

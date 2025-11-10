@@ -4,119 +4,170 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plataforma de Stewart - Menu</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg">
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Swiper CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="./styles/index.css" />
+
+
   </head>
-  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
-    <div class="container mx-auto px-4 py-12 max-w-6xl">
+  <body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen">
+    <div class="container mx-auto px-4 py-4 max-w-7xl">
       <!-- Header -->
-      <div class="text-center mb-12">
-        <h1 class="text-5xl font-bold text-white mb-7">Plataforma de Stewart</h1>
-        <div class="flex justify-center items-center gap-4 mb-2">
-          
-          <div class="flex flex-col gap-3 items-center">
-        <img src="./assets/ifsp-logo.svg" alt="logo IFSP" class="w-50" />
-        <p class="text-gray-400 mt-2">Selecione uma interface abaixo</p>
-        </div>
+      <div class="text-center mb-4">
+        <h1 class="text-3xl font-bold mb-2">
+          <span class="gradient-text">Plataforma de Stewart</span>
+        </h1>
+        <div class="flex justify-center items-center gap-2 mb-2">
+          <div class="flex flex-col gap-1 items-center">
+            <img src="./assets/ifsp-logo.svg" alt="logo IFSP" width="220" />
+            
+          </div>
         </div>
       </div>
 
-      <!-- Cards -->
-      <div class="flex flex-col sm:flex-row gap-8 items-stretch">
-        <!-- PID Control -->
-        <a href="actuators.html" class="group flex-1">
-          <div class="bg-gradient-to-br from-green-500 to-green-700 rounded-2xl p-8 shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-green-500/50 h-full flex flex-col justify-between">
-            <div class="text-6xl mb-4">🎮</div>
-            <h2 class="text-3xl font-bold text-white mb-3">Controle</h2>
-            <p class="text-green-100 mb-4">Controle dos 6 pistões com ajuste de setpoints individuais e telemetria em tempo real.</p>
-            <ul class="text-green-50 text-sm space-y-1 mb-4">
-              <li>✓ Setpoints individuais/global</li>
-              <li>✓ Controle manual</li>
-              <li>✓ Gráficos em tempo real</li>
-              <li>✓ Console TX/RX</li>           
-            </ul>
-            <div class="text-white font-semibold group-hover:translate-x-2 transition-transform">Abrir Interface →</div>
-          </div>
-        </a>
+      <!-- Carrossel de Interfaces com Swiper -->
+      <div class="relative mb-6">
+        <h2 class="text-xl font-bold text-white text-center mb-4 flex items-center justify-center gap-2">
+          <span class="material-icons text-green-400 text-2xl icon-glow">widgets</span>
+          <span>Interfaces Disponíveis</span>
+        </h2>
 
-        <!-- Kinematics -->
-        <a href="kinematics.html" class="group flex-1">
-          <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-8 shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-blue-500/50 h-full flex flex-col justify-between">
-            <div class="text-6xl mb-4">📐</div>
-            <h2 class="text-3xl font-bold text-white mb-3">Cinemática</h2>
-            <p class="text-blue-100 mb-4">Controle por cinemática inversa usando coordenadas 3D (x, y, z) e ângulos de Euler (roll, pitch, yaw).</p>
-            <ul class="text-blue-50 text-sm space-y-1 mb-4">
-              <li>✓ Controle por pose 3D</li>
-              <li>✓ Visualização 3D ao vivo</li>
-              <li>✓ Cinemática inversa</li>
-              <li>✓ Validação de limites</li>
-            </ul>
-            <div class="text-white font-semibold group-hover:translate-x-2 transition-transform">Abrir Interface →</div>
+        <!-- Swiper Container -->
+        <div class="swiper interfacesSwiper rounded-3xl overflow-visible" style="min-height: 280px">
+          <div class="swiper-wrapper pb-8">
+            <!-- Slides serão inseridos via JavaScript -->
           </div>
-        </a>
 
-        <!-- Actuators -->
-        <a href="settings.html" class="group flex-1">
-          <div class="bg-gradient-to-br from-purple-500 to-purple-700 rounded-2xl p-8 shadow-2xl transform transition-all duration-300 hover:scale-105 hover:shadow-purple-500/50 h-full flex flex-col justify-between">
-            <div class="text-6xl mb-4">⚙</div>
-            <h2 class="text-3xl font-bold text-white mb-3">Configurações</h2>
-            <p class="text-purple-100 mb-4">Ajustes gerais</p>
-            <ul class="text-purple-50 text-sm space-y-1 mb-4">
-              <li>✓ Ganhos Kp/Ki/Kd por pistão</li>
-              <li>✓ Ganhos globais</li>
-              <li>✓ Filtros</li>
-            </ul>
-            <div class="text-white font-semibold group-hover:translate-x-2 transition-transform">Abrir Interface →</div>
-          </div>
-        </a>
+          <!-- Navegação -->
+          <div class="swiper-button-next"></div>
+          <div class="swiper-button-prev"></div>
+
+          <!-- Paginação -->
+          <div class="swiper-pagination"></div>
+        </div>
+      </div>
+
+      <!-- Grid Compacto de Acesso Rápido -->
+      <div class="mb-6">
+        <h2 class="text-lg font-bold text-white text-center mb-3 flex items-center justify-center gap-2">
+          <span class="material-icons text-yellow-400 text-xl">bolt</span>
+          <span>Acesso Rápido</span>
+        </h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+          <a href="actuators.html" class="group bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg p-2 transition-all text-center backdrop-blur-sm">
+            <div class="mb-1">
+              <span class="material-icons text-green-400 group-hover:text-green-300 transition-all group-hover:scale-110 inline-block" style="font-size: 1.75rem">videogame_asset</span>
+            </div>
+            <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">Controle</div>
+          </a>
+          <a href="kinematics.html" class="group bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg p-2 transition-all text-center backdrop-blur-sm">
+            <div class="mb-1">
+              <span class="material-icons text-blue-400 group-hover:text-blue-300 transition-all group-hover:scale-110 inline-block" style="font-size: 1.75rem">straighten</span>
+            </div>
+            <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">Cinemática</div>
+          </a>
+          <a href="routines.html" class="group bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg p-2 transition-all text-center backdrop-blur-sm">
+            <div class="mb-1">
+              <span class="material-icons text-orange-400 group-hover:text-orange-300 transition-all group-hover:scale-110 inline-block" style="font-size: 1.75rem">autorenew</span>
+            </div>
+            <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">Rotinas</div>
+          </a>
+          <a href="motion.html" class="group bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg p-2 transition-all text-center backdrop-blur-sm">
+            <div class="mb-1">
+              <span class="material-icons text-pink-400 group-hover:text-pink-300 transition-all group-hover:scale-110 inline-block" style="font-size: 1.75rem">gps_fixed</span>
+            </div>
+            <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">MPU-6050</div>
+          </a>
+          <a href="settings.html" class="group bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 rounded-lg p-2 transition-all text-center backdrop-blur-sm">
+            <div class="mb-1">
+              <span class="material-icons text-purple-400 group-hover:text-purple-300 transition-all group-hover:scale-110 inline-block" style="font-size: 1.75rem">settings</span>
+            </div>
+            <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">Configurações</div>
+          </a>
+        </div>
       </div>
 
       <!-- Info Bar -->
-      <div class="mt-12 bg-gray-800 rounded-xl p-6 border border-gray-700">
-        <div class="flex items-start gap-4">
-          <div class="text-3xl">ℹ️</div>
-          <div>
-            <h3 class="text-white font-semibold text-lg mb-2">Antes de começar:</h3>
-            <ol class="text-gray-300 space-y-2">
-              <li>
-                1. Certifique-se que o
-                <strong class="text-white">backend está rodando</strong>
-                (execute
-                <code class="bg-gray-900 px-2 py-1 rounded text-green-400">python app.py</code>
-                no diretório backend)
-              </li>
-              <li>
-                2.
-                <strong class="text-white">Conecte o ESP32</strong>
-                via USB
-              </li>
-              <li>3. Selecione a interface desejada acima</li>
-              <li>
-                4. Na interface,
-                <strong class="text-white">conecte à porta serial</strong>
-                e comece a controlar!
-              </li>
-            </ol>
+      <div class="mt-6 bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-4 border border-gray-700/50 backdrop-blur-sm">
+        <div class="flex items-start gap-3">
+          <div class="text-3xl flex-shrink-0">
+            <span class="material-icons text-blue-400" style="font-size: 2rem">info</span>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-white font-bold text-lg mb-2">Guia Rápido de Inicialização</h3>
+            <div class="grid md:grid-cols-2 gap-2">
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-green-400 text-base">check_circle</span>
+                  <span class="text-white font-semibold text-xs">1. Backend</span>
+                </div>
+                <p class="text-gray-300 text-xs">
+                  Execute
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">python app.py</code>
+                  no diretório backend
+                </p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-blue-400 text-base">usb</span>
+                  <span class="text-white font-semibold text-xs">2. Hardware</span>
+                </div>
+                <p class="text-gray-300 text-xs">Conecte o ESP32 via USB ao computador</p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-purple-400 text-base">launch</span>
+                  <span class="text-white font-semibold text-xs">3. Interface</span>
+                </div>
+                <p class="text-gray-300 text-xs">Escolha uma interface acima e acesse</p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-orange-400 text-base">play_arrow</span>
+                  <span class="text-white font-semibold text-xs">4. Conectar</span>
+                </div>
+                <p class="text-gray-300 text-xs">Conecte à porta serial e comece o controle</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="text-center mt-8 text-gray-400 text-sm">
-        <p>
-          🔧 Backend:
-          <span class="text-white">FastAPI + Python</span>
-          | 🎨 Frontend:
-          <span class="text-white">HTML5 + Tailwind CSS</span>
-        </p>
-        <p class="mt-2">
-          Porta:
-          <code class="bg-gray-900 px-2 py-1 rounded text-green-400">localhost:8001</code>
-        </p>
-        <p class="mt-2">
-          Guilherme Miyata - TCC - ECA - 2025
-        </p>
+      <div class="text-center mt-6 text-gray-400">
+        <div class="flex items-center justify-center gap-3 flex-wrap mb-2">
+          <div class="flex items-center gap-1.5 bg-gray-800/50 px-2.5 py-1.5 rounded-lg">
+            <span class="material-icons text-xs text-green-400">build</span>
+            <span class="text-xs">Backend:</span>
+            <span class="text-white font-semibold text-xs">FastAPI + Python</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-gray-800/50 px-2.5 py-1.5 rounded-lg">
+            <span class="material-icons text-xs text-blue-400">palette</span>
+            <span class="text-xs">Frontend:</span>
+            <span class="text-white font-semibold text-xs">HTML5 + Tailwind CSS</span>
+          </div>
+          <div class="flex items-center gap-1.5 bg-gray-800/50 px-2.5 py-1.5 rounded-lg">
+            <span class="material-icons text-xs text-purple-400">cloud</span>
+            <span class="text-xs">Porta:</span>
+            <code class="text-green-400 font-mono font-semibold text-xs">localhost:8001</code>
+          </div>
+        </div>
+        <p class="text-xs">Guilherme Miyata - TCC - ECA - 2025</p>
       </div>
     </div>
+
+    <!-- Swiper JS -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    <script src="./scripts/index.js"></script>
+
+    
   </body>
 </html>

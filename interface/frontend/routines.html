@@ -5,83 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plataforma de Stewart - Rotinas de Movimento</title>
     <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js para gráficos -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./styles/routines.css">
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-      body {
-        font-family: 'Inter', sans-serif;
-      }
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      .pulse-dot {
-        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
-
-      /* Motion Routines Styles */
-      .motion-preset-card {
-        background: #1f2937;
-        padding: 20px;
-        border-radius: 10px;
-        border: 2px solid #374151;
-        transition: all 0.3s ease;
-        cursor: pointer;
-      }
-      .motion-preset-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        border-color: #4b5563;
-      }
-      .motion-preset-card.active {
-        border-color: #10b981;
-        background: linear-gradient(135deg, #1f2937 0%, #065f46 100%);
-      }
-      .motion-param-input {
-        background: #374151;
-        border: 1px solid #4b5563;
-        border-radius: 6px;
-        padding: 6px 10px;
-        color: #f3f4f6;
-        width: 100%;
-        font-size: 0.875em;
-      }
-      .motion-param-input:focus {
-        outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
-      }
-      .motion-status-running {
-        background: #10b981;
-        animation: pulse-motion 2s infinite;
-      }
-      .motion-status-stopped {
-        background: #6b7280;
-      }
-      @keyframes pulse-motion {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
+      /* Previne FOUC */
+      html { visibility: visible; opacity: 1; }
+      .material-icons, .material-icons-outlined {
+        vertical-align: middle;
       }
     </style>
   </head>
@@ -90,7 +23,10 @@
       <!-- Header -->
       <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
         <div class="text-center">
-          <h1 class="text-4xl font-bold text-white mb-2">Plataforma de Stewart - Rotinas de Movimento</h1>
+          <h1 class="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+            <span class="material-icons text-orange-400" style="font-size: 2.5rem;">autorenew</span>
+            <span>Plataforma de Stewart - Rotinas de Movimento</span>
+          </h1>
           <div class="flex justify-center items-center gap-2">
             <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
             <p class="text-gray-300">Instituto Federal de São Paulo</p>
@@ -99,15 +35,7 @@
       </div>
 
       <!-- Navegação -->
-      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
-        <div class="flex flex-wrap gap-2 justify-center">
-          <a href="index.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
-          <a href="kinematics.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">📐 Cinemática</a>
-          <a href="actuators.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🎮 Controle</a>
-          <a href="routines.html" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold">🎬 Rotinas</a>
-          <a href="settings.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
-        </div>
-      </div>
+      <div id="nav-container"></div>
 
       <!-- Status da Conexão -->
       <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
@@ -122,7 +50,10 @@
 
       <!-- Conexão Serial -->
       <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
-        <h2 class="text-xl font-semibold text-white mb-4">🔌 Conexão Serial</h2>
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
         <div class="flex flex-wrap gap-4 items-end">
           <div class="flex-1 min-w-[200px]">
             <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
@@ -130,43 +61,79 @@
               <option value="">Selecione...</option>
             </select>
           </div>
-          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium">↻ Atualizar</button>
-          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">Conectar</button>
-          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">Desconectar</button>
+          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+            <span class="material-icons text-sm">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2">
+            <span class="material-icons text-sm">power</span>
+            <span>Conectar</span>
+          </button>
+          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">
+            <span class="material-icons text-sm">power_off</span>
+            <span>Desconectar</span>
+          </button>
         </div>
       </div>
 
       <!-- === Motion Routines === -->
       <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-semibold text-white">🎬 Rotinas de Movimento</h2>
+          <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+            <span class="material-icons text-orange-400">movie</span>
+            <span>Rotinas de Movimento</span>
+          </h2>
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full motion-status-stopped" id="motion-status-dot"></span>
               <span id="motion-status-text" class="text-sm text-gray-400">Parado</span>
             </div>
             <span id="motion-elapsed" class="text-lg font-mono text-green-400">00:00</span>
-            <button id="btn-motion-stop" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>⏹️ Parar</button>
+            <button id="btn-motion-stop" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2" disabled>
+              <span class="material-icons text-sm">stop</span>
+              <span>Parar</span>
+            </button>
           </div>
         </div>
 
         <!-- Seção dos Gráficos de Movimento (sempre visível) -->
         <div id="motion-chart-section" class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-6 border border-gray-700">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-            <h2 class="text-lg sm:text-xl font-semibold text-white">📈 Trajetórias do Movimento em Tempo Real</h2>
+            <h2 class="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+              <span class="material-icons text-blue-400">show_chart</span>
+              <span>Trajetórias do Movimento em Tempo Real</span>
+            </h2>
             <div class="flex flex-wrap gap-2">
-              <button id="btn-start-motion-chart" class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm">▶️ Iniciar Gravação</button>
-              <button id="btn-stop-motion-chart" class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden">⏸ Pausar Gravação</button>
-              <button id="btn-clear-motion-chart" class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm">🗑️ Limpar Gráficos</button>
-              <button id="btn-export-motion-csv" class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm">💾 Exportar CSV</button>
+              <button id="btn-start-motion-chart" class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+                <span class="material-icons text-sm">play_arrow</span>
+                <span>Iniciar Gravação</span>
+              </button>
+              <button id="btn-stop-motion-chart" class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden flex items-center gap-1">
+                <span class="material-icons text-sm">pause</span>
+                <span>Pausar Gravação</span>
+              </button>
+              <button id="btn-clear-motion-chart" class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+                <span class="material-icons text-sm">delete</span>
+                <span>Limpar Gráficos</span>
+              </button>
+              <button id="btn-export-motion-csv" class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm flex items-center gap-1">
+                <span class="material-icons text-sm">save</span>
+                <span>Exportar CSV</span>
+              </button>
             </div>
           </div>
 
           <!-- Gráfico 1: Setpoints Comandados (CMD) -->
           <div class="mb-6">
             <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold text-gray-300">📤 Trajetórias Comandadas (Setpoints)</h3>
-              <button id="btn-reset-zoom-cmd" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">🔍 Reset Zoom</button>
+              <h3 class="text-base font-semibold text-gray-300 flex items-center gap-2">
+                <span class="material-icons text-sm text-green-400">send</span>
+                <span>Trajetórias Comandadas (Setpoints)</span>
+              </h3>
+              <button id="btn-reset-zoom-cmd" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1">
+                <span class="material-icons" style="font-size: 12px;">zoom_out_map</span>
+                <span>Reset Zoom</span>
+              </button>
             </div>
             <div class="bg-gray-900 rounded-lg p-2 sm:p-4" style="height: 320px">
               <canvas id="motion-chart-cmd"></canvas>
@@ -217,8 +184,14 @@
           <!-- Gráfico 2: Posições Reais (Real) -->
           <div>
             <div class="flex items-center justify-between mb-2">
-              <h3 class="text-base font-semibold text-gray-300">📥 Trajetórias Reais (Feedback dos Atuadores)</h3>
-              <button id="btn-reset-zoom-real" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">🔍 Reset Zoom</button>
+              <h3 class="text-base font-semibold text-gray-300 flex items-center gap-2">
+                <span class="material-icons text-sm text-purple-400">get_app</span>
+                <span>Trajetórias Reais (Feedback dos Atuadores)</span>
+              </h3>
+              <button id="btn-reset-zoom-real" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors flex items-center gap-1">
+                <span class="material-icons" style="font-size: 12px;">zoom_out_map</span>
+                <span>Reset Zoom</span>
+              </button>
             </div>
             <div class="bg-gray-900 rounded-lg p-2 sm:p-4" style="height: 320px">
               <canvas id="motion-chart-real"></canvas>
@@ -266,7 +239,10 @@
             </div>
           </div>
 
-          <div class="mt-3 text-xs text-gray-400 text-center">💡 Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar cada gráfico</div>
+          <div class="mt-3 text-xs text-gray-400 text-center flex items-center justify-center gap-1">
+            <span class="material-icons text-yellow-400" style="font-size: 1rem;">lightbulb</span>
+            <span>Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar cada gráfico</span>
+          </div>
           <div id="motion-chart-status" class="mt-2 text-sm text-gray-400 text-center">Pronto para iniciar gravação</div>
         </div>
 
@@ -277,10 +253,18 @@
       </div>
     </div>
 
-    <!-- Script comum -->
-    <script src="common.js"></script>
-
-    <!-- Script de lógica de movim -->
-    <script src="motion-logic.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="./scripts/common.js"></script>
+    <script src="nav-menu.js"></script>
+    <script>
+      // Insere navegação ao carregar
+      document.addEventListener('DOMContentLoaded', () => {
+        insertNavMenu('nav-container', 'routines.html');
+      });
+    </script>
+    <script src="./scripts/motion-logic.js"></script>
   </body>
 </html>

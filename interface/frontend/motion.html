@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle por Acelerômetro - MPU-6050</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet" />
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./styles/motion.css" />
+    <style>
+      /* Previne FOUC */
+      html {
+        visibility: visible;
+        opacity: 1;
+      }
+      .material-icons,
+      .material-icons-outlined {
+        vertical-align: middle;
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- Header -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+            <span class="material-icons text-pink-400" style="font-size: 2.5rem">gps_fixed</span>
+            <span>Controle por Acelerômetro (MPU-6050)</span>
+          </h1>
+          <div class="flex justify-center items-center gap-2">
+            <span class="inline-block w-2 h-2 bg-green-500 rounded-full pulse-dot"></span>
+            <p class="text-gray-400">Controle em tempo real da Plataforma de Stewart</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <div id="nav-container"></div>
+
+      <!-- Status da Conexão -->
+      <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-gray-500"></div>
+            <span id="status-text" class="text-gray-400 font-medium">Aguardando conexão...</span>
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label for="serial-port-select" class="block text-sm font-medium text-gray-400 mb-2">Porta Serial</label>
+            <select id="serial-port-select" class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent">
+              <option value="">Selecione uma porta...</option>
+            </select>
+          </div>
+          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+            <span class="material-icons text-sm">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2">
+            <span class="material-icons text-sm">power</span>
+            <span>Conectar</span>
+          </button>
+          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden flex items-center gap-2">
+            <span class="material-icons text-sm">power_off</span>
+            <span>Desconectar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Valores MPU (Card Horizontal) -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="material-icons text-blue-400">sensors</span>
+          <span>Valores do Acelerômetro (MPU-6050)</span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">Roll (Rotação em X)</div>
+            <div class="text-4xl font-bold text-blue-400 mb-3" id="mpu-roll">0.0°</div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div id="mpu-roll-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-200" style="width: 50%"></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">Pitch (Rotação em Y)</div>
+            <div class="text-4xl font-bold text-purple-400 mb-3" id="mpu-pitch">0.0°</div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div id="mpu-pitch-bar" class="bg-purple-500 h-3 rounded-full transition-all duration-200" style="width: 50%"></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">Yaw (Rotação em Z)</div>
+            <div class="text-4xl font-bold text-pink-400 mb-3" id="mpu-yaw">0.0°</div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div id="mpu-yaw-bar" class="bg-pink-500 h-3 rounded-full transition-all duration-200" style="width: 50%"></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between bg-gray-700 rounded-lg p-4 border border-gray-600">
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="control-enabled" class="w-5 h-5 rounded focus:ring-2 focus:ring-green-500" />
+              <span class="text-white font-semibold">Controle Ativo</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400 text-sm">Escala:</span>
+              <input type="range" id="scale-slider" min="0" max="100" value="100" class="w-32" />
+              <span class="text-white font-semibold w-12" id="scale-value">100%</span>
+            </div>
+            <button id="btn-recalibrate" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+              <span class="material-icons text-sm">restart_alt</span>
+              <span>Recalibrar MPU</span>
+            </button>
+          </div>
+          <div class="text-right">
+            <div class="text-gray-400 text-sm">Taxa de Atualização</div>
+            <div class="text-white text-lg font-semibold" id="update-rate">0 Hz</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modelo 3D Preview (Tela Cheia) -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700" style="margin-bottom: 30px">
+        <h2 class="text-xl font-semibold text-white mb-2 flex items-center gap-2">
+          <span class="material-icons text-purple-400">view_in_ar</span>
+          <span>Cinemática Calculada</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-4">Orientação baseada no MPU-6050 (Roll, Pitch, Yaw)</p>
+        <div class="canvas-container">
+          <div id="canvas-preview"></div>
+          <div class="controls-3d">
+            <div style="margin-bottom: 6px; font-weight: 600; color: #10b981">Controles</div>
+            <div class="flex items-center gap-1">
+              <span class="material-icons" style="font-size: 1rem">mouse</span>
+              <span>Rotacionar: Clique + Arraste</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="material-icons" style="font-size: 1rem">search</span>
+              <span>Zoom: Scroll</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span class="material-icons" style="font-size: 1rem">open_with</span>
+              <span>Mover: Botão Direito + Arraste</span>
+            </div>
+            <button class="btn-reset-cam" onclick="resetCamera('canvas-preview')">
+              <span class="material-icons text-sm">restart_alt</span>
+              <span>Reset Câmera</span>
+            </button>
+          </div>
+          <div class="legend">
+            <div style="margin-bottom: 6px; font-weight: 600; color: #10b981">Legenda</div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #cd191e"></div>
+              <span>Base Fixa</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #2f9e41"></div>
+              <span>Plataforma Móvel</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #50c878"></div>
+              <span>Atuador Válido</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color" style="background: #ff4444"></div>
+              <span>Atuador Inválido</span>
+            </div>
+          </div>
+        </div>
+        <!-- Medidas dos pistões (Preview) -->
+        <h3 class="text-sm font-semibold text-gray-300 mt-4 mb-2 flex items-center gap-2">
+          <span class="material-icons text-sm text-blue-400">straighten</span>
+          <span>Comprimentos Calculados</span>
+        </h3>
+        <div class="piston-measures" id="piston-measures-preview">
+          <div class="piston-card" style="border-left: 3px solid #3b82f6">
+            <div class="piston-id">P1</div>
+            <div class="piston-length" id="preview-piston-1">---</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #a855f7">
+            <div class="piston-id">P2</div>
+            <div class="piston-length" id="preview-piston-2">---</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #ec4899">
+            <div class="piston-id">P3</div>
+            <div class="piston-length" id="preview-piston-3">---</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #f97316">
+            <div class="piston-id">P4</div>
+            <div class="piston-length" id="preview-piston-4">---</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #14b8a6">
+            <div class="piston-id">P5</div>
+            <div class="piston-length" id="preview-piston-5">---</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #6366f1">
+            <div class="piston-id">P6</div>
+            <div class="piston-length" id="preview-piston-6">---</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="nav-menu.js"></script>
+    <script>
+      // Insere navegação ao carregar
+      document.addEventListener('DOMContentLoaded', () => {
+        insertNavMenu('nav-container', 'motion.html');
+      });
+    </script>
+    <script src="./scripts/motion.js"></script>
+  </body>
+</html>
