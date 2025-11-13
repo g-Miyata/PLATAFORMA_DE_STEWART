@@ -28,6 +28,20 @@ const interfaces = [
     ],
   },
   {
+    title: 'Controle por Joystick',
+    icon: 'sports_esports',
+    url: 'controller.html',
+    description: 'Controle em tempo real usando gamepad/joystick com mapeamento direto dos sticks para translação e rotação.',
+    iconColor: 'text-purple-400',
+    bgGradient: 'from-purple-600/20 to-purple-800/20',
+    accentColor: '#a855f7',
+    features: [
+      { icon: 'gamepad', text: 'Suporte a Xbox e PlayStation' },
+      { icon: 'view_in_ar', text: 'Preview 3D em tempo real' },
+      { icon: 'security', text: 'Limites de segurança (±30mm/±8°)' },
+    ],
+  },
+  {
     title: 'Rotinas Automatizadas',
     icon: 'autorenew',
     url: 'routines.html',
@@ -60,9 +74,9 @@ const interfaces = [
     icon: 'settings',
     url: 'settings.html',
     description: 'Ajuste fino de parâmetros do controlador PID, filtros e configurações gerais do sistema de controle.',
-    iconColor: 'text-purple-400',
-    bgGradient: 'from-purple-600/20 to-purple-800/20',
-    accentColor: '#a855f7',
+    iconColor: 'text-cyan-400',
+    bgGradient: 'from-cyan-600/20 to-cyan-800/20',
+    accentColor: '#06b6d4',
     features: [
       { icon: 'tune', text: 'Ajuste de ganhos' },
       { icon: 'center_focus_weak', text: 'Ajuste de deadband' },
@@ -119,6 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Inicializa o Swiper
   const swiper = new Swiper('.interfacesSwiper', {
+    loop: true,
     effect: 'cube',
     grabCursor: true,
     cubeEffect: {
@@ -129,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       transition: 1000,
     },
     autoplay: {
-      delay: 5000,
+      delay: 4000,
       disableOnInteraction: false,
     },
     pagination: {
