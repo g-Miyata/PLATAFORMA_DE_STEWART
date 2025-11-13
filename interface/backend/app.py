@@ -111,6 +111,17 @@ class MotionRequest(BaseModel):
     z_amp_mm: Optional[float] = None  # Amplitude em Z para helix (mm)
     z_cycles: Optional[float] = None  # Número de ciclos completos em Z durante uma volta no círculo XY
 
+class JoystickPoseRequest(BaseModel):
+    """Modelo para controle por joystick (gamepad)"""
+    lx: float = Field(0.0, ge=-1.0, le=1.0)  # left stick X, -1..1
+    ly: float = Field(0.0, ge=-1.0, le=1.0)  # left stick Y, -1..1
+    rx: float = Field(0.0, ge=-1.0, le=1.0)  # right stick X, -1..1
+    ry: float = Field(0.0, ge=-1.0, le=1.0)  # right stick Y, -1..1
+    lt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # left trigger
+    rt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # right trigger
+    apply: bool = False  # Se True, envia comando serial para ESP32
+    z_base: Optional[float] = None  # Z base (default = platform.h0)
+
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
     def __init__(self, h0=432, stroke_min=500, stroke_max=680):
@@ -1292,6 +1303,107 @@ def mpu_control(req: MPUControlRequest):
         "lengths_abs": L.tolist()
     }
 
+# -------------------- Joystick Control --------------------
+@app.post("/joystick/pose")
+def joystick_pose(req: JoystickPoseRequest):
+    """
+    Endpoint para controle por joystick (gamepad).
+    
+    Mapeia eixos normalizados do joystick (-1..1) para pose física da plataforma.
+    
+    Mapeamento:
+    - lx, ly: Stick esquerdo -> translação X, Y (±10mm)
+    - rx, ry: Stick direito -> rotação Pitch, Roll (±10°)
+    - lt, rt: Triggers -> controle de Yaw (futuro)
+    
+    Parâmetros:
+    - apply: Se True, envia comando serial para ESP32
+    - z_base: Altura Z base (default = platform.h0 + 23mm, altura elevada segura)
+    
+    Retorna:
+    - valid: Se a pose calculada é válida
+    - applied: Se o comando foi enviado (apenas se apply=True e valid=True)
+    - pose: Pose calculada
+    - lengths_abs: Comprimentos absolutos dos atuadores
+    - course_mm: Cursos em mm
+    - base_points: Pontos da base
+    - platform_points: Pontos da plataforma
+    """
+    # Constantes de mapeamento (limites físicos da plataforma)
+    MAX_TRANS_MM = 30.0   # ±30mm em X e Y
+    MAX_ANGLE_DEG = 8.0  # ±10° em roll, pitch, yaw
+    HOME_BIAS_MM = 68.0   # Altura elevada segura
+    
+    # Mapear eixos normalizados para valores físicos
+    # lx -> X (direita positivo)
+    # ly -> Y (para frente negativo, por isso inverte)
+    x = np.clip(req.lx * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
+    y = np.clip(-req.ly * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
+    
+    # Z usa valor base fornecido ou h0 + 23mm (altura elevada segura)
+    z = req.z_base if req.z_base is not None else (platform.h0 + HOME_BIAS_MM)
+    
+    # rx -> Pitch (stick direito horizontal)
+    # ry -> Roll (stick direito vertical, invertido)
+    roll = np.clip(-req.ry * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
+    pitch = np.clip(req.rx * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
+    
+    # Yaw por enquanto em 0 (pode usar lt/rt no futuro)
+    yaw = 0.0
+    # Exemplo futuro: yaw = (rt - lt) * MAX_ANGLE_DEG se ambos forem fornecidos
+    
+    print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
+    
+    # Calcular cinemática inversa
+    L, valid, P = platform.inverse_kinematics(
+        x=x, y=y, z=z,
+        roll=roll, pitch=pitch, yaw=yaw
+    )
+    
+    # Se inválido, retornar imediatamente
+    if not valid:
+        print("❌ Pose de joystick inválida")
+        return {
+            "valid": False,
+            "applied": False,
+            "message": "Pose fora dos limites da plataforma",
+            "pose": {"x": x, "y": y, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw}
+        }
+    
+    # Calcular cursos
+    course_mm = platform.lengths_to_stroke_mm(L)
+    
+    # Se apply=True e válido, enviar comando serial
+    applied = False
+    if req.apply:
+        try:
+            cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+            print(f"📤 Enviando comando joystick: {cmd}")
+            serial_mgr.write_line(cmd)
+            applied = True
+            print("✅ Comando joystick enviado com sucesso")
+        except Exception as e:
+            print(f"❌ Erro ao enviar comando joystick: {e}")
+            raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
+    
+    # Retornar resposta completa
+    return {
+        "valid": True,
+        "applied": applied,
+        "pose": {
+            "x": float(x),
+            "y": float(y),
+            "z": float(z),
+            "roll": float(roll),
+            "pitch": float(pitch),
+            "yaw": float(yaw)
+        },
+        "lengths_abs": L.tolist(),
+        "course_mm": course_mm.tolist(),
+        "base_points": platform.B.tolist(),
+        "platform_points": P.tolist()
+    }
+
 # -------------------- WebSocket --------------------
 @app.websocket("/ws/telemetry")
 async def ws_telemetry(ws: WebSocket):
@@ -1322,6 +1434,8 @@ def root():
             "WS   /ws/telemetry",
             "POST /calculate",
             "POST /apply_pose",
+            "POST /joystick/pose",
+            "POST /mpu/control",
             "GET  /config",
             "POST /config",
             "POST /pid/setpoint",
