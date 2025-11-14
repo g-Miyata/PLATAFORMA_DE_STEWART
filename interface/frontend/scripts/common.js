@@ -40,34 +40,98 @@ async function loadSerialPorts() {
   try {
     const response = await fetch(`${API_BASE}/serial/ports`);
     const data = await response.json();
-    const select = document.getElementById("serial-port-select");
+    const select = document.getElementById('serial-port-select');
     if (!select) return;
 
-    select.innerHTML = '<option value="">Selecione...</option>';
+    select.innerHTML = '<option value="">Selecione a porta...</option>';
+
+    // Debug: verificar estrutura dos dados
+    console.log('📋 Portas recebidas:', data.ports);
+
     data.ports.forEach((port) => {
-      const option = document.createElement("option");
-      option.value = port;
-      option.textContent = port;
+      const option = document.createElement('option');
+      option.value = port.device;
+
+      // Garantir que temos display_name (fallback para description)
+      const displayName = port.display_name || port.description || 'Dispositivo desconhecido';
+      const deviceName = port.device || '???';
+
+      // Formata o texto da opção com indicadores visuais PADRONIZADOS
+      let label = '';
+      let badgeIcon = '';
+
+      if (port.is_esp32) {
+        // Badges padronizados para ESP32
+        if (port.confidence >= 60) {
+          badgeIcon = '✓'; // Check mark verde
+          option.style.fontWeight = '600';
+          option.style.color = '#10b981'; // verde
+        } else {
+          badgeIcon = '~'; // Tilde amarelo
+          option.style.fontWeight = '500';
+          option.style.color = '#f59e0b'; // amarelo
+        }
+
+        // Formato padronizado: [✓] COM5 • ESP32-S3 (USB Nativo)
+        label = `[${badgeIcon}] ${deviceName} • ${displayName}`;
+      } else {
+        // Outras portas em cinza
+        label = `[X] ${deviceName} • ${displayName}`;
+        option.style.color = '#9ca3af'; // cinza
+        option.style.fontWeight = '400';
+      }
+
+      option.textContent = label;
+
+      // Tooltip padronizado com informações técnicas
+      const vidStr = port.vid ? `0x${port.vid.toString(16).toUpperCase().padStart(4, '0')}` : 'N/A';
+      const pidStr = port.pid ? `0x${port.pid.toString(16).toUpperCase().padStart(4, '0')}` : 'N/A';
+      option.title = `${port.manufacturer || 'Fabricante desconhecido'}\nVID:PID = ${vidStr}:${pidStr}\nConfiança: ${port.confidence}%`;
+
       select.appendChild(option);
     });
+
+    // Verificar se há conexão ativa e selecionar a porta correspondente
+    try {
+      const statusRes = await fetch(`${API_BASE}/serial/status`);
+      const status = await statusRes.json();
+
+      if (status.connected && status.port) {
+        // Porta conectada - selecionar no dropdown
+        select.value = status.port;
+        console.log(`✅ Porta ativa selecionada: ${status.port}`);
+      } else {
+        // Sem conexão ativa - auto-selecionar ESP32 de alta confiança se houver apenas um
+        const highConfidencePorts = data.ports.filter((p) => p.is_esp32 && p.confidence >= 80);
+        if (highConfidencePorts.length === 1 && select.options.length === 2) {
+          const port = highConfidencePorts[0];
+          select.value = port.device;
+          const displayName = port.display_name || port.description || 'ESP32-S3';
+          showToast(`✓ ${displayName} detectado em ${port.device}`, 'success');
+        }
+      }
+    } catch (err) {
+      console.warn('⚠️ Não foi possível verificar status da conexão:', err);
+    }
   } catch (error) {
-    showToast("Erro ao carregar portas seriais", "error");
+    console.error('❌ Erro ao carregar portas:', error);
+    showToast('Erro ao carregar portas seriais', 'error');
   }
 }
 
 async function openSerial() {
-  const select = document.getElementById("serial-port-select");
+  const select = document.getElementById('serial-port-select');
   const port = select?.value;
 
   if (!port) {
-    showToast("Selecione uma porta serial", "warning");
+    showToast('Selecione uma porta serial', 'warning');
     return;
   }
 
   try {
     const response = await fetch(`${API_BASE}/serial/open`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ port }),
     });
 
@@ -75,60 +139,63 @@ async function openSerial() {
 
     if (response.ok) {
       serialConnected = true;
+      window.serialConnected = true; // Atualiza window também
       setSerialStatus(true, port);
-      showToast(`Conectado em ${port}`, "success");
+      showToast(`Conectado em ${port}`, 'success');
       initTelemetryWS();
     } else {
-      showToast(`Erro: ${data.detail}`, "error");
+      showToast(`Erro: ${data.detail}`, 'error');
     }
   } catch (error) {
-    showToast(`Erro ao conectar: ${error.message}`, "error");
+    showToast(`Erro ao conectar: ${error.message}`, 'error');
   }
 }
 
 async function closeSerial() {
   try {
     const response = await fetch(`${API_BASE}/serial/close`, {
-      method: "POST",
+      method: 'POST',
     });
 
     if (response.ok) {
       serialConnected = false;
+      window.serialConnected = false; // Atualiza window também
       setSerialStatus(false);
-      showToast("Desconectado", "info");
+      showToast('Desconectado', 'info');
       if (ws) {
         ws.close();
         ws = null;
+        window.ws = null; // Atualiza window também
       }
     } else {
-      showToast("Erro ao desconectar", "error");
+      showToast('Erro ao desconectar', 'error');
     }
   } catch (error) {
-    showToast(`Erro: ${error.message}`, "error");
+    showToast(`Erro: ${error.message}`, 'error');
   }
 }
 
-function setSerialStatus(connected, port = "--") {
-  const indicator = document.getElementById("status-indicator");
-  const text = document.getElementById("status-text");
-  const portEl = document.getElementById("status-port");
-  const btnOpen = document.getElementById("btn-open-serial");
-  const btnClose = document.getElementById("btn-close-serial");
+function setSerialStatus(connected, port = '--') {
+  const indicator = document.getElementById('status-indicator');
+  const text = document.getElementById('status-text');
+  const portEl = document.getElementById('status-port');
+  const btnOpen = document.getElementById('btn-open-serial');
+  const btnClose = document.getElementById('btn-close-serial');
 
   if (!indicator || !text) return;
 
   if (connected) {
-    indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-    text.textContent = "Conectado";
+    indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+    text.textContent = 'Conectado';
     if (portEl) portEl.textContent = port;
-    if (btnOpen) btnOpen.classList.add("hidden");
-    if (btnClose) btnClose.classList.remove("hidden");
+    if (btnOpen) btnOpen.classList.add('hidden');
+    if (btnClose) btnClose.classList.remove('hidden');
   } else {
-    indicator.className = "w-3 h-3 rounded-full bg-red-500";
-    text.textContent = "Desconectado";
-    if (portEl) portEl.textContent = "--";
-    if (btnOpen) btnOpen.classList.remove("hidden");
-    if (btnClose) btnClose.classList.add("hidden");
+    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+    text.textContent = 'Desconectado';
+    if (portEl) portEl.textContent = '--';
+    if (btnOpen) btnOpen.classList.remove('hidden');
+    if (btnClose) btnClose.classList.add('hidden');
   }
 }
 
@@ -155,12 +222,9 @@ async function checkExistingConnection() {
       serialConnected = true;
       setSerialStatus(true, status.port);
 
-      const select = document.getElementById("serial-port-select");
-      if (
-        select &&
-        ![...select.options].some((opt) => opt.value === status.port)
-      ) {
-        const opt = document.createElement("option");
+      const select = document.getElementById('serial-port-select');
+      if (select && ![...select.options].some((opt) => opt.value === status.port)) {
+        const opt = document.createElement('option');
         opt.value = status.port;
         opt.textContent = status.port;
         opt.selected = true;
@@ -172,7 +236,7 @@ async function checkExistingConnection() {
       initTelemetryWS();
     }
   } catch (err) {
-    console.error("⚠️ Erro ao verificar status:", err);
+    console.error('⚠️ Erro ao verificar status:', err);
   }
 }
 
@@ -189,23 +253,23 @@ function initTelemetryWS() {
     ws = new WebSocket(WS_URL);
     window.ws = ws; // Exportar para window imediatamente
   } catch (e) {
-    console.error("❌ Erro ao criar WebSocket:", e);
+    console.error('❌ Erro ao criar WebSocket:', e);
     scheduleReconnect();
     return;
   }
 
   ws.onopen = () => {
-    console.log("✅ WebSocket conectado");
+    console.log('✅ WebSocket conectado');
     if (wsTimer) clearTimeout(wsTimer);
   };
 
   ws.onclose = () => {
-    console.log("❌ WebSocket desconectado");
+    console.log('❌ WebSocket desconectado');
     scheduleReconnect();
   };
 
   ws.onerror = (e) => {
-    console.error("❌ WebSocket error:", e);
+    console.error('❌ WebSocket error:', e);
   };
 
   // O onmessage deve ser configurado por cada página específica
@@ -234,18 +298,18 @@ function scheduleReconnect() {
  * @param {string} style - Estilo inline (opcional)
  * @returns {string} HTML do ícone
  */
-function icon(iconName, className = "", style = "") {
-  const classes = className ? ` ${className}` : "";
-  const styleAttr = style ? ` style="${style}"` : "";
+function icon(iconName, className = '', style = '') {
+  const classes = className ? ` ${className}` : '';
+  const styleAttr = style ? ` style="${style}"` : '';
   return `<span class="material-icons${classes}"${styleAttr}>${iconName}</span>`;
 }
 
 /**
  * Cria um ícone outlined (contorno)
  */
-function iconOutlined(iconName, className = "", style = "") {
-  const classes = className ? ` ${className}` : "";
-  const styleAttr = style ? ` style="${style}"` : "";
+function iconOutlined(iconName, className = '', style = '') {
+  const classes = className ? ` ${className}` : '';
+  const styleAttr = style ? ` style="${style}"` : '';
   return `<span class="material-icons-outlined${classes}"${styleAttr}>${iconName}</span>`;
 }
 
@@ -254,52 +318,51 @@ function iconOutlined(iconName, className = "", style = "") {
  */
 function loadMaterialIcons() {
   if (!document.querySelector('link[href*="material-icons"]')) {
-    const link = document.createElement("link");
-    link.href = "https://fonts.googleapis.com/icon?family=Material+Icons";
-    link.rel = "stylesheet";
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/icon?family=Material+Icons';
+    link.rel = 'stylesheet';
     document.head.appendChild(link);
 
-    const linkOutlined = document.createElement("link");
-    linkOutlined.href =
-      "https://fonts.googleapis.com/icon?family=Material+Icons+Outlined";
-    linkOutlined.rel = "stylesheet";
+    const linkOutlined = document.createElement('link');
+    linkOutlined.href = 'https://fonts.googleapis.com/icon?family=Material+Icons+Outlined';
+    linkOutlined.rel = 'stylesheet';
     document.head.appendChild(linkOutlined);
   }
 }
 
 // Mapeamento de emojis para ícones Material Icons
 const ICON_MAP = {
-  "🏠": "home",
-  "🎮": "videogame_asset",
-  "📐": "straighten",
-  "🔄": "autorenew",
-  "🎯": "gps_fixed",
-  "⚙️": "settings",
-  "📊": "bar_chart",
-  "📈": "show_chart",
-  "📡": "wifi_tethering",
-  "🔌": "power",
-  "✅": "check_circle",
-  "🚀": "rocket_launch",
-  "🎬": "movie",
-  "📟": "devices",
-  "🕹️": "sports_esports",
-  "💾": "save",
-  "🗑️": "delete",
-  "🔍": "zoom_in",
-  "⏸": "pause",
-  "▶": "play_arrow",
-  "⏹": "stop",
-  "↻": "refresh",
-  "←": "arrow_back",
-  "→": "arrow_forward",
-  "▲": "keyboard_arrow_up",
-  "▼": "keyboard_arrow_down",
-  ℹ️: "info",
-  "💡": "lightbulb",
-  "🔧": "build",
-  "🎨": "palette",
-  "⚡": "bolt",
+  '🏠': 'home',
+  '🎮': 'videogame_asset',
+  '📐': 'straighten',
+  '🔄': 'autorenew',
+  '🎯': 'gps_fixed',
+  '⚙️': 'settings',
+  '📊': 'bar_chart',
+  '📈': 'show_chart',
+  '📡': 'wifi_tethering',
+  '🔌': 'power',
+  '✅': 'check_circle',
+  '🚀': 'rocket_launch',
+  '🎬': 'movie',
+  '📟': 'devices',
+  '🕹️': 'sports_esports',
+  '💾': 'save',
+  '🗑️': 'delete',
+  '🔍': 'zoom_in',
+  '⏸': 'pause',
+  '▶': 'play_arrow',
+  '⏹': 'stop',
+  '↻': 'refresh',
+  '←': 'arrow_back',
+  '→': 'arrow_forward',
+  '▲': 'keyboard_arrow_up',
+  '▼': 'keyboard_arrow_down',
+  ℹ️: 'info',
+  '💡': 'lightbulb',
+  '🔧': 'build',
+  '🎨': 'palette',
+  '⚡': 'bolt',
 };
 
 /**
@@ -308,20 +371,23 @@ const ICON_MAP = {
  * @param {string} className - Classes CSS adicionais
  * @returns {string} HTML do ícone ou emoji original
  */
-function emojiToIcon(emoji, className = "") {
+function emojiToIcon(emoji, className = '') {
   const iconName = ICON_MAP[emoji];
   return iconName ? icon(iconName, className) : emoji;
 }
 
 // ========== Inicialização Comum ==========
 function initCommonSerialControls() {
-  const btnRefresh = document.getElementById("btn-refresh-ports");
-  const btnOpen = document.getElementById("btn-open-serial");
-  const btnClose = document.getElementById("btn-close-serial");
+  const btnRefresh = document.getElementById('btn-refresh-ports');
+  const btnOpen = document.getElementById('btn-open-serial');
+  const btnClose = document.getElementById('btn-close-serial');
 
-  if (btnRefresh) btnRefresh.addEventListener("click", loadSerialPorts);
-  if (btnOpen) btnOpen.addEventListener("click", openSerial);
-  if (btnClose) btnClose.addEventListener("click", closeSerial);
+  if (btnRefresh) btnRefresh.addEventListener('click', loadSerialPorts);
+  if (btnOpen) btnOpen.addEventListener('click', openSerial);
+  if (btnClose) btnClose.addEventListener('click', closeSerial);
+
+  // Injeta CSS para estilizar o select de portas
+  injectSerialPortStyles();
 
   // Carrega portas disponíveis
   loadSerialPorts();
@@ -333,9 +399,42 @@ function initCommonSerialControls() {
   setInterval(updateConnectionStatus, 2000);
 }
 
+// ========== CSS Injection ==========
+function injectSerialPortStyles() {
+  if (document.getElementById('serial-port-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'serial-port-styles';
+  style.textContent = `
+    /* Estilização padronizada do select de portas seriais */
+    #serial-port-select {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.875rem;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+    }
+    
+    #serial-port-select option {
+      padding: 10px 8px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      line-height: 1.8;
+    }
+    
+    /* Primeira opção (placeholder) em itálico */
+    #serial-port-select option:first-child {
+      font-style: italic;
+      color: #9ca3af !important;
+      font-weight: 400 !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // Exportar para uso global
 window.API_BASE = API_BASE;
 window.WS_URL = WS_URL;
+window.serialConnected = serialConnected;
+window.ws = ws;
 window.showToast = showToast;
 window.loadSerialPorts = loadSerialPorts;
 window.openSerial = openSerial;
@@ -346,9 +445,7 @@ window.checkExistingConnection = checkExistingConnection;
 window.initTelemetryWS = initTelemetryWS;
 window.scheduleReconnect = scheduleReconnect;
 window.initCommonSerialControls = initCommonSerialControls;
-window.initTelemetryWS = initTelemetryWS;
-window.scheduleReconnect = scheduleReconnect;
-window.initCommonSerialControls = initCommonSerialControls;
+window.injectSerialPortStyles = injectSerialPortStyles;
 window.icon = icon;
 window.iconOutlined = iconOutlined;
 window.loadMaterialIcons = loadMaterialIcons;

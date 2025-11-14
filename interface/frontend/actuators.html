@@ -91,30 +91,28 @@
               >Porta Serial</label
             >
             <select
-              id="serial-port"
+              id="serial-port-select"
               class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
-              <option value="">Selecione...</option>
+              <option value="">Selecione a porta...</option>
             </select>
           </div>
           <button
-            onclick="refreshPorts()"
+            id="btn-refresh-ports"
             class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
           >
             <span class="material-icons text-md">refresh</span>
             <span>Atualizar</span>
           </button>
           <button
-            id="btn-connect"
-            onclick="connectSerial()"
+            id="btn-open-serial"
             class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
           >
-            <span class="material-icons text-md">power</span>
+            <span class="material-icons text-sm">power</span>
             <span>Conectar</span>
           </button>
           <button
-            id="btn-disconnect"
-            onclick="disconnectSerial()"
+            id="btn-close-serial"
             class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
           >
             <span class="material-icons text-md">power_off</span>
@@ -729,8 +727,6 @@
       type="text/javascript"
       src="https://cdn.jsdelivr.net/npm/toastify-js"
     ></script>
-    <script src="./scripts/common.js"></script>
-    <script src="./scripts/console-utils.js"></script>
     <script src="./scripts/common.js"></script>
     <script src="./scripts/console-utils.js"></script>
     <script src="./scripts/chart-utils.js"></script>

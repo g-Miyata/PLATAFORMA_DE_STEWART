@@ -6,20 +6,34 @@
 BNO08x imu;
 
 // ==================================================
-// Estrutura de dados trocada via ESP‑NOW
+// Estruturas de dados trocadas via ESP-NOW
 // ==================================================
+
+// Comandos que VÊM do S3 (recalibração, etc.)
 typedef struct {
   float roll;
   float pitch;
   float yaw;
   bool  recalibra;  // campo p/ pedir recalibração
-} OrientationData;
+} CommandData;
 
-OrientationData ori;
-OrientationData recebido;
+// Telemetria que VAI para o S3 (Euler + Quaternions)
+typedef struct {
+  float roll;   // já com offset (zerado)
+  float pitch;  // já com offset
+  float yaw;    // já com offset
+  float qw;     // quaternion bruto
+  float qx;
+  float qy;
+  float qz;
+  bool  recalibra;  // sempre false aqui, só pra manter layout simples
+} TelemetryData;
+
+TelemetryData ori;     // o que enviamos
+CommandData   recebido; // o que recebemos
 
 // ==================================================
-// MAC do receptor (ESP32‑S3)
+// MAC do receptor (ESP32-S3)
 // ==================================================
 uint8_t receiverMac[] = {0x34, 0xCD, 0xB0, 0x33, 0xA6, 0xF8};
 
@@ -30,25 +44,32 @@ unsigned long lastSend = 0;
 const unsigned long sendIntervalMs = 50; 
 
 // ==================================================
+// Offsets para "zerar" orientação por software
+// ==================================================
+float offsetRoll  = 0.0f;
+float offsetPitch = 0.0f;
+float offsetYaw   = 0.0f;
+bool  temOffset   = false;
+
+// Flag para indicar pedido de recalibração recebido via ESP-NOW
+volatile bool pedidoRecalibra = false;
+
+// ==================================================
 // Callback de recepção — recebe comandos do S3
 // ==================================================
 void onDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
-  if (len == sizeof(OrientationData)) {
+  // Continua compatível com o struct antigo do S3:
+  if (len == sizeof(CommandData)) {
     memcpy(&recebido, incomingData, sizeof(recebido));
 
     if (recebido.recalibra) {
       Serial.println(">> Comando de recalibração recebido!");
-      Serial.println("Executando Tare (zerando orientação)...");
-      
-      // Tare: zera a orientação atual do BNO08x
-      if (imu.tareNow(true, SH2_TARE_BASIS_ROTATION_VECTOR)) {
-        Serial.println("OK: Tare concluído!");
-        // Opcional: salvar o tare na memória flash
-        imu.saveTare();
-      } else {
-        Serial.println("ERRO: Falha ao executar Tare!");
-      }
+      // Apenas marca a intenção; o offset será atualizado no loop
+      pedidoRecalibra = true;
     }
+  } else {
+    Serial.print(">> Pacote recebido com tamanho inesperado: ");
+    Serial.println(len);
   }
 }
 
@@ -56,13 +77,12 @@ void onDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
 // Inicializa o BNO08x
 // ==================================================
 void setupBNO() {
-  Wire.begin(21, 22);  // I2C padrão DevKit V1
-  Wire.setClock(400000); // 400kHz
+  Wire.begin(21, 22);        // I2C (ajuste se seus pinos forem outros)
+  Wire.setClock(400000);     // 400kHz
 
   Serial.println("Inicializando BNO08x...");
   
-  // Tenta inicializar no endereço padrão (0x4B)
-  // Caso seu módulo use 0x4A, troque por: imu.begin(0x4A, Wire)
+  // Endereço padrão (0x4B). Se o seu for 0x4A, troque aqui.
   if (!imu.begin(BNO08x_DEFAULT_ADDRESS, Wire)) {
     Serial.println(F("BNO08x não detectado. Verifique as conexões!"));
     while (true) delay(1000);
@@ -70,8 +90,7 @@ void setupBNO() {
 
   Serial.println(F("BNO08x conectado!"));
 
-  // Habilita o Rotation Vector com taxa de atualização de 50ms (20Hz)
-  // Este sensor já fornece orientação em quaternions
+  // Habilita Rotation Vector (quaternions) a cada 50ms (~20Hz)
   if (!imu.enableRotationVector(50)) {
     Serial.println("Erro ao habilitar Rotation Vector!");
   }
@@ -81,7 +100,7 @@ void setupBNO() {
 }
 
 // ==================================================
-// Inicializa o ESP‑NOW (envio + recepção)
+// Inicializa o ESP-NOW (envio + recepção)
 // ==================================================
 void setupEspNow() {
   WiFi.mode(WIFI_STA);
@@ -91,7 +110,7 @@ void setupEspNow() {
   Serial.println(WiFi.macAddress());
 
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Erro ao iniciar ESP‑NOW");
+    Serial.println("Erro ao iniciar ESP-NOW");
     while (true) delay(1000);
   }
 
@@ -109,7 +128,7 @@ void setupEspNow() {
   // callback de recepção
   esp_now_register_recv_cb(onDataRecv);
 
-  Serial.println("ESP‑NOW pronto. Enviando ângulos...");
+  Serial.println("ESP-NOW pronto. Enviando orientação (Euler + quat)...");
 }
 
 // ==================================================
@@ -118,21 +137,21 @@ void setupEspNow() {
 void quaternionToEuler(float qw, float qx, float qy, float qz, 
                        float &roll, float &pitch, float &yaw) {
   // Roll (X-axis rotation)
-  float sinr_cosp = 2.0 * (qw * qx + qy * qz);
-  float cosr_cosp = 1.0 - 2.0 * (qx * qx + qy * qy);
-  roll = atan2(sinr_cosp, cosr_cosp) * 180.0 / PI;
+  float sinr_cosp = 2.0f * (qw * qx + qy * qz);
+  float cosr_cosp = 1.0f - 2.0f * (qx * qx + qy * qy);
+  roll = atan2(sinr_cosp, cosr_cosp) * 180.0f / PI;
 
   // Pitch (Y-axis rotation)
-  float sinp = 2.0 * (qw * qy - qz * qx);
-  if (abs(sinp) >= 1)
-    pitch = copysign(90.0, sinp); // use 90 degrees if out of range
+  float sinp = 2.0f * (qw * qy - qz * qx);
+  if (fabs(sinp) >= 1.0f)
+    pitch = copysign(90.0f, sinp); // saturado em ±90°
   else
-    pitch = asin(sinp) * 180.0 / PI;
+    pitch = asin(sinp) * 180.0f / PI;
 
   // Yaw (Z-axis rotation)
-  float siny_cosp = 2.0 * (qw * qz + qx * qy);
-  float cosy_cosp = 1.0 - 2.0 * (qy * qy + qz * qz);
-  yaw = atan2(siny_cosp, cosy_cosp) * 180.0 / PI;
+  float siny_cosp = 2.0f * (qw * qz + qx * qy);
+  float cosy_cosp = 1.0f - 2.0f * (qy * qy + qz * qz);
+  yaw = atan2(siny_cosp, cosy_cosp) * 180.0f / PI;
 }
 
 // ==================================================
@@ -150,32 +169,82 @@ void setup() {
 // Loop principal
 // ==================================================
 void loop() {
+  // Atualiza a flag de recalibração (evita condição de corrida)
+  static bool pedidoLocal = false;
+  if (pedidoRecalibra) {
+    noInterrupts();
+    pedidoLocal = true;
+    pedidoRecalibra = false;
+    interrupts();
+  }
+
   // Verifica se há novos dados do sensor
   if (imu.getSensorEvent()) {
     unsigned long now = millis();
     
+    // Obtém quaternions do sensor (ordem da SparkFun: i, j, k, real)
+    float quatI    = imu.getQuatI();
+    float quatJ    = imu.getQuatJ();
+    float quatK    = imu.getQuatK();
+    float quatReal = imu.getQuatReal();
+
+    // Converte para ângulos Euler "brutos"
+    float rollRaw, pitchRaw, yawRaw;
+    quaternionToEuler(quatReal, quatI, quatJ, quatK, 
+                      rollRaw, pitchRaw, yawRaw);
+
+    // Se ainda não temos offset (primeira leitura) ou foi pedido recalibra,
+    // zeramos a referência aqui
+    if (!temOffset || pedidoLocal) {
+      offsetRoll  = rollRaw;
+      offsetPitch = pitchRaw;
+      offsetYaw   = yawRaw;
+      temOffset   = true;
+      pedidoLocal = false;
+
+      Serial.println("Offsets atualizados:");
+      Serial.print("  offsetRoll  = "); Serial.println(offsetRoll);
+      Serial.print("  offsetPitch = "); Serial.println(offsetPitch);
+      Serial.print("  offsetYaw   = "); Serial.println(offsetYaw);
+    }
+
+    // Aplica offsets para deixar o valor "zerado" na referência atual
+    float rollZ  = rollRaw  - offsetRoll;
+    float pitchZ = pitchRaw - offsetPitch;
+    float yawZ   = yawRaw   - offsetYaw;
+
+    // Normaliza yaw em [-180, 180] (opcional mas ajuda)
+    if (yawZ > 180.0f)  yawZ -= 360.0f;
+    if (yawZ < -180.0f) yawZ += 360.0f;
+
+    // Preenche struct de telemetria
+    ori.roll  = rollZ;
+    ori.pitch = pitchZ;
+    ori.yaw   = yawZ;
+
+    // Quaternions brutos (sem offset) – referência absoluta
+    ori.qw = quatReal;
+    ori.qx = quatI;
+    ori.qy = quatJ;
+    ori.qz = quatK;
+
+    ori.recalibra = false;  // transmissor não pede recalibração
+
+    // Envio periódico
     if (now - lastSend >= sendIntervalMs) {
-      // Obtém quaternions do sensor
-      float quatI = imu.getQuatI();
-      float quatJ = imu.getQuatJ();
-      float quatK = imu.getQuatK();
-      float quatReal = imu.getQuatReal();
-
-      // Converte para ângulos Euler (compatível com MPU6050)
-      quaternionToEuler(quatReal, quatI, quatJ, quatK, 
-                       ori.roll, ori.pitch, ori.yaw);
-
-      ori.recalibra = false;  // padrão
-
-      // Envia para o receptor
       esp_err_t result = esp_now_send(receiverMac, (uint8_t*)&ori, sizeof(ori));
 
-      Serial.print("Send -> R:");
+      Serial.print("Send -> Rz:");
       Serial.print(ori.roll, 1);
-      Serial.print(" P:");
+      Serial.print(" Pz:");
       Serial.print(ori.pitch, 1);
-      Serial.print(" Y:");
+      Serial.print(" Yz:");
       Serial.print(ori.yaw, 1);
+      Serial.print(" | q=[");
+      Serial.print(ori.qw, 3); Serial.print(", ");
+      Serial.print(ori.qx, 3); Serial.print(", ");
+      Serial.print(ori.qy, 3); Serial.print(", ");
+      Serial.print(ori.qz, 3); Serial.print("]");
       Serial.print(" | status=");
       Serial.println((int)result);
 

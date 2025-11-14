@@ -111,17 +111,6 @@ class MotionRequest(BaseModel):
     z_amp_mm: Optional[float] = None  # Amplitude em Z para helix (mm)
     z_cycles: Optional[float] = None  # Número de ciclos completos em Z durante uma volta no círculo XY
 
-class JoystickPoseRequest(BaseModel):
-    """Modelo para controle por joystick (gamepad)"""
-    lx: float = Field(0.0, ge=-1.0, le=1.0)  # left stick X, -1..1
-    ly: float = Field(0.0, ge=-1.0, le=1.0)  # left stick Y, -1..1
-    rx: float = Field(0.0, ge=-1.0, le=1.0)  # right stick X, -1..1
-    ry: float = Field(0.0, ge=-1.0, le=1.0)  # right stick Y, -1..1
-    lt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # left trigger
-    rt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # right trigger
-    apply: bool = False  # Se True, envia comando serial para ESP32
-    z_base: Optional[float] = None  # Z base (default = platform.h0)
-
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
     def __init__(self, h0=432, stroke_min=500, stroke_max=680):
@@ -220,7 +209,7 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform(h0=432, stroke_min=500, stroke_max=680)  # 182mm de curso útil
+platform = StewartPlatform(h0=500, stroke_min=498, stroke_max=680)  # 182mm de curso útil
 
 # -------------------- WS Manager --------------------
 class WSManager:
@@ -294,73 +283,7 @@ class SerialManager:
                 self.ser = None
 
     def list_ports(self):
-        """Lista portas seriais com informações detalhadas para identificar ESP32-S3"""
-        ports = []
-        for p in serial.tools.list_ports.comports():
-            # Identificadores comuns do ESP32-S3
-            is_esp32 = False
-            confidence = 0
-            
-            # Verifica VID/PID conhecidos do ESP32
-            esp32_identifiers = [
-                (0x303A, None),      # Espressif VID
-                (0x10C4, 0xEA60),    # Silicon Labs CP210x (comum em ESP32)
-                (0x1A86, 0x7523),    # CH340 (comum em clones ESP32)
-                (0x0403, 0x6001),    # FTDI (alguns boards ESP32)
-            ]
-            
-            for vid, pid in esp32_identifiers:
-                if p.vid == vid and (pid is None or p.pid == pid):
-                    is_esp32 = True
-                    confidence = 90 if vid == 0x303A else 70
-                    break
-            
-            # Verifica descrição/manufacturer
-            desc_lower = (p.description or "").lower()
-            mfr_lower = (p.manufacturer or "").lower()
-            
-            if not is_esp32:
-                if any(kw in desc_lower for kw in ["esp32", "espressif"]):
-                    is_esp32 = True
-                    confidence = 85
-                elif any(kw in mfr_lower for kw in ["espressif", "esp"]):
-                    is_esp32 = True
-                    confidence = 80
-                elif any(kw in desc_lower for kw in ["usb-serial", "ch340", "cp210", "ftdi"]):
-                    is_esp32 = True
-                    confidence = 50
-            
-            # Gera nome de exibição amigável
-            display_name = p.description or "Desconhecido"
-            if is_esp32:
-                # Se for Espressif oficial (VID 0x303A), mostra ESP32-S3
-                if p.vid == 0x303A:
-                    display_name = "ESP32-S3 (USB Nativo)"
-                # Se detectou ESP32 por outras formas, melhora o nome
-                elif "espressif" in desc_lower or "esp32" in desc_lower:
-                    display_name = "ESP32"
-                elif p.vid == 0x1A86:
-                    display_name = "ESP32 (CH340)"
-                elif p.vid == 0x10C4:
-                    display_name = "ESP32 (CP210x)"
-                elif p.vid == 0x0403:
-                    display_name = "ESP32-S3 (FTDI)"
-            
-            ports.append({
-                "device": p.device,
-                "description": p.description or "Desconhecido",
-                "display_name": display_name,
-                "hwid": p.hwid or "",
-                "vid": p.vid,
-                "pid": p.pid,
-                "manufacturer": p.manufacturer or "",
-                "is_esp32": is_esp32,
-                "confidence": confidence
-            })
-        
-        # Ordena: ESP32 primeiro (por confiança), depois outros
-        ports.sort(key=lambda x: (-x["is_esp32"], -x["confidence"], x["device"]))
-        return ports
+        return [p.device for p in serial.tools.list_ports.comports()]
 
     def write_line(self, s: str, ending: bytes = b"\n"):
         with self.lock:
@@ -413,7 +336,6 @@ class SerialManager:
         # OTIMIZAÇÃO: Detectar formato automaticamente
         # Formato ANTIGO: 14 campos (ms;SP;Y1-Y6;PWM1-PWM6)
         # Formato MPU-6050: 17 campos (ms;SP;Y1-Y6;PWM1-PWM6;Roll;Pitch;Yaw)
-        # Formato BNO085: 21 campos (ms;SP;Y1-Y6;PWM1-PWM6;Roll;Pitch;Yaw;Qw;Qx;Qy;Qz)
         
         if len(parts) < 14:
             print(f"   ⚠️ Linha NÃO é telemetria (tem {len(parts)} campos, esperado 14+)")
@@ -428,19 +350,15 @@ class SerialManager:
             return
 
         try:
-            # Campos comuns a todos os formatos
+            # Campos comuns a ambos os formatos
             ms_esp = float(parts[0].replace(",", "."))  # Tempo do ESP (ignorado)
             sp = float(parts[1].replace(",", "."))
             Y = [float(parts[2+i].replace(",", ".")) for i in range(6)]
             PWM = [int(float(parts[8+i].replace(",", "."))) for i in range(6)]
 
-            # OTIMIZAÇÃO: Detectar formato (MPU-6050 ou BNO085)
+            # OTIMIZAÇÃO: Detectar se tem dados do MPU-6050 (Roll, Pitch, Yaw)
             has_mpu = len(parts) >= 17
-            has_quaternions = len(parts) >= 21
             mpu_data = None
-            quaternions = None
-            
-            print(f"   🔍 DEBUG: len(parts)={len(parts)}, has_mpu={has_mpu}, has_quaternions={has_quaternions}")
             
             if has_mpu:
                 try:
@@ -448,34 +366,12 @@ class SerialManager:
                     pitch = float(parts[15].replace(",", "."))
                     yaw = float(parts[16].replace(",", "."))
                     mpu_data = {"roll": roll, "pitch": pitch, "yaw": yaw}
-                    
-                    if has_quaternions:
-                        # BNO085: inclui quaternions
-                        qw = float(parts[17].replace(",", "."))
-                        qx = float(parts[18].replace(",", "."))
-                        qy = float(parts[19].replace(",", "."))
-                        qz = float(parts[20].replace(",", "."))
-                        quaternions = {"w": qw, "x": qx, "y": qy, "z": qz}
-                        print(f"   🎯 BNO085: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}° | Q=[{qw:.4f}, {qx:.4f}, {qy:.4f}, {qz:.4f}]")
-                    else:
-                        print(f"   🎯 MPU-6050: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
-                        
+                    print(f"   🎯 MPU-6050: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
                 except Exception as e:
-                    print(f"   ⚠️ Erro ao parsear orientação: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    print(f"   ⚠️ Erro ao parsear MPU-6050: {e}")
                     has_mpu = False
-                    has_quaternions = False
 
             print(f"   ✅ Telemetria: SP={sp:.2f}mm, Y={[f'{y:.1f}' for y in Y]}, PWM={PWM}")
-
-            # Determinar formato para identificação
-            if has_quaternions:
-                data_format = "bno085"
-            elif has_mpu:
-                data_format = "mpu6050"
-            else:
-                data_format = "standard"
 
             self.latest = {
                 "ts": now, 
@@ -483,9 +379,8 @@ class SerialManager:
                 "Y": Y, 
                 "PWM": PWM, 
                 "mpu": mpu_data,
-                "quaternions": quaternions,
                 "raw": text, 
-                "format": data_format
+                "format": "mpu6050" if has_mpu else "standard"
             }
 
             # Reconstrução de pose a partir de Y (curso -> L abs)
@@ -499,22 +394,13 @@ class SerialManager:
                     pose_live["roll"], pose_live["pitch"], pose_live["yaw"]
                 ], dtype=float)
 
-            # Determinar tipo de mensagem baseado no formato
-            msg_type = "telemetry"
-            if has_quaternions:
-                msg_type = "telemetry_bno085"
-            elif has_mpu:
-                msg_type = "telemetry_mpu"
-
             payload = {
-                "type": msg_type,
+                "type": "telemetry_mpu" if has_mpu else "telemetry",
                 "ts": now,
                 "sp_mm": sp,
                 "Y": Y,
                 "PWM": PWM,
-                "mpu": mpu_data,        # Dados de orientação (ou None)
-                "quaternions": quaternions,  # Quaternions do BNO085 (ou None)
-                "format": data_format,  # "standard", "mpu6050" ou "bno085"
+                "mpu": mpu_data,  # Dados do acelerômetro (ou None)
                 "actuator_lengths_abs": L_abs.tolist(),
                 "pose_live": pose_live,  # dict ou None
                 "platform_points_live": P_live.tolist() if P_live is not None else None,
@@ -616,7 +502,6 @@ class MotionRunner:
         print("🏠 Preflight: indo para HOME e calibrando limites...")
         self._go_home_smooth(duration=go_home_duration)
         self._calibrate_limits_from_home()
-        print("✅ HOME e calibração concluídos - iniciando trajetória...")
     
     def start(self, req: MotionRequest):
         """Inicia uma rotina de movimento"""
@@ -629,7 +514,7 @@ class MotionRunner:
                 "running": True,
                 "routine": req.routine,
                 "params": req.dict(),
-                "started_at": None,  # ✅ Será definido DEPOIS do HOME terminar
+                "started_at": time.time(),
                 "elapsed": 0.0
             }
             
@@ -639,7 +524,7 @@ class MotionRunner:
                 daemon=True
             )
             self.thread.start()
-            print(f"🎬 Rotina '{req.routine}' iniciada - indo para HOME...")
+            print(f"🎬 Rotina '{req.routine}' iniciada")
     
     def stop(self):
         """Para a rotina e retorna suavemente para home"""
@@ -666,7 +551,7 @@ class MotionRunner:
     def status(self) -> dict:
         """Retorna o status atual"""
         with self.lock:
-            if self.status_dict["running"] and self.status_dict["started_at"] is not None:
+            if self.status_dict["running"] and self.status_dict["started_at"]:
                 self.status_dict["elapsed"] = time.time() - self.status_dict["started_at"]
             return self.status_dict.copy()
     
@@ -680,10 +565,6 @@ class MotionRunner:
 
             # --- NOVO: sempre começar da HOME e calibrar limites a partir dela ---
             self.home_and_calibrate_limits(go_home_duration=1.2)
-            
-            # ✅ IMPORTANTE: Só começar a contar o tempo DEPOIS do HOME terminar
-            with self.lock:
-                self.status_dict["started_at"] = time.time()
             
             # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
             ramp_time = min(2.0, duration * 0.2)
@@ -727,10 +608,11 @@ class MotionRunner:
                 stroke_range = self.platform.stroke_max - self.platform.stroke_min
                 course_mm = np.clip(course_mm, 0.0, stroke_range)
                 
-                # Enviar setpoints via serial (todos de uma vez)
+                # Enviar setpoints via serial
                 try:
-                    cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-                    self.serial_mgr.write_line(cmd)
+                    for i in range(6):
+                        self.serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
+                        time.sleep(0.0015)  # 1.5 ms entre comandos
                 except Exception as e:
                     print(f"❌ Erro ao enviar comando serial: {e}")
                     break
@@ -915,18 +797,10 @@ class MotionRunner:
         steps = int(max(1, duration / dt))
 
         pose = self._home_pose()
-        print(f"🏠 _go_home_smooth: pose HOME = {pose}")
-        
-        # Verificar se serial está conectada
-        if not (self.serial_mgr.ser and self.serial_mgr.ser.is_open):
-            print("⚠️ AVISO: Serial NÃO conectada - movimento HOME será simulado apenas")
-        
-        sent_commands = 0
-        for i in range(steps):
+        for _ in range(steps):
             # curva suave apenas para marcar o ritmo de envio (HOME é fixa)
             L, valid, _ = self.platform.inverse_kinematics(**pose)
             if not valid:
-                print(f"⚠️ Pose HOME inválida no step {i}/{steps}")
                 time.sleep(dt)
                 continue
             
@@ -935,19 +809,13 @@ class MotionRunner:
             course_mm = np.clip(course_mm, 0.0, stroke_range)
             
             try:
-                # Enviar todos os 6 setpoints de uma vez
-                cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-                self.serial_mgr.write_line(cmd)
-                sent_commands += 1
-                if i == 0:  # Log apenas primeiro comando
-                    print(f"📤 Enviando comando HOME: {cmd}")
-            except Exception as e:
-                if i == 0:  # Log apenas primeiro erro
-                    print(f"❌ Erro ao enviar comando HOME: {e}")
+                for j in range(6):
+                    self.serial_mgr.write_line(f"spmm{j+1}={course_mm[j]:.3f}")
+                    time.sleep(0.0015)
+            except Exception:
+                pass
             
             time.sleep(dt)
-        
-        print(f"✅ _go_home_smooth concluído: {sent_commands}/{steps} comandos enviados")
 
 motion_runner = MotionRunner(serial_mgr, platform)
 
@@ -1165,30 +1033,6 @@ def pid_select_piston(piston: int):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/offset")
-def set_pid_offset(piston: int, offset: float):
-    """Define offset de calibração para um pistão específico (compensação de erro sistemático)"""
-    try:
-        if not 1 <= piston <= 6:
-            raise ValueError("Pistão deve ser 1-6")
-        
-        serial_mgr.write_line(f"sel={piston}")
-        time.sleep(0.01)
-        serial_mgr.write_line(f"offset={offset:.3f}")
-        
-        return {"message": f"Offset do pistão {piston} = {offset:.3f} mm"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-@app.post("/pid/offset/all")
-def set_pid_offset_all(offset: float):
-    """Define offset de calibração para todos os pistões"""
-    try:
-        serial_mgr.write_line(f"offsetall={offset:.3f}")
-        return {"message": f"Offset aplicado para todos = {offset:.3f} mm"}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 # -------------------- Endpoints Motion --------------------
 """
 Exemplos de uso das rotinas de movimento:
@@ -1347,25 +1191,19 @@ def calculate_position(pose: PoseInput):
 
 @app.post("/apply_pose")
 def apply_pose(req: ApplyPoseRequest):
-    print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
     z_value = req.z if req.z is not None else platform.h0
     L, valid, _ = platform.inverse_kinematics(
         x=req.x, y=req.y, z=z_value,
         roll=req.roll, pitch=req.pitch, yaw=req.yaw
     )
     if not valid:
-        print("❌ Pose inválida")
         return {"applied": False, "valid": False, "message": "Pose inválida."}
     course_mm = platform.lengths_to_stroke_mm(L)
-    print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
-        # Enviar todos os 6 setpoints de uma vez
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-        print(f"📤 Enviando comando: {cmd}")
-        serial_mgr.write_line(cmd)
-        print("✅ Comando enviado com sucesso")
+        for i in range(6):
+            serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
+            time.sleep(0.002)
     except Exception as e:
-        print(f"❌ Erro ao enviar comando: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
 
@@ -1385,12 +1223,6 @@ def mpu_control(req: MPUControlRequest):
     OTIMIZAÇÃO: Aplica controle da plataforma baseado em dados do MPU-6050.
     Calcula cinemática inversa e envia setpoints para os atuadores.
     """
-    # 🐛 DEBUG: Log do request recebido
-    print(f"\n🎯 /mpu/control recebido:")
-    print(f"   roll={req.roll:.2f}°, pitch={req.pitch:.2f}°, yaw={req.yaw:.2f}°")
-    print(f"   x={req.x:.2f}mm, y={req.y:.2f}mm, z={req.z}mm")
-    print(f"   scale={req.scale}")
-    
     # Aplica escala aos ângulos (para suavizar movimento se necessário)
     roll_scaled = req.roll * req.scale
     pitch_scaled = req.pitch * req.scale
@@ -1399,7 +1231,7 @@ def mpu_control(req: MPUControlRequest):
     z_value = req.z if req.z is not None else platform.h0
     
     # Calcula cinemática inversa
-    L, valid, P = platform.inverse_kinematics(
+    L, valid, _ = platform.inverse_kinematics(
         x=req.x, y=req.y, z=z_value,
         roll=roll_scaled, pitch=pitch_scaled, yaw=yaw_scaled
     )
@@ -1413,17 +1245,12 @@ def mpu_control(req: MPUControlRequest):
     
     course_mm = platform.lengths_to_stroke_mm(L)
     
-    # Platform_points já vem do inverse_kinematics (terceiro retorno)
-    platform_points = P.tolist() if P is not None else []
-    
-    # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
+    # OTIMIZAÇÃO: Envia comandos de forma rápida (batch)
     try:
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-        print(f"📤 Enviando comando MPU: {cmd}")
-        serial_mgr.write_line(cmd)
-        print(f"✅ Comando MPU enviado com sucesso")
+        for i in range(6):
+            serial_mgr.write_line(f"spmm{i+1}={course_mm[i]:.3f}")
+            time.sleep(0.001)  # Delay mínimo entre comandos
     except Exception as e:
-        print(f"❌ Erro ao enviar comando MPU: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     
     return {
@@ -1434,115 +1261,7 @@ def mpu_control(req: MPUControlRequest):
             "x": req.x, "y": req.y, "z": z_value,
             "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
         },
-        "lengths_abs": L.tolist(),
-        "base_points": platform.base_points.tolist(),
-        "platform_points": platform_points
-    }
-
-# -------------------- Joystick Control --------------------
-@app.post("/joystick/pose")
-def joystick_pose(req: JoystickPoseRequest):
-    """
-    Endpoint para controle por joystick (gamepad).
-    
-    Mapeia eixos normalizados do joystick (-1..1) para pose física da plataforma.
-    
-    Mapeamento:
-    - lx, ly: Stick esquerdo -> translação X, Y (±10mm)
-    - rx, ry: Stick direito -> rotação Pitch, Roll (±10°)
-    - lt, rt: Triggers -> controle de Yaw (futuro)
-    
-    Parâmetros:
-    - apply: Se True, envia comando serial para ESP32
-    - z_base: Altura Z base (default = platform.h0 + 23mm, altura elevada segura)
-    
-    Retorna:
-    - valid: Se a pose calculada é válida
-    - applied: Se o comando foi enviado (apenas se apply=True e valid=True)
-    - pose: Pose calculada
-    - lengths_abs: Comprimentos absolutos dos atuadores
-    - course_mm: Cursos em mm
-    - base_points: Pontos da base
-    - platform_points: Pontos da plataforma
-    """
-    # 🐛 DEBUG: Log do request recebido
-    print(f"\n🎮 /joystick/pose recebido:")
-    print(f"   lx={req.lx:.3f}, ly={req.ly:.3f}, rx={req.rx:.3f}, ry={req.ry:.3f}")
-    print(f"   apply={req.apply}, z_base={req.z_base}")
-    
-    # Constantes de mapeamento (limites físicos da plataforma)
-    MAX_TRANS_MM = 30.0   # ±30mm em X e Y
-    MAX_ANGLE_DEG = 8.0  # ±10° em roll, pitch, yaw
-    HOME_BIAS_MM = 68.0   # Altura elevada segura
-    
-    # Mapear eixos normalizados para valores físicos
-    # lx -> X (direita positivo)
-    # ly -> Y (para frente negativo, por isso inverte)
-    x = np.clip(req.lx * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    y = np.clip(-req.ly * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    
-    # Z usa valor base fornecido ou h0 + 23mm (altura elevada segura)
-    z = req.z_base if req.z_base is not None else (platform.h0 + HOME_BIAS_MM)
-    
-    # rx -> Pitch (stick direito horizontal)
-    # ry -> Roll (stick direito vertical, invertido)
-    roll = np.clip(-req.ry * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    pitch = np.clip(req.rx * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    
-    # Yaw por enquanto em 0 (pode usar lt/rt no futuro)
-    yaw = 0.0
-    # Exemplo futuro: yaw = (rt - lt) * MAX_ANGLE_DEG se ambos forem fornecidos
-    
-    print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
-    
-    # Calcular cinemática inversa
-    L, valid, P = platform.inverse_kinematics(
-        x=x, y=y, z=z,
-        roll=roll, pitch=pitch, yaw=yaw
-    )
-    
-    # Se inválido, retornar imediatamente
-    if not valid:
-        print("❌ Pose de joystick inválida")
-        return {
-            "valid": False,
-            "applied": False,
-            "message": "Pose fora dos limites da plataforma",
-            "pose": {"x": x, "y": y, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw}
-        }
-    
-    # Calcular cursos
-    course_mm = platform.lengths_to_stroke_mm(L)
-    
-    # Se apply=True e válido, enviar comando serial
-    applied = False
-    if req.apply:
-        try:
-            cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-            print(f"📤 Enviando comando joystick: {cmd}")
-            serial_mgr.write_line(cmd)
-            applied = True
-            print("✅ Comando joystick enviado com sucesso")
-        except Exception as e:
-            print(f"❌ Erro ao enviar comando joystick: {e}")
-            raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
-    
-    # Retornar resposta completa
-    return {
-        "valid": True,
-        "applied": applied,
-        "pose": {
-            "x": float(x),
-            "y": float(y),
-            "z": float(z),
-            "roll": float(roll),
-            "pitch": float(pitch),
-            "yaw": float(yaw)
-        },
-        "lengths_abs": L.tolist(),
-        "course_mm": course_mm.tolist(),
-        "base_points": platform.B.tolist(),
-        "platform_points": P.tolist()
+        "lengths_abs": L.tolist()
     }
 
 # -------------------- WebSocket --------------------
@@ -1575,8 +1294,6 @@ def root():
             "WS   /ws/telemetry",
             "POST /calculate",
             "POST /apply_pose",
-            "POST /joystick/pose",
-            "POST /mpu/control",
             "GET  /config",
             "POST /config",
             "POST /pid/setpoint",
@@ -1585,8 +1302,6 @@ def root():
             "POST /pid/feedforward",
             "POST /pid/feedforward/all",
             "POST /pid/settings",
-            "POST /pid/offset",
-            "POST /pid/offset/all",
             "POST /pid/manual/{action}",
             "POST /pid/select/{piston}",
             "POST /motion/start",

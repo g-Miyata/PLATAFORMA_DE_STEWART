@@ -86,7 +86,19 @@ async function getAllTelemetryFromDB() {
 
 // ========== Chart Functions ==========
 function initChart(canvasId = 'telemetry-chart') {
-  const ctx = document.getElementById(canvasId).getContext('2d');
+  const canvas = document.getElementById(canvasId);
+  
+  if (!canvas) {
+    console.error(`❌ Canvas com id "${canvasId}" não encontrado!`);
+    return null;
+  }
+
+  if (typeof Chart === 'undefined') {
+    console.error('❌ Chart.js não está carregado!');
+    return null;
+  }
+
+  const ctx = canvas.getContext('2d');
 
   const datasets = [];
   for (let i = 1; i <= 6; i++) {
@@ -180,6 +192,7 @@ function initChart(canvasId = 'telemetry-chart') {
     },
   });
 
+  console.log('✅ Gráfico de telemetria inicializado com sucesso!');
   return telemetryChart;
 }
 
@@ -277,7 +290,18 @@ function toggleAllPistons(visible) {
 }
 
 function updateChart(telemetryData) {
-  if (!chartRecording || !telemetryChart || !telemetryData.Y) {
+  if (!chartRecording) {
+    console.log('⏸️ Gráfico pausado - clique em "Começar" para gravar');
+    return;
+  }
+  
+  if (!telemetryChart) {
+    console.error('❌ telemetryChart não está inicializado!');
+    return;
+  }
+  
+  if (!telemetryData.Y) {
+    console.warn('⚠️ telemetryData.Y não existe:', telemetryData);
     return;
   }
 

@@ -214,10 +214,8 @@ function registerEventListeners() {
     }
   });
 
-  // Botões de serial (usar funções do common.js)
-  document.getElementById('btn-refresh-ports')?.addEventListener('click', loadSerialPorts);
-  document.getElementById('btn-open-serial')?.addEventListener('click', openSerial);
-  document.getElementById('btn-close-serial')?.addEventListener('click', closeSerial);
+  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
+  initCommonSerialControls();
 }
 
 // ========== Cleanup ==========

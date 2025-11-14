@@ -3,6 +3,7 @@
 #include <esp_now.h>
 
 // ================== ESP-NOW ORIENTAÇÃO ==================
+// Estrutura para MPU6050 (4 campos: roll, pitch, yaw, recalibra)
 typedef struct {
   float roll;
   float pitch;
@@ -10,21 +11,57 @@ typedef struct {
   bool  recalibra; 
 } OrientationData;
 
-// Valores recebidos do ESP transmissor (DevKit + MPU6050)
+// Estrutura para BNO085 (8 campos: roll, pitch, yaw, qw, qx, qy, qz, recalibra)
+typedef struct {
+  float roll;
+  float pitch;
+  float yaw;
+  float qw;
+  float qx;
+  float qy;
+  float qz;
+  bool  recalibra;
+} TelemetryData;
+
+// Valores recebidos do ESP transmissor (suporta MPU6050 ou BNO085)
 volatile float oriRoll  = 0.0f;
 volatile float oriPitch = 0.0f;
 volatile float oriYaw   = 0.0f;
+volatile float oriQw    = 1.0f;  // quaternion (padrão: identidade)
+volatile float oriQx    = 0.0f;
+volatile float oriQy    = 0.0f;
+volatile float oriQz    = 0.0f;
+volatile bool  hasQuaternions = false;  // flag indica se recebeu quaternions
 
 uint8_t lastSenderMac[6] = {0};
 
 void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
+  // Detecta formato automaticamente pelo tamanho do pacote
   if (len == sizeof(OrientationData)) {
+    // Formato MPU6050 (apenas ângulos)
     OrientationData tmp;
     memcpy(&tmp, incomingData, sizeof(tmp));
     oriRoll  = tmp.roll;
     oriPitch = tmp.pitch;
     oriYaw   = tmp.yaw;
-
+    hasQuaternions = false;
+    
+    // salva o MAC do transmissor para enviar comandos depois
+    memcpy(lastSenderMac, mac, 6);
+    
+  } else if (len == sizeof(TelemetryData)) {
+    // Formato BNO085 (ângulos + quaternions)
+    TelemetryData tmp;
+    memcpy(&tmp, incomingData, sizeof(tmp));
+    oriRoll  = tmp.roll;
+    oriPitch = tmp.pitch;
+    oriYaw   = tmp.yaw;
+    oriQw    = tmp.qw;
+    oriQx    = tmp.qx;
+    oriQy    = tmp.qy;
+    oriQz    = tmp.qz;
+    hasQuaternions = true;
+    
     // salva o MAC do transmissor para enviar comandos depois
     memcpy(lastSenderMac, mac, 6);
   }
@@ -563,7 +600,12 @@ void loop() {
     t0 = millis();
 
     if (!csv_header_done) {
-      Serial.println(F("ms;SP_mm;Y1;Y2;Y3;Y4;Y5;Y6;PWM1;PWM2;PWM3;PWM4;PWM5;PWM6;Roll;Pitch;Yaw"));
+      // Header dinâmico baseado no formato recebido
+      if (hasQuaternions) {
+        Serial.println(F("ms;SP_mm;Y1;Y2;Y3;Y4;Y5;Y6;PWM1;PWM2;PWM3;PWM4;PWM5;PWM6;Roll;Pitch;Yaw;Qw;Qx;Qy;Qz"));
+      } else {
+        Serial.println(F("ms;SP_mm;Y1;Y2;Y3;Y4;Y5;Y6;PWM1;PWM2;PWM3;PWM4;PWM5;PWM6;Roll;Pitch;Yaw"));
+      }
       csv_header_done = true;
     }
 
@@ -576,15 +618,32 @@ void loop() {
     float p = oriPitch;
     float yw = oriYaw;
 
-    Serial.printf(
-      "%lu;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;"
-      "%.0f;%.0f;%.0f;%.0f;%.0f;%.0f;%.2f;%.2f;%.2f\n",
-      (unsigned long)now,
-      SP_mm[0],
-      y_out[0], y_out[1], y_out[2], y_out[3], y_out[4], y_out[5],
-      last_pwm_cmd[0], last_pwm_cmd[1], last_pwm_cmd[2],
-      last_pwm_cmd[3], last_pwm_cmd[4], last_pwm_cmd[5],
-      r, p, yw
-    );
+    if (hasQuaternions) {
+      // Formato BNO085: inclui quaternions
+      Serial.printf(
+        "%lu;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;"
+        "%.0f;%.0f;%.0f;%.0f;%.0f;%.0f;%.2f;%.2f;%.2f;"
+        "%.4f;%.4f;%.4f;%.4f\n",
+        (unsigned long)now,
+        SP_mm[0],
+        y_out[0], y_out[1], y_out[2], y_out[3], y_out[4], y_out[5],
+        last_pwm_cmd[0], last_pwm_cmd[1], last_pwm_cmd[2],
+        last_pwm_cmd[3], last_pwm_cmd[4], last_pwm_cmd[5],
+        r, p, yw,
+        oriQw, oriQx, oriQy, oriQz
+      );
+    } else {
+      // Formato MPU6050: apenas ângulos
+      Serial.printf(
+        "%lu;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;%.3f;"
+        "%.0f;%.0f;%.0f;%.0f;%.0f;%.0f;%.2f;%.2f;%.2f\n",
+        (unsigned long)now,
+        SP_mm[0],
+        y_out[0], y_out[1], y_out[2], y_out[3], y_out[4], y_out[5],
+        last_pwm_cmd[0], last_pwm_cmd[1], last_pwm_cmd[2],
+        last_pwm_cmd[3], last_pwm_cmd[4], last_pwm_cmd[5],
+        r, p, yw
+      );
+    }
   }
 }

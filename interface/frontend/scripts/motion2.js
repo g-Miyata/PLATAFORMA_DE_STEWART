@@ -1,9 +1,9 @@
 /*
  * CONTROLE POR ACELERÔMETRO MPU-6050 (VERSÃO LEVE - SEM 3D)
+ * 
+ * Variáveis globais importadas de common.js:
+ * - API_BASE, WS_URL, serialConnected, ws, wsTimer
  */
-
-const API_BASE = "http://localhost:8001";
-const WS_URL = "ws://localhost:8001/ws/telemetry";
 
 // Altura padrão para modo MPU (530 para posição neutra)
 const DEFAULT_Z_HEIGHT = 530;
@@ -14,192 +14,19 @@ const CONTROL_UPDATE_INTERVAL = 100; // ~10 Hz para comandos
 let lastWSUpdate = 0;
 let lastControlUpdate = 0;
 
-let ws = null;
-let wsTimer = null;
+// Variáveis específicas desta página
 let controlEnabled = false;
 let scale = 1.0; // Escala de sensibilidade (0.0 a 2.0)
 let lastMPUData = null;
 let updateCount = 0;
 let lastRateCheck = Date.now();
-let serialConnected = false;
 let currentPlatformData = null;
 
-// ========== Toast Helper ==========
-function showToast(message, type = "info") {
-  const backgrounds = {
-    success: "linear-gradient(to right, #10b981, #059669)",
-    error: "linear-gradient(to right, #ef4444, #dc2626)",
-    warning: "linear-gradient(to right, #f59e0b, #d97706)",
-    info: "linear-gradient(to right, #3b82f6, #2563eb)",
-  };
-
-  Toastify({
-    text: message,
-    duration: 3000,
-    gravity: "top",
-    position: "right",
-    stopOnFocus: true,
-    style: {
-      background: backgrounds[type] || backgrounds.info,
-      borderRadius: "8px",
-      fontFamily: "Inter, sans-serif",
-      fontWeight: "500",
-    },
-  }).showToast();
-}
-
-// ========== Conexão Serial ==========
-async function loadSerialPorts() {
-  const sel = document.getElementById("serial-port-select");
-  try {
-    const resp = await fetch(`${API_BASE}/serial/ports`);
-    if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
-    const data = await resp.json();
-    const ports = Array.isArray(data.ports) ? data.ports : [];
-    sel.innerHTML = '<option value="">Selecione uma porta...</option>';
-    ports.forEach((p) => {
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.textContent = p;
-      sel.appendChild(opt);
-    });
-  } catch (e) {
-    console.error("Erro ao listar portas:", e);
-    sel.innerHTML = '<option value="">Erro ao carregar</option>';
-  }
-}
-
-async function updateConnectionStatus() {
-  try {
-    const res = await fetch(`${API_BASE}/serial/status`);
-    const status = await res.json();
-
-    const indicator = document.getElementById("status-indicator");
-    const text = document.getElementById("status-text");
-    const portSpan = document.getElementById("status-port");
-
-    serialConnected = status.connected;
-
-    if (status.connected) {
-      indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-      text.textContent = "Conectado";
-      text.className = "text-green-500 font-medium";
-      portSpan.textContent = status.port || "--";
-    } else {
-      indicator.className = "w-3 h-3 rounded-full bg-gray-500";
-      text.textContent = "Desconectado";
-      text.className = "text-gray-400 font-medium";
-      portSpan.textContent = "--";
-    }
-  } catch (err) {
-    console.error("Erro ao verificar status:", err);
-  }
-}
-
-async function openSerial() {
-  const port = document.getElementById("serial-port-select").value;
-  if (!port) {
-    showToast("Selecione uma porta serial", "warning");
-    return;
-  }
-  try {
-    const resp = await fetch(`${API_BASE}/serial/open`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ port, baud: 115200 }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
-
-    serialConnected = true;
-    document.getElementById("status-indicator").className =
-      "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-    document.getElementById("status-text").textContent = "Conectado";
-    document.getElementById("status-text").className =
-      "text-green-500 font-medium";
-    document.getElementById("status-port").textContent = port;
-    document.getElementById("btn-open-serial").classList.add("hidden");
-    document.getElementById("btn-close-serial").classList.remove("hidden");
-
-    showToast("Conexão estabelecida!", "success");
-
-    // Conecta ao WebSocket
-    initTelemetryWS();
-
-    // Aplicar posição inicial neutra (530mm) ao conectar
-    console.log("🚀 Aplicando posição inicial neutra (Z=530mm)...");
-    try {
-      const res = await fetch(`${API_BASE}/mpu/control`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roll: 0,
-          pitch: 0,
-          yaw: 0,
-          x: 0,
-          y: 0,
-          z: DEFAULT_Z_HEIGHT, // 530mm
-          scale: 1.0,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log("✅ Posição inicial aplicada:", data);
-        showToast("✅ Plataforma em posição neutra (530mm)", "success");
-
-        // Atualizar visualização com os dados retornados
-        if (data.lengths_abs) {
-          const actuators = data.lengths_abs.map((len, i) => ({
-            length_abs: len,
-            setpoint_mm: data.setpoints_mm[i],
-            valid: true,
-          }));
-          updatePistonMeasures(actuators);
-        }
-      } else {
-        console.error("❌ Erro ao aplicar posição inicial:", res.status);
-      }
-    } catch (e) {
-      console.error("❌ Erro ao enviar posição inicial:", e);
-    }
-  } catch (e) {
-    showToast(`Erro ao conectar: ${e.message}`, "error");
-  }
-}
-
-async function closeSerial() {
-  try {
-    const resp = await fetch(`${API_BASE}/serial/close`, {
-      method: "POST",
-    });
-    if (!resp.ok) throw new Error("Erro ao desconectar");
-
-    serialConnected = false;
-    document.getElementById("status-indicator").className =
-      "w-3 h-3 rounded-full bg-gray-500";
-    document.getElementById("status-text").textContent = "Desconectado";
-    document.getElementById("status-text").className =
-      "text-gray-400 font-medium";
-    document.getElementById("status-port").textContent = "---";
-    document.getElementById("btn-open-serial").classList.remove("hidden");
-    document.getElementById("btn-close-serial").classList.add("hidden");
-
-    showToast("Conexão encerrada", "info");
-
-    // Fecha o WebSocket e cancela reconexão
-    if (wsTimer) {
-      clearTimeout(wsTimer);
-      wsTimer = null;
-    }
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-  } catch (e) {
-    showToast(`Erro ao desconectar: ${e.message}`, "error");
-  }
-}
+// ========== Funções Compartilhadas ==========
+// As seguintes funções/variáveis vêm de common.js:
+// - API_BASE, WS_URL, serialConnected, ws, wsTimer
+// - showToast(), loadSerialPorts(), openSerial(), closeSerial()
+// - initCommonSerialControls(), setSerialStatus()
 
 // ========== Atualização de Medidas dos Pistões ==========
 function updatePistonMeasures(actuators) {
@@ -256,64 +83,49 @@ async function recalibrateMPU() {
 
 function updateMPUDisplay(mpu) {
   if (!mpu) return;
-  const formattedRoll =
-    mpu.roll.toFixed(1) > 10
-      ? 10
-      : mpu.roll.toFixed(1) < -10
-      ? -10
-      : mpu.roll.toFixed(1);
-  const formattedPitch =
-    mpu.pitch.toFixed(1) > 10
-      ? 10
-      : mpu.pitch.toFixed(1) < -10
-      ? -10
-      : mpu.pitch.toFixed(1);
-  const formattedYaw =
-    mpu.yaw.toFixed(1) > 10
-      ? 10
-      : mpu.yaw.toFixed(1) < -10
-      ? -10
-      : mpu.yaw.toFixed(1);
+  
+  // Clampar valores entre -10 e +10 (tanto para display quanto para barras)
+  const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+  const formattedRoll = clamp(mpu.roll, -10, 10);
+  const formattedPitch = clamp(mpu.pitch, -10, 10);
+  const formattedYaw = clamp(mpu.yaw, -10, 10);
 
-  document.getElementById("mpu-roll").textContent = `${formattedRoll}°`;
-  document.getElementById("mpu-pitch").textContent = `${formattedPitch}°`;
-  document.getElementById("mpu-yaw").textContent = `${formattedYaw}°`;
+  // Atualizar valores numéricos (mostra valores LIMITADOS para ±10°)
+  document.getElementById("mpu-roll").textContent = `${formattedRoll.toFixed(1)}°`;
+  document.getElementById("mpu-pitch").textContent = `${formattedPitch.toFixed(1)}°`;
+  document.getElementById("mpu-yaw").textContent = `${formattedYaw.toFixed(1)}°`;
 
-  // Barras de progresso baseadas nos limites corretos
-  // Roll: -10° a +10° -> 0% a 100%
-  const rollPercent = ((parseFloat(formattedRoll) + 10) / 20) * 100;
-  // Pitch: -10° a +10° -> 0% a 100%
-  const pitchPercent = ((parseFloat(formattedPitch) + 10) / 20) * 100;
-  // Yaw: -10° a +10° -> 0% a 100%
-  const yawPercent = ((parseFloat(formattedYaw) + 10) / 20) * 100;
+  // Atualizar barras de progresso (-10 a +10 graus = 0% a 100%)
+  const rollPercent = ((formattedRoll + 10) / 20) * 100;
+  const pitchPercent = ((formattedPitch + 10) / 20) * 100;
+  const yawPercent = ((formattedYaw + 10) / 20) * 100;
 
-  document.getElementById("mpu-roll-bar").style.width = `${Math.max(
-    0,
-    Math.min(100, rollPercent)
-  )}%`;
-  document.getElementById("mpu-pitch-bar").style.width = `${Math.max(
-    0,
-    Math.min(100, pitchPercent)
-  )}%`;
-  document.getElementById("mpu-yaw-bar").style.width = `${Math.max(
-    0,
-    Math.min(100, yawPercent)
-  )}%`;
+  document.getElementById("mpu-roll-bar").style.width = `${rollPercent}%`;
+  document.getElementById("mpu-pitch-bar").style.width = `${pitchPercent}%`;
+  document.getElementById("mpu-yaw-bar").style.width = `${yawPercent}%`;
+}
 
-  updateCount++;
-  const now = Date.now();
-  if (now - lastRateCheck >= 1000) {
-    const rate = updateCount / ((now - lastRateCheck) / 1000);
-    document.getElementById("update-rate").textContent = `${rate.toFixed(
-      1
-    )} Hz`;
-    updateCount = 0;
-    lastRateCheck = now;
+function updateQuaternionDisplay(quaternions) {
+  if (!quaternions) {
+    // Ocultar seção se não houver quaternions
+    document.getElementById("quaternion-section").classList.add("hidden");
+    return;
   }
+
+  // Mostrar seção de quaternions
+  document.getElementById("quaternion-section").classList.remove("hidden");
+
+  // Atualizar valores
+  document.getElementById("quat-w").textContent = quaternions.w.toFixed(4);
+  document.getElementById("quat-x").textContent = quaternions.x.toFixed(4);
+  document.getElementById("quat-y").textContent = quaternions.y.toFixed(4);
+  document.getElementById("quat-z").textContent = quaternions.z.toFixed(4);
 }
 
 // ========== Limitação de Ângulos ==========
 function limitAngles(roll, pitch, yaw) {
+  const original = { roll, pitch, yaw };
+  
   // Limitar roll entre -10 e +10
   if (roll > 10) roll = 10;
   else if (roll < -10) roll = -10;
@@ -326,7 +138,16 @@ function limitAngles(roll, pitch, yaw) {
   if (yaw > 10) yaw = 10;
   else if (yaw < -10) yaw = -10;
 
-  return { roll, pitch, yaw };
+  const limited = { roll, pitch, yaw };
+  
+  // Log apenas se houver limitação
+  if (original.roll !== roll || original.pitch !== pitch || original.yaw !== yaw) {
+    console.log('⚠️ ÂNGULOS LIMITADOS:');
+    console.log(`   Original: R=${original.roll.toFixed(1)}° P=${original.pitch.toFixed(1)}° Y=${original.yaw.toFixed(1)}°`);
+    console.log(`   Limitado: R=${limited.roll.toFixed(1)}° P=${limited.pitch.toFixed(1)}° Y=${limited.yaw.toFixed(1)}°`);
+  }
+
+  return limited;
 }
 
 // ========== Cálculo de Cinemática (sem visualização 3D) ==========
@@ -428,6 +249,7 @@ async function sendMPUControl(mpu) {
 
   try {
     // PRIMEIRO: Limitar os ângulos recebidos do MPU (segurança)
+    console.log(`🔢 Ângulos originais do MPU: R=${mpu.roll.toFixed(1)}° P=${mpu.pitch.toFixed(1)}° Y=${mpu.yaw.toFixed(1)}°`);
     const limitedMPU = limitAngles(mpu.roll, mpu.pitch, mpu.yaw);
 
     // SEGUNDO: Aplicar escala
@@ -436,6 +258,7 @@ async function sendMPUControl(mpu) {
       pitch: limitedMPU.pitch * scale,
       yaw: limitedMPU.yaw * scale,
     };
+    console.log(`📏 Após aplicar escala ${(scale * 100).toFixed(0)}%: R=${scaledAngles.roll.toFixed(1)}° P=${scaledAngles.pitch.toFixed(1)}° Y=${scaledAngles.yaw.toFixed(1)}°`);
 
     // TERCEIRO: Limitar novamente após escala (caso escala > 1.0)
     const finalAngles = limitAngles(
@@ -514,21 +337,36 @@ function initTelemetryWS() {
     try {
       const msg = JSON.parse(evt.data);
 
-      console.log("📨 WebSocket recebeu mensagem:", msg.type);
+      console.log("📨 WebSocket recebeu:", {
+        type: msg.type,
+        hasMPU: !!msg.mpu,
+        hasQuaternions: !!msg.quaternions,
+        format: msg.format
+      });
 
-      // Detectar mensagens com dados MPU
-      if (msg.type === "telemetry_mpu" && msg.mpu) {
+      // Detectar mensagens com dados MPU ou BNO085
+      if ((msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") && msg.mpu) {
         lastMPUData = msg.mpu;
 
-        console.log(
-          "🎯 Dados MPU:",
-          msg.mpu,
-          "Controle ativo:",
-          controlEnabled
-        );
+        console.log("🎯 Dados de orientação:", {
+          roll: msg.mpu.roll,
+          pitch: msg.mpu.pitch,
+          yaw: msg.mpu.yaw,
+          format: msg.format,
+          hasQuaternions: !!msg.quaternions
+        });
 
         // Atualizar display sempre (é rápido)
         updateMPUDisplay(msg.mpu);
+
+        // Atualizar quaternions se disponíveis (BNO085)
+        if (msg.quaternions) {
+          console.log("🔄 Quaternions:", msg.quaternions);
+          updateQuaternionDisplay(msg.quaternions);
+        } else {
+          console.log("⚪ Sem quaternions - ocultando seção");
+          updateQuaternionDisplay(null); // Oculta seção
+        }
 
         // Calcular cinemática (sem 3D, apenas medidas)
         calculateKinematicsFromMPU(msg.mpu);
@@ -542,7 +380,7 @@ function initTelemetryWS() {
         }
         return;
       } else {
-        console.log("⚠️ Mensagem não é telemetry_mpu:", msg.type);
+        console.log("⚠️ Mensagem não é telemetria de orientação:", msg.type);
       }
     } catch (e) {
       console.error("Erro ao processar mensagem WebSocket:", e);
@@ -677,19 +515,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("❌ Falha ao calcular visualização inicial");
   }
 
-  // Atualizar status periodicamente
-  setInterval(updateConnectionStatus, 2000);
-
-  // Botões de serial
-  document
-    .getElementById("btn-refresh-ports")
-    .addEventListener("click", loadSerialPorts);
-  document
-    .getElementById("btn-open-serial")
-    .addEventListener("click", openSerial);
-  document
-    .getElementById("btn-close-serial")
-    .addEventListener("click", closeSerial);
+  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
+  initCommonSerialControls();
 
   // Botão de recalibração
   document

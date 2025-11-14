@@ -56,8 +56,8 @@ const interfaces = [
     ],
   },
   {
-    title: 'Controle MPU-6050',
-    icon: 'gps_fixed',
+    title: 'Controle Roll Pitch Yaw',
+    icon: 'speed',
     url: 'motion.html',
     description: 'Controle intuitivo usando acelerômetro e giroscópio para mapeamento direto de movimentos em 6 DOF.',
     iconColor: 'text-pink-400',

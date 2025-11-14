@@ -77,7 +77,7 @@
         </div>
       </div>
 
-      <!-- MPU-6050 Sensor Data -->
+      <!-- Acelerômetro Sensor Data -->
       <div
         id="mpu-data-section"
         class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700 hidden"
@@ -85,11 +85,11 @@
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
             <span class="material-icons text-purple-400 text-sm">sensors</span>
-            <span class="text-sm font-semibold text-gray-300">MPU-6050</span>
+            <span class="text-sm font-semibold text-gray-300">Acelerômetro</span>
             <button
               id="btn-mpu-recalibrate"
               class="ml-2 px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs transition-colors flex items-center gap-1"
-              title="Recalibrar MPU-6050"
+              title="Recalibrar Acelerômetro"
             >
               <span class="material-icons" style="font-size: 0.875rem"
                 >restart_alt</span
@@ -97,21 +97,30 @@
               <span>Recalibrar</span>
             </button>
           </div>
-          <div class="flex items-center gap-4 text-xs font-mono">
-            <div class="flex items-center gap-1">
-              <span class="text-gray-400">Roll:</span>
-              <span id="mpu-roll" class="text-blue-400 font-bold">--</span>
-              <span class="text-gray-500">°</span>
+          <div class="flex items-center justify-between gap-6 text-xs font-mono">
+            <!-- Quaternion (esquerda) -->
+            <div id="quaternion-display" style="display: none;" class="items-center gap-2 text-cyan-400">
+              <span class="material-icons text-sm">3d_rotation</span>
+              <span id="quat-text" class="font-semibold">q = a + bi + cj + dk</span>
             </div>
-            <div class="flex items-center gap-1">
-              <span class="text-gray-400">Pitch:</span>
-              <span id="mpu-pitch" class="text-green-400 font-bold">--</span>
-              <span class="text-gray-500">°</span>
-            </div>
-            <div class="flex items-center gap-1">
-              <span class="text-gray-400">Yaw:</span>
-              <span id="mpu-yaw" class="text-orange-400 font-bold">--</span>
-              <span class="text-gray-500">°</span>
+            
+            <!-- Ângulos (direita) -->
+            <div class="flex items-center gap-4">
+              <div class="flex items-center gap-1">
+                <span class="text-gray-400">Roll:</span>
+                <span id="mpu-roll" class="text-blue-400 font-bold">--</span>
+                <span class="text-gray-500">°</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-gray-400">Pitch:</span>
+                <span id="mpu-pitch" class="text-green-400 font-bold">--</span>
+                <span class="text-gray-500">°</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <span class="text-gray-400">Yaw:</span>
+                <span id="mpu-yaw" class="text-orange-400 font-bold">--</span>
+                <span class="text-gray-500">°</span>
+              </div>
             </div>
           </div>
         </div>
@@ -134,9 +143,9 @@
             >
             <select
               id="serial-port-select"
-              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
             >
-              <option value="">Selecione...</option>
+              <option value="">Selecione a porta...</option>
             </select>
           </div>
           <button
@@ -155,7 +164,7 @@
           </button>
           <button
             id="btn-close-serial"
-            class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold"
+            class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
           >
             <span class="material-icons text-md">power_off</span>
             <span>Desconectar</span>
@@ -336,7 +345,6 @@
           id="btn-apply"
           style="display: none; margin-top: 12px; width: 100%"
         >
-          <span class="material-icons text-md">rocket</span>
           <span>Aplicar na Bancada</span>
         </button>
 

@@ -3,42 +3,52 @@ let reconnectTimer = null;
 
 // ========== WebSocket ==========
 function initLocalTelemetryWS() {
-  if (ws) {
-    ws.close();
+  console.log('🔌 Iniciando WebSocket local para telemetria...');
+  
+  if (window.ws) {
+    window.ws.close();
   }
 
-  ws = new WebSocket(WS_URL);
+  window.ws = new WebSocket(window.WS_URL);
+  console.log('🔌 WebSocket URL:', window.WS_URL);
 
-  ws.onopen = () => {
+  window.ws.onopen = () => {
+    console.log('✅ WebSocket conectado!');
     logConsole('WebSocket conectado', 'info');
     clearTimeout(reconnectTimer);
   };
 
-  ws.onmessage = (event) => {
+  window.ws.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       handleTelemetry(data);
     } catch (err) {
-      console.error('Erro ao processar mensagem WS:', err, event.data);
+      console.error('❌ Erro ao processar mensagem WS:', err, event.data);
     }
   };
 
-  ws.onerror = (err) => {
-    console.error('WebSocket error:', err);
+  window.ws.onerror = (err) => {
+    console.error('❌ WebSocket error:', err);
   };
 
-  ws.onclose = () => {
+  window.ws.onclose = () => {
+    console.log('🔌 WebSocket desconectado');
     logConsole('WebSocket desconectado', 'info');
-    if (serialConnected) {
+    if (window.serialConnected) {
+      console.log('🔄 Reconectando WebSocket em 2s...');
       reconnectTimer = setTimeout(initLocalTelemetryWS, 2000);
     }
   };
 }
 
 function handleTelemetry(data) {
+  console.log('📊 Telemetria recebida:', data.type, data);
+  
   if (data.type === 'raw') {
     logConsole(data.raw, 'rx');
-  } else if ((data.type === 'telemetry' || data.type === 'telemetry_mpu') && data.Y) {
+  } else if ((data.type === 'telemetry' || data.type === 'telemetry_mpu' || data.type === 'telemetry_bno085') && data.Y) {
+    console.log('✅ Processando telemetria com Y:', data.Y);
+    
     // Atualiza telemetria UI
     document.getElementById('telem-sp').textContent = data.sp_mm?.toFixed(2) || '--';
     for (let i = 0; i < 6; i++) {
@@ -48,107 +58,28 @@ function handleTelemetry(data) {
 
     // Atualiza gráfico (função de chart-utils.js)
     updateChart(data);
+  } else {
+    console.warn('⚠️ Telemetria ignorada - type:', data.type, 'tem Y?', !!data.Y);
   }
 }
 
 // ========== Serial Functions (adaptadas de common.js) ==========
+// ========== Funções Locais ==========
 async function refreshPorts() {
-  try {
-    const res = await fetch(`${API_BASE}/serial/ports`);
-    const data = await res.json();
-    const select = document.getElementById('serial-port');
-    select.innerHTML = '<option value="">Selecione...</option>';
-    data.ports.forEach((port) => {
-      const opt = document.createElement('option');
-      opt.value = port;
-      opt.textContent = port;
-      select.appendChild(opt);
-    });
-    logConsole('Portas atualizadas', 'info');
-  } catch (err) {
-    logConsole(`Erro ao listar portas: ${err.message}`, 'info');
-  }
+  await loadSerialPorts(); // Usa função do common.js
 }
 
 async function connectSerial() {
-  const port = document.getElementById('serial-port').value;
-  if (!port) {
-    showToast('Selecione uma porta serial', 'warning');
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/serial/open`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ port, baud: 115200 }),
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      serialConnected = true;
-      document.getElementById('btn-connect').classList.add('hidden');
-      document.getElementById('btn-disconnect').classList.remove('hidden');
-
-      setSerialStatus(true, port);
-      logConsole(`Conectado em ${port}`, 'info');
-      showToast(`Conectado em ${port}`, 'success');
-
-      localStorage.setItem('serial_connected', 'true');
-      localStorage.setItem('serial_port', port);
-
-      initLocalTelemetryWS();
-    } else {
-      throw new Error(data.detail || 'Erro ao conectar');
-    }
-  } catch (err) {
-    logConsole(`Erro: ${err.message}`, 'info');
-    showToast(`Erro: ${err.message}`, 'error');
-  }
+  await openSerial(); // Usa função do common.js
 }
 
 async function disconnectSerial() {
-  try {
-    await fetch(`${API_BASE}/serial/close`, { method: 'POST' });
-    serialConnected = false;
-    document.getElementById('btn-connect').classList.remove('hidden');
-    document.getElementById('btn-disconnect').classList.add('hidden');
-
-    setSerialStatus(false);
-    logConsole('Desconectado', 'info');
-    showToast('Desconectado da porta serial', 'info');
-
-    localStorage.setItem('serial_connected', 'false');
-    localStorage.removeItem('serial_port');
-
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-  } catch (err) {
-    logConsole(`Erro ao desconectar: ${err.message}`, 'info');
-  }
-}
-
-function setSerialStatus(connected, port = '') {
-  const indicator = document.getElementById('status-indicator');
-  const text = document.getElementById('status-text');
-  const portSpan = document.getElementById('status-port');
-
-  if (connected) {
-    indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
-    text.textContent = 'Conectado';
-    portSpan.textContent = port;
-  } else {
-    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-    text.textContent = 'Desconectado';
-    portSpan.textContent = '--';
-  }
+  await closeSerial(); // Usa função do common.js
 }
 
 // ========== Commands ==========
 async function sendCommand(cmd) {
-  if (!serialConnected) {
+  if (!window.serialConnected) {
     showToast('Conecte à porta serial primeiro', 'warning');
     return;
   }
@@ -278,7 +209,7 @@ async function checkExistingConnection() {
     const status = await res.json();
 
     if (status.connected && status.port) {
-      serialConnected = true;
+      window.serialConnected = true;
       document.getElementById('btn-connect').classList.add('hidden');
       document.getElementById('btn-disconnect').classList.remove('hidden');
 
@@ -337,10 +268,20 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   initChart();
 
-  await refreshPorts();
+  // Sobrescreve a função global initTelemetryWS para usar a versão local
+  window.initTelemetryWS = initLocalTelemetryWS;
+
+  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
+  initCommonSerialControls();
+
   await checkExistingConnection();
   logConsole('Interface PID carregada.', 'info');
-
-  // Atualiza status periodicamente
-  setInterval(updateConnectionStatus, 2000);
 });
+
+// ========== Exporta funções para uso global ==========
+window.sendCommand = sendCommand;
+window.sendFreeCommand = sendFreeCommand;
+window.sendSetpointGlobal = sendSetpointGlobal;
+window.sendSetpointIndividual = sendSetpointIndividual;
+window.sendPIDParams = sendPIDParams;
+window.checkExistingConnection = checkExistingConnection;

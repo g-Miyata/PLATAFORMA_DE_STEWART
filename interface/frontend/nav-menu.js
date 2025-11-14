@@ -4,15 +4,15 @@
  */
 
 const NAV_ITEMS = [
-  { url: "index.html", icon: "home", label: "Início" },
-  { url: "actuators.html", icon: "videogame_asset", label: "Controle" },
-  { url: "kinematics.html", icon: "straighten", label: "Cinemática" },
-  { url: "controller.html", icon: "sports_esports", label: "Joystick" },
-  { url: "controller2.html", icon: "sports_esports", label: "Joystick Leve" },
-  { url: "routines.html", icon: "autorenew", label: "Rotinas" },
-  { url: "motion.html", icon: "gps_fixed", label: "MPU-6050" },
-  { url: "motion2.html", icon: "gps_fixed", label: "MPU Leve" },
-  { url: "settings.html", icon: "settings", label: "Configurações" },
+  { url: 'index.html', icon: 'home', label: 'Início' },
+  { url: 'actuators.html', icon: 'videogame_asset', label: 'Controle' },
+  { url: 'kinematics.html', icon: 'straighten', label: 'Cinemática' },
+  // { url: 'controller.html', icon: 'sports_esports', label: 'Joystick' },
+  { url: 'controller2.html', icon: 'sports_esports', label: 'Joystick' },
+  { url: 'routines.html', icon: 'autorenew', label: 'Rotinas' },
+  // { url: 'motion.html', icon: 'gps_fixed', label: 'MPU-6050' },
+  { url: 'motion2.html', icon: 'speed', label: 'Acelerômetro' },
+  { url: 'settings.html', icon: 'settings', label: 'Configurações' },
 ];
 
 function createNavMenu(currentPage) {

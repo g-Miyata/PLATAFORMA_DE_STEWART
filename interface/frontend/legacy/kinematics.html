@@ -1,0 +1,2881 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plataforma de Stewart - Cinemática</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .pulse-dot {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .main-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+      .panel {
+        background: #1f2937;
+        padding: 28px;
+        border-radius: 12px;
+        border: 1px solid #374151;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      .section-title {
+        color: #f9fafb;
+        margin-bottom: 24px;
+        font-size: 1.25em;
+        font-weight: 600;
+        text-align: left;
+      }
+      .input-group {
+        margin-bottom: 20px;
+      }
+      .input-group h3 {
+        color: #d1d5db;
+        font-size: 0.875em;
+        margin-bottom: 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .input-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+      .input-field {
+        display: flex;
+        flex-direction: column;
+      }
+      label {
+        color: #9ca3af;
+        font-weight: 500;
+        margin-bottom: 6px;
+        font-size: 0.875em;
+      }
+      input[type='number'] {
+        padding: 10px 12px;
+        border: 1px solid #4b5563;
+        border-radius: 8px;
+        font-size: 0.95em;
+        transition: all 0.2s;
+        background: #374151;
+        color: #f9fafb;
+      }
+      input[type='number']:focus {
+        outline: none;
+        border-color: #2f9e41;
+        background: #4b5563;
+        box-shadow: 0 0 0 3px rgba(47, 158, 65, 0.1);
+      }
+      .slider-container {
+        margin-top: 8px;
+      }
+      input[type='range'] {
+        width: 100%;
+        height: 4px;
+        border-radius: 2px;
+        background: #4b5563;
+        outline: none;
+        appearance: none;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2f9e41;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        background: #1a6b2d;
+        transform: scale(1.1);
+      }
+      input[type='range']::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #2f9e41;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+      input[type='range']::-moz-range-thumb:hover {
+        background: #1a6b2d;
+        transform: scale(1.1);
+      }
+      .button-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 10px;
+      }
+      button {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.95em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      .btn-primary {
+        background: #2f9e41;
+        color: #fff;
+        padding: 12px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .btn-primary:hover {
+        background: #1a6b2d;
+        box-shadow: 0 4px 12px rgba(47, 158, 65, 0.3);
+        transform: translateY(-1px);
+      }
+      .btn-secondary {
+        background: #4b5563;
+        color: #f9fafb;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+      .btn-secondary:hover {
+        background: #6b7280;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        transform: translateY(-1px);
+      }
+      .status-indicator {
+        padding: 16px;
+        border-radius: 10px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 0.95em;
+        margin-bottom: 24px;
+        border: 1px solid;
+      }
+      .status-valid {
+        background: #ecfdf5;
+        color: #065f46;
+        border-color: #10b981;
+      }
+      .status-invalid {
+        background: #fef2f2;
+        color: #991b1b;
+        border-color: #ef4444;
+      }
+      .canvas-container {
+        width: 100%;
+        height: 420px;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        position: relative;
+        overflow: hidden;
+        margin-top: 16px;
+      }
+      #canvas-preview,
+      #canvas-live {
+        width: 100%;
+        height: 100%;
+      }
+      .controls-3d,
+      .legend {
+        position: absolute;
+        background: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(8px);
+        color: #f1f5f9;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 11px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        z-index: 10;
+      }
+      .controls-3d {
+        top: 10px;
+        right: 10px;
+      }
+      .legend {
+        bottom: 10px;
+        left: 10px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 4px;
+      }
+      .legend-color {
+        width: 12px;
+        height: 12px;
+        margin-right: 8px;
+        border-radius: 2px;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        color: #2f9e41;
+        font-style: italic;
+        margin-top: 6px;
+        font-weight: 600;
+      }
+      .error-message {
+        display: none;
+        background: #fef2f2;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 12px;
+        border: 1px solid #ef4444;
+        font-size: 0.875em;
+      }
+      .btn-reset-cam {
+        background: rgba(47, 158, 65, 0.9);
+        color: #fff;
+        border: none;
+        padding: 6px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 10px;
+        transition: all 0.2s;
+        font-weight: 500;
+      }
+      .btn-reset-cam:hover {
+        background: #2f9e41;
+        box-shadow: 0 2px 8px rgba(47, 158, 65, 0.3);
+      }
+      .piston-measures {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        margin-top: 12px;
+        padding: 12px;
+        background: #374151;
+        border-radius: 8px;
+        border: 1px solid #4b5563;
+      }
+      .piston-card {
+        background: #1f2937;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #4b5563;
+        text-align: center;
+        font-size: 0.75em;
+      }
+      .piston-card .piston-id {
+        font-weight: 600;
+        color: #d1d5db;
+        margin-bottom: 4px;
+      }
+      .piston-card .piston-length {
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #10b981;
+      }
+      /* Motion Routines Styles */
+      .motion-preset-card {
+        background: #1f2937;
+        padding: 20px;
+        border-radius: 10px;
+        border: 2px solid #374151;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+      .motion-preset-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        border-color: #4b5563;
+      }
+      .motion-preset-card.active {
+        border-color: #10b981;
+        background: linear-gradient(135deg, #1f2937 0%, #065f46 100%);
+      }
+      .motion-param-input {
+        background: #374151;
+        border: 1px solid #4b5563;
+        border-radius: 6px;
+        padding: 6px 10px;
+        color: #f3f4f6;
+        width: 100%;
+        font-size: 0.875em;
+      }
+      .motion-param-input:focus {
+        outline: none;
+        border-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+      }
+      .motion-status-running {
+        background: #10b981;
+        animation: pulse-motion 2s infinite;
+      }
+      .motion-status-stopped {
+        background: #6b7280;
+      }
+      @keyframes pulse-motion {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      @media (max-width: 1024px) {
+        .main-content {
+          grid-template-columns: 1fr;
+        }
+        .input-row {
+          grid-template-columns: 1fr;
+        }
+        .piston-measures {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- Header -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold text-white mb-2">Plataforma de Stewart - Cinemática</h1>
+          <div class="flex justify-center items-center gap-2">
+            <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
+            <p class="text-gray-300">Instituto Federal de São Paulo</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+        <div class="flex flex-wrap gap-2 justify-center">
+          <a href="index.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🏠 Início</a>
+          <a href="kinematics.html" class="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold">📐 Cinemática</a>
+          <a href="actuators.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">🎮 Controle</a>
+          <a href="settings.html" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors font-medium">⚙️ Configurações</a>
+        </div>
+      </div>
+
+      <!-- Status da Conexão -->
+      <div id="connection-status" class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div id="status-indicator" class="w-3 h-3 rounded-full bg-red-500"></div>
+            <span id="status-text" class="font-medium text-gray-300">Desconectado</span>
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4">🔌 Conexão Serial</h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-300 mb-2">Porta Serial</label>
+            <select id="serial-port-select" class="w-full text-white px-4 py-2 border bg-gray-700 border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <button id="btn-refresh-ports" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium">↻ Atualizar</button>
+          <button id="btn-open-serial" class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold">Conectar</button>
+          <button id="btn-close-serial" class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden">Desconectar</button>
+        </div>
+      </div>
+
+      <!-- === Controles de Posição === -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4">🎮 Controles de Posição</h2>
+
+        <div class="input-group">
+          <h3>Translação (mm)</h3>
+          <div class="input-row">
+            <div class="input-field">
+              <label for="x-pos">X</label>
+              <input type="number" id="x-pos" value="0" min="-50" max="50" step="1" />
+              <div class="slider-container">
+                <input type="range" id="x-slider" min="-50" max="50" value="0" step="1" />
+              </div>
+            </div>
+            <div class="input-field">
+              <label for="y-pos">Y</label>
+              <input type="number" id="y-pos" value="0" min="-50" max="50" step="1" />
+              <div class="slider-container">
+                <input type="range" id="y-slider" min="-50" max="50" value="0" step="1" />
+              </div>
+            </div>
+            <div class="input-field">
+              <label for="z-pos">Z</label>
+              <input type="number" id="z-pos" value="500" min="433" max="631" step="1" />
+              <div class="slider-container">
+                <input type="range" id="z-slider" min="433" max="631" value="500" step="1" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <h3>Rotação (graus)</h3>
+          <div class="input-row">
+            <div class="input-field">
+              <label for="roll">Roll</label>
+              <input type="number" id="roll" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container">
+                <input type="range" id="roll-slider" min="-15" max="15" value="0" step="0.1" />
+              </div>
+            </div>
+            <div class="input-field">
+              <label for="pitch">Pitch</label>
+              <input type="number" id="pitch" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container">
+                <input type="range" id="pitch-slider" min="-15" max="15" value="0" step="0.1" />
+              </div>
+            </div>
+            <div class="input-field">
+              <label for="yaw">Yaw</label>
+              <input type="number" id="yaw" value="0" min="-15" max="15" step="0.1" />
+              <div class="slider-container">
+                <input type="range" id="yaw-slider" min="-15" max="15" value="0" step="0.1" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button class="btn-primary" id="btn-calc">Calcular Posição</button>
+          <button class="btn-secondary" id="btn-reset">Resetar</button>
+        </div>
+
+        <!-- Botão para aplicar na bancada (inicialmente oculto) -->
+        <button class="btn-primary" id="btn-apply" style="display: none; margin-top: 12px; width: 100%">🚀 Aplicar na Bancada</button>
+
+        <div class="loading" id="loading">Calculando…</div>
+        <div class="error-message" id="error-message"></div>
+        <div class="error-message" id="apply-error"></div>
+      </div>
+
+      <!-- === Preview e Live lado a lado === -->
+      <div class="main-content">
+        <!-- Preview (Simulada) -->
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
+          <h2 class="text-xl font-semibold text-white mb-4">Preview (Simulada)</h2>
+
+          <div class="canvas-container">
+            <div id="canvas-preview"></div>
+            <div class="controls-3d">
+              <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
+              <div style="margin-top: 8px">
+                <button id="btn-reset-cam-prev" class="btn-reset-cam">Reset View</button>
+              </div>
+            </div>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #cd191e"></div>
+                <span>Base</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #2f9e41"></div>
+                <span>Plataforma</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #50c878"></div>
+                <span>Atuador OK</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ff4444"></div>
+                <span>Atuador Inválido</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medidas dos pistões (Preview) -->
+          <div class="piston-measures" id="piston-measures-preview">
+            <div class="piston-card">
+              <div class="piston-id">Pistão 1</div>
+              <div class="piston-length" id="preview-piston-1">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 2</div>
+              <div class="piston-length" id="preview-piston-2">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 3</div>
+              <div class="piston-length" id="preview-piston-3">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 4</div>
+              <div class="piston-length" id="preview-piston-4">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 5</div>
+              <div class="piston-length" id="preview-piston-5">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 6</div>
+              <div class="piston-length" id="preview-piston-6">--</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live (WebSocket) -->
+        <div class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700">
+          <h2 class="text-xl font-semibold text-gray-300 mb-4">Live (WebSocket)</h2>
+
+          <div class="canvas-container">
+            <div id="canvas-live"></div>
+            <div class="controls-3d">
+              <div>🖱️ Rotacionar | 🖲️ Zoom | Ctrl+Mouse: Pan</div>
+              <div style="margin-top: 8px">
+                <button id="btn-reset-cam-live" class="btn-reset-cam">Reset View</button>
+              </div>
+            </div>
+            <div class="legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #cd191e"></div>
+                <span>Base</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #2f9e41"></div>
+                <span>Plataforma</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #50c878"></div>
+                <span>Atuador OK</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #ff4444"></div>
+                <span>Atuador Inválido</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Medidas dos pistões (Live) -->
+          <div class="piston-measures" id="piston-measures-live">
+            <div class="piston-card">
+              <div class="piston-id">Pistão 1</div>
+              <div class="piston-length" id="live-piston-1">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 2</div>
+              <div class="piston-length" id="live-piston-2">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 3</div>
+              <div class="piston-length" id="live-piston-3">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 4</div>
+              <div class="piston-length" id="live-piston-4">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 5</div>
+              <div class="piston-length" id="live-piston-5">--</div>
+            </div>
+            <div class="piston-card">
+              <div class="piston-id">Pistão 6</div>
+              <div class="piston-length" id="live-piston-6">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- === Motion Routines === -->
+      <div class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-white">🎬 Rotinas de Movimento</h2>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full motion-status-stopped" id="motion-status-dot"></span>
+              <span id="motion-status-text" class="text-sm text-gray-400">Parado</span>
+            </div>
+            <span id="motion-elapsed" class="text-lg font-mono text-green-400">00:00</span>
+            <button id="btn-motion-stop" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>⏹️ Parar</button>
+            <button id="btn-toggle-motion-chart" onclick="toggleMotionChart()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm">📊 Mostrar Gráfico</button>
+          </div>
+        </div>
+
+        <!-- Seção dos Gráficos de Movimento (inicialmente oculta) -->
+        <div id="motion-chart-section" class="bg-gray-800 rounded-2xl shadow-sm p-4 sm:p-6 mb-6 border border-gray-700 hidden">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+            <h2 class="text-lg sm:text-xl font-semibold text-white">📈 Trajetórias do Movimento em Tempo Real</h2>
+            <div class="flex flex-wrap gap-2">
+              <button id="btn-start-motion-chart" onclick="startMotionChart()" class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold text-sm">▶️ Iniciar Gravação</button>
+              <button id="btn-stop-motion-chart" onclick="stopMotionChart()" class="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold text-sm hidden">⏸ Pausar Gravação</button>
+              <button id="btn-clear-motion-chart" onclick="clearMotionChart()" class="px-3 sm:px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors font-semibold text-sm">�️ Limpar Gráficos</button>
+              <button id="btn-export-motion-csv" onclick="exportMotionToCSV()" class="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold text-sm">� Exportar CSV</button>
+            </div>
+          </div>
+
+          <!-- Gráfico 1: Setpoints Comandados (CMD) -->
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-gray-300">📤 Trajetórias Comandadas (Setpoints)</h3>
+              <button onclick="resetMotionChartZoom('cmd')" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">� Reset Zoom</button>
+            </div>
+            <div class="bg-gray-900 rounded-lg p-2 sm:p-4" style="height: 320px">
+              <canvas id="motion-chart-cmd"></canvas>
+            </div>
+            <div class="mt-2">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-gray-400">Pistões Visíveis:</span>
+                <div class="flex gap-1">
+                  <button onclick="toggleAllMotionPistons('cmd', true)" class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded">Todos</button>
+                  <button onclick="toggleAllMotionPistons('cmd', false)" class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded">Nenhum</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-1" checked onchange="toggleMotionPistonVisibility('cmd', 1)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(59, 130, 246, 1)"></div>
+                  <span class="text-gray-300">P1</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-2" checked onchange="toggleMotionPistonVisibility('cmd', 2)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(168, 85, 247, 1)"></div>
+                  <span class="text-gray-300">P2</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-3" checked onchange="toggleMotionPistonVisibility('cmd', 3)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(236, 72, 153, 1)"></div>
+                  <span class="text-gray-300">P3</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-4" checked onchange="toggleMotionPistonVisibility('cmd', 4)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(249, 115, 22, 1)"></div>
+                  <span class="text-gray-300">P4</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-5" checked onchange="toggleMotionPistonVisibility('cmd', 5)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(20, 184, 166, 1)"></div>
+                  <span class="text-gray-300">P5</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-cmd-piston-6" checked onchange="toggleMotionPistonVisibility('cmd', 6)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(99, 102, 241, 1)"></div>
+                  <span class="text-gray-300">P6</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gráfico 2: Posições Reais (Real) -->
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-base font-semibold text-gray-300">📥 Trajetórias Reais (Feedback dos Atuadores)</h3>
+              <button onclick="resetMotionChartZoom('real')" class="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors">🔍 Reset Zoom</button>
+            </div>
+            <div class="bg-gray-900 rounded-lg p-2 sm:p-4" style="height: 320px">
+              <canvas id="motion-chart-real"></canvas>
+            </div>
+            <div class="mt-2">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-semibold text-gray-400">Pistões Visíveis:</span>
+                <div class="flex gap-1">
+                  <button onclick="toggleAllMotionPistons('real', true)" class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded">Todos</button>
+                  <button onclick="toggleAllMotionPistons('real', false)" class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded">Nenhum</button>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-1" checked onchange="toggleMotionPistonVisibility('real', 1)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(59, 130, 246, 0.8)"></div>
+                  <span class="text-gray-300">P1</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-2" checked onchange="toggleMotionPistonVisibility('real', 2)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(168, 85, 247, 0.8)"></div>
+                  <span class="text-gray-300">P2</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-3" checked onchange="toggleMotionPistonVisibility('real', 3)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(236, 72, 153, 0.8)"></div>
+                  <span class="text-gray-300">P3</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-4" checked onchange="toggleMotionPistonVisibility('real', 4)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(249, 115, 22, 0.8)"></div>
+                  <span class="text-gray-300">P4</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-5" checked onchange="toggleMotionPistonVisibility('real', 5)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(20, 184, 166, 0.8)"></div>
+                  <span class="text-gray-300">P5</span>
+                </label>
+                <label class="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-1 rounded">
+                  <input type="checkbox" id="motion-real-piston-6" checked onchange="toggleMotionPistonVisibility('real', 6)" class="w-3 h-3" />
+                  <div class="w-2 h-2 rounded-full" style="background: rgba(99, 102, 241, 0.8)"></div>
+                  <span class="text-gray-300">P6</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 text-xs text-gray-400 text-center">💡 Dica: Use a roda do mouse para zoom, arraste para pan, ou clique duplo para resetar cada gráfico</div>
+          <div id="motion-chart-status" class="mt-2 text-sm text-gray-400 text-center">Pronto para iniciar gravação</div>
+        </div>
+
+        <!-- Grid de Presets -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Preset: Seno Z -->
+          <div class="motion-preset-card" data-preset="sine_z">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-blue-400">🔵 Seno Z</h3>
+              <span class="text-2xl">📊</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Movimento vertical senoidal</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (mm)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="10" min="10" max="40" step="0.5" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.5" min="0.1" max="1.5" step="0.05" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="45" min="5" max="300" step="5" />
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Círculo XY -->
+          <div class="motion-preset-card" data-preset="circle_xy">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-purple-400">🟣 Círculo XY</h3>
+              <span class="text-2xl">⭕</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Movimento circular horizontal</p>
+            <div class="space-y-2 mb-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Raio X (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="ax" value="20" min="10" max="40" step="1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Raio Y (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="ay" value="20" min="10" max="40" step="1" />
+                </div>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.75" min="0.2" max="1.5" step="0.05" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="60" min="5" max="300" step="5" />
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Heave-Pitch -->
+          <div class="motion-preset-card" data-preset="heave_pitch">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-orange-400">🟠 Heave-Pitch</h3>
+              <span class="text-2xl">🌊</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Simulação de onda marítima</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude Z (mm)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="20" min="10" max="25" step="0.5" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Amplitude Pitch (°)</label>
+                <input type="number" class="motion-param-input" data-param="ay" value="3.5" min="1.5" max="3.5" step="0.5" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.8" min="0.3" max="0.8" step="0.05" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="40" min="5" max="300" step="5" />
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Seno Pitch -->
+          <div class="motion-preset-card" data-preset="sine_pitch">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-teal-400">🔷 Seno Pitch</h3>
+              <span class="text-2xl">↕️</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Balanço frontal angular</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (°)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="5" min="0.5" max="5" step="0.5" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.8" min="0.1" max="0.8" step="0.05" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5" />
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Seno Roll -->
+          <div class="motion-preset-card" data-preset="sine_roll">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-indigo-400">🔶 Seno Roll</h3>
+              <span class="text-2xl">↔️</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Balanço lateral angular</p>
+            <div class="space-y-2 mb-3">
+              <div>
+                <label class="text-xs text-gray-400">Amplitude (°)</label>
+                <input type="number" class="motion-param-input" data-param="amp" value="5" min="0.2" max="5" step="0.5" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Frequência (Hz)</label>
+                <input type="number" class="motion-param-input" data-param="hz" value="0.8" min="0.2" max="0.8" step="0.05" />
+              </div>
+              <div>
+                <label class="text-xs text-gray-400">Duração (s)</label>
+                <input type="number" class="motion-param-input" data-param="duration_s" value="30" min="5" max="300" step="5" />
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+
+          <!-- Preset: Helix (Parafuso) -->
+          <div class="motion-preset-card" data-preset="helix">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-base font-bold text-pink-400">🔩 Helix</h3>
+              <span class="text-2xl">🌀</span>
+            </div>
+            <p class="text-gray-400 text-xs mb-3">Parafuso: sobe girando, desce voltando</p>
+            <div class="space-y-2 mb-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Raio X</label>
+                  <input type="number" class="motion-param-input" data-param="ax" value="10" min="10" max="40" step="1" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Raio Y</label>
+                  <input type="number" class="motion-param-input" data-param="ay" value="10" min="10" max="40" step="1" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Amp Z (mm)</label>
+                  <input type="number" class="motion-param-input" data-param="z_amp_mm" value="10" min="10" max="40" step="0.5" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Ciclos Z</label>
+                  <input type="number" class="motion-param-input" data-param="z_cycles" value="1" min="0.2" max="1" step="0.5" />
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="text-xs text-gray-400">Freq (Hz)</label>
+                  <input type="number" class="motion-param-input" data-param="hz" value="0.2" min="0.1" max="1.5" step="0.05" />
+                </div>
+                <div>
+                  <label class="text-xs text-gray-400">Duração (s)</label>
+                  <input type="number" class="motion-param-input" data-param="duration_s" value="60" min="5" max="300" step="5" />
+                </div>
+              </div>
+            </div>
+            <button class="btn-start-motion w-full bg-pink-600 hover:bg-pink-700 text-white py-2 rounded-lg font-semibold text-sm transition">▶️ Iniciar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      /*
+       * ========== OTIMIZAÇÕES DE PERFORMANCE IMPLEMENTADAS ==========
+       *
+       * TAREFA 1: Throttle no WebSocket (~30 FPS)
+       *   - Variáveis: lastWSUpdate, WS_UPDATE_INTERVAL, lastWSMessage
+       *   - Implementação: ws.onmessage com performance.now()
+       *   - Benefício: Reduz processamento de ~60 FPS para ~30 FPS
+       *
+       * TAREFA 2: Cache de Objetos 3D - DESABILITADO
+       *   - Status: Removido por causar bugs de visualização
+       *   - Método atual: clear() + recreate (simples e funcional)
+       *   - Benefício: Estabilidade visual sem desmontagem da plataforma
+       *
+       * TAREFA 3: Batch Writes no IndexedDB
+       *   - Variáveis: dbWriteBuffer, dbWriteTimer, DB_BATCH_SIZE, DB_BATCH_INTERVAL
+       *   - Implementação: flushDBWriteBuffer() com Promise.all()
+       *   - Benefício: Reduz writes de ~60/s para ~6/s (batches de 10)
+       *
+       * TAREFA 4: Janela Deslizante Otimizada
+       *   - Método: findIndex() + slice() ao invés de shift() em loop
+       *   - Decimação: MAX_VISIBLE_POINTS com step inteligente
+       *   - Benefício: Complexidade O(n) ao invés de O(n²)
+       *
+       * TAREFA 5: Debounce em Atualizações 3D
+       *   - Variáveis: last3DData, update3DPending
+       *   - Implementação: requestAnimationFrame() em applyLiveTelemetry()
+       *   - Benefício: Agrupa updates no mesmo frame, max 60 FPS
+       *
+       * TAREFA 6: Redução de Configurações
+       *   - CHART_WINDOW_SECONDS: 60s → 30s
+       *   - MAX_VISIBLE_POINTS: 1000 → 500 por gráfico
+       *   - Benefício: Menos dados para renderizar
+       *
+       * TAREFA 7: Monitor de Performance
+       *   - Função: monitorPerformance() com requestAnimationFrame
+       *   - Avisos: FPS < 20 com sugestões de ajustes
+       *   - Benefício: Visibilidade de problemas de performance
+       *
+       * TAREFA 8: Chart.js Otimizado
+       *   - animation: false (sem animações)
+       *   - parsing: false (dados pré-formatados)
+       *   - normalized: true (coordenadas otimizadas)
+       *   - update("none") (sem re-renderização intermediária)
+       *   - Benefício: Renderização mais rápida dos gráficos
+       *
+       * MÉTRICAS ESPERADAS:
+       *   - FPS: 50-60 (antes: 15-20)
+       *   - CPU: 30-50% (antes: 80-100%)
+       *   - Updates/s: 30 (antes: ilimitado)
+       *   - DB writes/s: ~6 batches (antes: ~100 individuais)
+       */
+
+      const API_BASE = 'http://localhost:8001';
+      const WS_URL = 'ws://localhost:8001/ws/telemetry';
+      let currentPlatformData = null;
+      window.__threeScenes = {};
+
+      // OTIMIZAÇÃO: Constantes globais para throttle do WebSocket
+      const WS_UPDATE_INTERVAL = 33; // ~30 FPS máximo
+      let lastWSUpdate = 0;
+      let lastWSMessage = null;
+
+      // ========== Toast Helper ==========
+      function showToast(message, type = 'info') {
+        const backgrounds = {
+          success: 'linear-gradient(to right, #10b981, #059669)',
+          error: 'linear-gradient(to right, #ef4444, #dc2626)',
+          warning: 'linear-gradient(to right, #f59e0b, #d97706)',
+          info: 'linear-gradient(to right, #3b82f6, #2563eb)',
+        };
+
+        Toastify({
+          text: message,
+          duration: 3000,
+          gravity: 'top',
+          position: 'right',
+          stopOnFocus: true,
+          style: {
+            background: backgrounds[type] || backgrounds.info,
+            borderRadius: '8px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: '500',
+          },
+        }).showToast();
+      }
+
+      // ========== Variáveis do Gráfico de Movimento ==========
+      let motionChartCmd = null; // Gráfico de comandos (setpoints)
+      let motionChartReal = null; // Gráfico de posições reais
+      let motionChartVisible = false;
+      let motionDB = null;
+      const MOTION_DB_NAME = 'MotionTrajectoryDB';
+      const MOTION_DB_VERSION = 1;
+      const MOTION_STORE_NAME = 'motion_data';
+
+      // Configuração da janela de visualização (mais ampla que actuators.html)
+      const CHART_WINDOW_SECONDS = 30; // OTIMIZAÇÃO: Reduzido de 60 para 30 segundos
+      const MAX_VISIBLE_POINTS = 500; // OTIMIZAÇÃO: Reduzido de 1000 para 500 pontos por gráfico
+      let maxDataPoints = MAX_VISIBLE_POINTS;
+      let motionStartTimestamp = null; // Timestamp do primeiro dado
+      let chartRecording = false; // Controla se está gravando ou não
+      let motionChartData = []; // Dados em memória
+
+      // OTIMIZAÇÃO: Variáveis para batch writes no IndexedDB
+      let dbWriteBuffer = [];
+      let dbWriteTimer = null;
+      const DB_BATCH_SIZE = 10; // Acumula 10 registros antes de gravar
+      const DB_BATCH_INTERVAL = 500; // Ou grava após 500ms
+
+      function setupInputSync() {
+        const inputs = ['x-pos', 'y-pos', 'z-pos', 'roll', 'pitch', 'yaw'];
+        const sliders = ['x-slider', 'y-slider', 'z-slider', 'roll-slider', 'pitch-slider', 'yaw-slider'];
+        inputs.forEach((id, i) => {
+          const input = document.getElementById(id);
+          const slider = document.getElementById(sliders[i]);
+          if (!input || !slider) return;
+          input.addEventListener('input', () => {
+            slider.value = input.value;
+          });
+          slider.addEventListener('input', () => {
+            input.value = slider.value;
+          });
+        });
+      }
+
+      function getPoseFromUI() {
+        return {
+          x: parseFloat(document.getElementById('x-pos').value),
+          y: parseFloat(document.getElementById('y-pos').value),
+          z: parseFloat(document.getElementById('z-pos').value),
+          roll: parseFloat(document.getElementById('roll').value),
+          pitch: parseFloat(document.getElementById('pitch').value),
+          yaw: parseFloat(document.getElementById('yaw').value),
+        };
+      }
+
+      // Atualiza medidas dos pistões do Preview (calculado manualmente)
+      function updatePreviewMeasures(actuators) {
+        (actuators || []).forEach((a, index) => {
+          const el = document.getElementById(`preview-piston-${index + 1}`);
+          const card = el?.parentElement;
+          if (el && card) {
+            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            // Aplica estilo válido ou inválido
+            if (a.valid) {
+              card.style.borderColor = '#10b981';
+              card.style.backgroundColor = '#1f2937';
+              el.style.color = '#10b981';
+            } else {
+              card.style.borderColor = '#ef4444';
+              card.style.backgroundColor = '#1f2937';
+              el.style.color = '#ef4444';
+            }
+          }
+        });
+      }
+
+      // Atualiza medidas dos pistões do Live (WebSocket real-time)
+      function updateLiveMeasures(actuators) {
+        // Capturar os valores reais para usar no gráfico
+        if (actuators && actuators.length >= 6) {
+          window.lastActuatorsReal = actuators.map((a) => Number(a.length) || 0);
+        }
+
+        (actuators || []).forEach((a, index) => {
+          const el = document.getElementById(`live-piston-${index + 1}`);
+          const card = el?.parentElement;
+          if (el && card) {
+            el.textContent = Number(a.length).toFixed(1) + ' mm';
+            // Aplica estilo válido ou inválido
+            if (a.valid) {
+              card.style.borderColor = '#10b981';
+              card.style.backgroundColor = '#1f2937';
+              el.style.color = '#10b981';
+            } else {
+              card.style.borderColor = '#ef4444';
+              card.style.backgroundColor = '#1f2937';
+              el.style.color = '#ef4444';
+            }
+          }
+        });
+      }
+
+      const COLORS = {
+        base: 0xcd191e,
+        platform: 0x2f9e41,
+        actuatorValid: 0x50c878,
+        actuatorInvalid: 0xff4444,
+        background: 0x0f172a,
+        grid: 0x475569,
+      };
+
+      function init3D(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(COLORS.background);
+
+        const width = container.offsetWidth || 600;
+        const height = container.offsetHeight || 420;
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 2000);
+        camera.position.set(500, 500, 500);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(width, height);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        let controls = null;
+        if (typeof THREE.OrbitControls !== 'undefined') {
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+          controls.enableDamping = true;
+          controls.dampingFactor = 0.05;
+          controls.target.set(0, 200, 0);
+        }
+
+        scene.add(new THREE.AmbientLight(0x404040, 0.6));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+        dir.position.set(200, 300, 200);
+        dir.castShadow = true;
+        scene.add(dir);
+
+        const grid = new THREE.GridHelper(600, 30, COLORS.grid, COLORS.grid);
+        grid.position.y = -50;
+        scene.add(grid);
+
+        const baseGroup = new THREE.Group();
+        const platformGroup = new THREE.Group();
+        const actuatorGroup = new THREE.Group();
+        scene.add(baseGroup, platformGroup, actuatorGroup);
+
+        function onResize() {
+          const w = container.offsetWidth || 600;
+          const h = container.offsetHeight || 420;
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+        window.addEventListener('resize', onResize);
+
+        function animate() {
+          requestAnimationFrame(animate);
+          if (controls) controls.update();
+          renderer.render(scene, camera);
+        }
+        animate();
+
+        window.__threeScenes[containerId] = {
+          scene,
+          camera,
+          renderer,
+          controls,
+          baseGroup,
+          platformGroup,
+          actuatorGroup,
+        };
+      }
+
+      function createBasePoint(position) {
+        const g = new THREE.Group();
+        const sph = new THREE.Mesh(new THREE.SphereGeometry(8, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.base }));
+        sph.castShadow = true;
+        g.add(sph);
+        g.position.set(position[0], position[2] || 0, position[1]);
+        return g;
+      }
+
+      function createPlatformPoint(position) {
+        const g = new THREE.Group();
+        const sph = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshPhongMaterial({ color: COLORS.platform }));
+        sph.castShadow = true;
+        g.add(sph);
+        g.position.set(position[0], position[2], position[1]);
+        return g;
+      }
+
+      function createActuator(startPos, endPos, actuator) {
+        const g = new THREE.Group();
+        const start = new THREE.Vector3(startPos[0], startPos[2] || 0, startPos[1]);
+        const end = new THREE.Vector3(endPos[0], endPos[2], endPos[1]);
+        const length = start.distanceTo(end);
+        const cyl = new THREE.Mesh(
+          new THREE.CylinderGeometry(3, 3, length, 8),
+          new THREE.MeshPhongMaterial({
+            color: actuator.valid ? COLORS.actuatorValid : COLORS.actuatorInvalid,
+          })
+        );
+        const mid = start.clone().add(end).multiplyScalar(0.5);
+        cyl.position.copy(mid);
+        cyl.lookAt(end);
+        cyl.rotateX(Math.PI / 2);
+        cyl.castShadow = true;
+        g.add(cyl);
+        return g;
+      }
+
+      let update3DPending = false;
+
+      function draw3DPlatform(containerId, data) {
+        const ctx = window.__threeScenes[containerId];
+        if (!ctx) return;
+        const { scene, controls, baseGroup, platformGroup, actuatorGroup } = ctx;
+
+        // Limpar grupos existentes e recriar do zero (método simples que funciona)
+        baseGroup.clear();
+        platformGroup.clear();
+        actuatorGroup.clear();
+
+        const bs = data.base_points;
+        const baseShape = new THREE.Shape();
+        baseShape.moveTo(bs[0][0], bs[0][1]);
+        for (let i = 1; i < bs.length; i++) baseShape.lineTo(bs[i][0], bs[i][1]);
+        baseShape.closePath();
+        const baseGeo = new THREE.ShapeGeometry(baseShape);
+        const baseMat = new THREE.MeshPhongMaterial({
+          color: COLORS.base,
+          transparent: true,
+          opacity: 0.4,
+          side: THREE.DoubleSide,
+        });
+        const baseSurf = new THREE.Mesh(baseGeo, baseMat);
+        baseSurf.rotation.x = -Math.PI / 2;
+        baseSurf.position.y = -5;
+        baseSurf.receiveShadow = true;
+        baseGroup.add(baseSurf);
+
+        const baseEdges = new THREE.EdgesGeometry(baseGeo);
+        const baseWire = new THREE.LineSegments(baseEdges, new THREE.LineBasicMaterial({ color: COLORS.base }));
+        baseWire.rotation.x = -Math.PI / 2;
+        baseWire.position.y = -4;
+        baseGroup.add(baseWire);
+
+        bs.forEach((p) => baseGroup.add(createBasePoint(p)));
+
+        const verts = [],
+          idx = [];
+        const ps = data.platform_points;
+        ps.forEach((p) => verts.push(p[0], p[2], p[1]));
+        let cx = 0,
+          cy = 0,
+          cz = 0;
+        ps.forEach((p) => {
+          cx += p[0];
+          cy += p[2];
+          cz += p[1];
+        });
+        cx /= ps.length;
+        cy /= ps.length;
+        cz /= ps.length;
+        verts.push(cx, cy, cz);
+        const cIndex = ps.length;
+        for (let i = 0; i < ps.length; i++) {
+          const n = (i + 1) % ps.length;
+          idx.push(i, n, cIndex);
+        }
+
+        const platGeo = new THREE.BufferGeometry();
+        platGeo.setIndex(idx);
+        platGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        platGeo.computeVertexNormals();
+        const platMat = new THREE.MeshPhongMaterial({
+          color: COLORS.platform,
+          transparent: true,
+          opacity: 0.7,
+          side: THREE.DoubleSide,
+        });
+        const platSurf = new THREE.Mesh(platGeo, platMat);
+        platSurf.castShadow = true;
+        platSurf.receiveShadow = true;
+        platformGroup.add(platSurf);
+
+        const edgeVerts = [];
+        for (let i = 0; i < ps.length; i++) {
+          const p = ps[i];
+          edgeVerts.push(p[0], p[2], p[1]);
+        }
+        const p0 = ps[0];
+        edgeVerts.push(p0[0], p0[2], p0[1]);
+        const edgeGeo = new THREE.BufferGeometry();
+        edgeGeo.setAttribute('position', new THREE.Float32BufferAttribute(edgeVerts, 3));
+        const edgeLine = new THREE.Line(edgeGeo, new THREE.LineBasicMaterial({ color: 0x1a6b2d }));
+        platformGroup.add(edgeLine);
+
+        ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
+
+        // Cria eixos XYZ customizados com cilindros
+        const axisLength = 150;
+        const axisRadius = 5; // Raio dos cilindros (espessura)
+
+        // Função helper para criar um eixo cilíndrico
+        const createAxisArrow = (color, direction) => {
+          const group = new THREE.Group();
+
+          // Cilindro (corpo do eixo)
+          const geometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+          const material = new THREE.MeshPhongMaterial({ color: color });
+          const cylinder = new THREE.Mesh(geometry, material);
+
+          // Cone (ponta da seta)
+          const coneGeometry = new THREE.ConeGeometry(axisRadius * 2, axisRadius * 6, 8);
+          const cone = new THREE.Mesh(coneGeometry, material);
+
+          // Rotaciona e posiciona baseado na direção
+          if (direction === 'x') {
+            cylinder.rotation.z = -Math.PI / 2;
+            cylinder.position.x = axisLength / 2;
+            cone.rotation.z = -Math.PI / 2;
+            cone.position.x = axisLength + axisRadius * 3;
+          } else if (direction === 'y') {
+            // Y já está na vertical por padrão
+            cylinder.position.y = axisLength / 2;
+            cone.position.y = axisLength + axisRadius * 3;
+          } else if (direction === 'z') {
+            cylinder.rotation.x = Math.PI / 2;
+            cylinder.position.z = axisLength / 2;
+            cone.rotation.x = Math.PI / 2;
+            cone.position.z = axisLength + axisRadius * 3;
+          }
+
+          group.add(cylinder);
+          group.add(cone);
+          return group;
+        };
+
+        // Cria os 3 eixos (X=vermelho, Y=verde no Three.js, Z=azul no Three.js)
+        const axisX = createAxisArrow(0xff0000, 'x'); // Vermelho - X
+        const axisY = createAxisArrow(0x00ff00, 'y'); // Verde - Z da plataforma (altura)
+        const axisZ = createAxisArrow(0x0000ff, 'z'); // Azul - Y da plataforma (profundidade)
+
+        const axesGroup = new THREE.Group();
+        axesGroup.add(axisX, axisY, axisZ);
+        axesGroup.position.set(cx, cy + 50, cz); // Elevado 50mm acima do centro da plataforma
+        platformGroup.add(axesGroup);
+
+        // Adiciona labels nos eixos (maiores e mais visíveis)
+        const createAxisLabel = (text, color, position) => {
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.width = 256;
+          canvas.height = 128;
+          context.font = 'Bold 150px Arial';
+          context.fillStyle = color;
+          context.textAlign = 'center';
+          context.fillText(text, 128, 96);
+
+          const texture = new THREE.CanvasTexture(canvas);
+          const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+          const sprite = new THREE.Sprite(spriteMaterial);
+          sprite.position.copy(position);
+          sprite.scale.set(60, 30, 30); // Labels maiores
+          return sprite;
+        };
+
+        // Backend: X (lateral), Y (profundidade), Z (altura)
+        // Three.js: X (lateral), Z (profundidade), Y (altura)
+        // Elevados 50mm junto com os eixos
+        platformGroup.add(createAxisLabel('X', '#ff0000', new THREE.Vector3(cx + 190, cy + 50, cz))); // X = lateral (vermelho)
+        platformGroup.add(createAxisLabel('Z', '#00ff00', new THREE.Vector3(cx, cy + 50 + 190, cz))); // Z = altura (verde no Three.js Y)
+        platformGroup.add(createAxisLabel('Y', '#0000ff', new THREE.Vector3(cx, cy + 50, cz + 190)));
+
+        (data.actuators || []).forEach((a, i) => {
+          actuatorGroup.add(createActuator(bs[i], ps[i], a));
+        });
+
+        if (controls) {
+          const h = ps[0][2] || 432;
+          controls.target.set(0, h / 2, 0);
+        }
+      }
+
+      // Função auxiliar para encontrar a melhor correspondência entre pontos da base e plataforma
+      function findBestConnections(basePoints, platformPoints) {
+        // Para cada ponto da base, encontra o ponto da plataforma mais próximo
+        const connections = [];
+        const usedPlatform = new Set();
+
+        for (let i = 0; i < basePoints.length; i++) {
+          let minDist = Infinity;
+          let bestIdx = -1;
+
+          for (let j = 0; j < platformPoints.length; j++) {
+            if (usedPlatform.has(j)) continue; // Já foi usado
+
+            // Distância 3D entre base[i] e platform[j]
+            const dx = basePoints[i][0] - platformPoints[j][0];
+            const dy = basePoints[i][1] - platformPoints[j][1];
+            const dz = (basePoints[i][2] || 0) - platformPoints[j][2];
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+            if (dist < minDist) {
+              minDist = dist;
+              bestIdx = j;
+            }
+          }
+
+          connections.push(bestIdx);
+          usedPlatform.add(bestIdx);
+        }
+
+        return connections;
+      }
+
+      function resetCamera(containerId) {
+        const ctx = window.__threeScenes[containerId];
+        if (!ctx) return;
+        const { camera, controls } = ctx;
+        const h = (currentPlatformData && currentPlatformData.platform_points?.[0]?.[2]) || 432;
+        camera.position.set(500, h + 200, 500);
+        if (controls) {
+          controls.target.set(0, h / 2, 0);
+          controls.update();
+        }
+      }
+
+      async function calculatePosition() {
+        const loading = document.getElementById('loading');
+        const errBox = document.getElementById('error-message');
+        try {
+          loading.style.display = 'block';
+          errBox.style.display = 'none';
+          const pose = getPoseFromUI();
+          const resp = await fetch(`${API_BASE}/calculate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pose),
+          });
+          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          const data = await resp.json();
+          currentPlatformData = data;
+
+          updatePreviewMeasures(data.actuators);
+          draw3DPlatform('canvas-preview', data);
+
+          // Mostra/oculta botão "Aplicar na Bancada" baseado na validade
+          const applyBtn = document.getElementById('btn-apply');
+          const applyErr = document.getElementById('apply-error');
+          applyErr.style.display = 'none';
+          if (data.valid) {
+            applyBtn.style.display = 'block';
+            showToast('Posição válida calculada', 'success');
+          } else {
+            applyBtn.style.display = 'none';
+            showToast('Posição inválida para a plataforma', 'error');
+          }
+        } catch (e) {
+          console.error(e);
+          errBox.textContent = `Erro: ${e.message}`;
+          errBox.style.display = 'block';
+        } finally {
+          loading.style.display = 'none';
+        }
+      }
+
+      function resetPosition() {
+        document.getElementById('x-pos').value = 0;
+        document.getElementById('y-pos').value = 0;
+        document.getElementById('z-pos').value = 500;
+        document.getElementById('roll').value = 0;
+        document.getElementById('pitch').value = 0;
+        document.getElementById('yaw').value = 0;
+        document.getElementById('x-slider').value = 0;
+        document.getElementById('y-slider').value = 0;
+        document.getElementById('z-slider').value = 500;
+        document.getElementById('roll-slider').value = 0;
+        document.getElementById('pitch-slider').value = 0;
+        document.getElementById('yaw-slider').value = 0;
+        calculatePosition();
+      }
+
+      async function applyToBench() {
+        const applyBtn = document.getElementById('btn-apply');
+        const applyErr = document.getElementById('apply-error');
+        const originalText = applyBtn.textContent;
+
+        try {
+          applyBtn.disabled = true;
+          applyBtn.textContent = '⏳ Aplicando...';
+          applyErr.style.display = 'none';
+
+          if (!currentPlatformData || !currentPlatformData.valid) {
+            throw new Error('Calcule uma posição válida primeiro');
+          }
+
+          const pose = currentPlatformData.pose;
+          const resp = await fetch(`${API_BASE}/apply_pose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pose),
+          });
+
+          if (!resp.ok) {
+            const errorData = await resp.json();
+            throw new Error(errorData.detail || `Erro ${resp.status}`);
+          }
+
+          const data = await resp.json();
+
+          if (data.applied) {
+            applyBtn.textContent = '✅ Aplicado!';
+            setTimeout(() => {
+              applyBtn.textContent = originalText;
+              applyBtn.disabled = false;
+            }, 2000);
+          } else {
+            throw new Error(data.message || 'Falha ao aplicar pose');
+          }
+        } catch (e) {
+          console.error(e);
+          applyErr.textContent = `Erro ao aplicar: ${e.message}`;
+          applyErr.style.display = 'block';
+          applyBtn.textContent = originalText;
+          applyBtn.disabled = false;
+        }
+      }
+
+      let serialConnected = false;
+
+      // ========== Atualização de Status ==========
+      async function updateConnectionStatus() {
+        try {
+          const res = await fetch(`${API_BASE}/serial/status`);
+          const status = await res.json();
+
+          const indicator = document.getElementById('status-indicator');
+          const text = document.getElementById('status-text');
+          const portSpan = document.getElementById('status-port');
+
+          if (status.connected && status.port) {
+            indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+            text.textContent = 'Conectado';
+            portSpan.textContent = status.port;
+          } else {
+            indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+            text.textContent = 'Desconectado';
+            portSpan.textContent = '--';
+          }
+        } catch (err) {
+          console.error('Erro ao verificar status:', err);
+        }
+      }
+
+      async function loadSerialPorts() {
+        const sel = document.getElementById('serial-port-select');
+        try {
+          const resp = await fetch(`${API_BASE}/serial/ports`);
+          if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
+          const data = await resp.json();
+          const ports = Array.isArray(data.ports) ? data.ports : [];
+          sel.innerHTML = '<option value="">Selecione...</option>';
+          ports.forEach((p) => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            sel.appendChild(opt);
+          });
+        } catch (e) {
+          console.error('Erro ao listar portas:', e);
+          sel.innerHTML = '<option value="">Erro ao carregar</option>';
+        }
+      }
+
+      function setSerialStatus(connected, port = '') {
+        serialConnected = connected;
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+        const portSpan = document.getElementById('status-port');
+        const btnConnect = document.getElementById('btn-open-serial');
+        const btnDisconnect = document.getElementById('btn-close-serial');
+
+        if (connected) {
+          indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
+          text.textContent = 'Conectado';
+          portSpan.textContent = port;
+          btnConnect.classList.add('hidden');
+          btnDisconnect.classList.remove('hidden');
+        } else {
+          indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+          text.textContent = 'Desconectado';
+          portSpan.textContent = '--';
+          btnConnect.classList.remove('hidden');
+          btnDisconnect.classList.add('hidden');
+        }
+      }
+
+      async function openSerial() {
+        const port = document.getElementById('serial-port-select').value;
+        if (!port) {
+          showToast('Selecione uma porta serial', 'warning');
+          return;
+        }
+        try {
+          const resp = await fetch(`${API_BASE}/serial/open`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port, baud: 115200 }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
+          setSerialStatus(true, port);
+
+          // Conecta ao WebSocket
+          initTelemetryWS();
+        } catch (e) {
+          showToast(`Erro ao conectar: ${e.message}`, 'error');
+        }
+      }
+
+      async function closeSerial() {
+        try {
+          const resp = await fetch(`${API_BASE}/serial/close`, {
+            method: 'POST',
+          });
+          if (!resp.ok) throw new Error('Erro ao desconectar');
+          setSerialStatus(false);
+
+          // Fecha o WebSocket e cancela reconexão
+          if (wsTimer) {
+            clearTimeout(wsTimer);
+            wsTimer = null;
+          }
+          if (ws) {
+            ws.close();
+            ws = null;
+          }
+        } catch (e) {
+          showToast(`Erro ao desconectar: ${e.message}`, 'error');
+        }
+      }
+
+      //   function markLiveOnWS() {
+      //     if (serialConnected) {
+      //       const el = document.getElementById('serial-status');
+      //       if (el && el.classList.contains('status-valid')) {
+      //         el.textContent = el.textContent.replace('✅ Conectado', '✅ Conectado — recebendo dados');
+      //       }
+      //     }
+      //   }
+
+      let ws = null,
+        wsTimer = null;
+
+      // Pontos fixos da base (mesmos do backend) - formato [x, y, z]
+      const BASE_POINTS_FIXED = [
+        [305.5, -17, 0],
+        [305.5, 17, 0],
+        [-137.7, 273.23, 0],
+        [-168, 255.7, 0],
+        [-167.2, -256.2, 0],
+        [-136.8, -273.6, 0],
+      ];
+
+      function normalizeTelemetry(msg) {
+        const out = {};
+        if (msg.pose) out.pose = msg.pose;
+
+        // Base points - usa os fixos se não vier no WebSocket
+        if (msg.base_points) {
+          out.base_points = msg.base_points;
+        } else if (msg.base_points_live) {
+          out.base_points = msg.base_points_live;
+        } else {
+          // Usa os pontos fixos da base como fallback
+          out.base_points = BASE_POINTS_FIXED;
+        }
+
+        // Platform points - PRIORIZA platform_points_live (do backend)
+        if (msg.platform_points_live) {
+          out.platform_points = msg.platform_points_live;
+        } else if (msg.platform_points) {
+          out.platform_points = msg.platform_points;
+        }
+
+        if (typeof msg.valid === 'boolean') out.valid = msg.valid;
+
+        // Processa os atuadores
+        if (msg.actuators) {
+          out.actuators = msg.actuators.map((a, i) => ({
+            id: a.id ?? i + 1,
+            length: Number(a.length ?? 0),
+            percentage: Number(a.percentage ?? 0),
+            valid: Boolean(a.valid ?? true),
+          }));
+        } else if (Array.isArray(msg.actuator_lengths_abs)) {
+          out.actuators = msg.actuator_lengths_abs.map((L, i) => ({
+            id: i + 1,
+            length: Number(L),
+            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            valid: true,
+          }));
+        } else if (Array.isArray(msg.lengths)) {
+          out.actuators = msg.lengths.map((L, i) => ({
+            id: i + 1,
+            length: Number(L),
+            percentage: Array.isArray(msg.percentages) ? Number(msg.percentages[i] ?? 0) : 0,
+            valid: true,
+          }));
+        }
+
+        // Se temos comprimentos mas não temos platform_points, tenta reconstruir
+        if (out.actuators && !out.platform_points && out.base_points) {
+          console.warn('⚠️ platform_points não veio do backend, reconstruindo localmente (menos preciso)');
+          out.platform_points = reconstructPlatformPoints(out.base_points, out.actuators);
+        }
+
+        return out;
+      }
+
+      function reconstructPlatformPoints(basePoints, actuators) {
+        // Se não temos 6 atuadores válidos, não conseguimos reconstruir
+        if (!actuators || actuators.length !== 6) return null;
+
+        const platformPoints = [];
+
+        // Para cada atuador, calcula a posição aproximada do ponto da plataforma
+        for (let i = 0; i < 6; i++) {
+          const base = basePoints[i];
+          const length = actuators[i].length;
+
+          // Ponto base em 3D (z=0 para a base)
+          const bx = base[0];
+          const by = base[1];
+          const bz = 0;
+
+          // Estimativa simples: assumindo movimento principalmente vertical
+          // A plataforma sobe/desce mas mantém relação com a base
+          const angle = Math.PI / 6; // Ângulo aproximado dos atuadores
+          const pz = length * Math.cos(angle); // Componente vertical
+          const horizontalDist = length * Math.sin(angle); // Componente horizontal
+
+          // Calcula direção da base para o centro (0,0)
+          const dist = Math.sqrt(bx * bx + by * by);
+          const dirX = -bx / dist;
+          const dirY = -by / dist;
+
+          // Ponto da plataforma (mais próximo do centro)
+          const px = bx + dirX * (dist - horizontalDist);
+          const py = by + dirY * (dist - horizontalDist);
+
+          platformPoints.push([px, py, pz]);
+        }
+
+        return platformPoints;
+      }
+
+      // OTIMIZAÇÃO: Variáveis para throttle de atualizações 3D
+      let last3DData = null;
+
+      function applyLiveTelemetry(data) {
+        // OTIMIZAÇÃO: Guardar última data recebida
+        last3DData = data;
+
+        // OTIMIZAÇÃO: Usar requestAnimationFrame para throttle de atualizações 3D
+        // Isso garante no máximo 60 FPS e agrupa updates no mesmo frame
+        if (!update3DPending) {
+          update3DPending = true;
+          requestAnimationFrame(() => {
+            if (last3DData) {
+              if (last3DData.base_points && last3DData.platform_points && Array.isArray(last3DData.actuators)) {
+                if (typeof last3DData.valid !== 'boolean') {
+                  last3DData.valid = last3DData.actuators.every((a) => a.valid !== false);
+                }
+                updateLiveMeasures(last3DData.actuators);
+                draw3DPlatform('canvas-live', last3DData);
+              } else if (Array.isArray(last3DData.actuators)) {
+                updateLiveMeasures(last3DData.actuators);
+                console.warn('⚠️ WebSocket sem platform_points, aguardando dados completos...');
+              }
+            }
+            update3DPending = false;
+          });
+        }
+      }
+
+      function initTelemetryWS() {
+        if (ws) {
+          try {
+            ws.close();
+          } catch (_) {}
+          ws = null;
+        }
+
+        try {
+          ws = new WebSocket(WS_URL);
+        } catch (e) {
+          console.error('❌ Erro ao criar WebSocket:', e);
+          scheduleReconnect();
+          return;
+        }
+
+        ws.onopen = () => {
+          if (wsTimer) clearTimeout(wsTimer);
+        };
+
+        ws.onclose = () => {
+          scheduleReconnect();
+        };
+
+        ws.onerror = (e) => {
+          console.error('❌ WebSocket error:', e);
+        };
+
+        // OTIMIZAÇÃO: Throttle no WebSocket (~30 FPS) usando variáveis globais
+        ws.onmessage = (evt) => {
+          const now = performance.now();
+
+          // OTIMIZAÇÃO: Ignora mensagens se estiver dentro do intervalo de throttle
+          if (now - lastWSUpdate < WS_UPDATE_INTERVAL) {
+            // Guarda última mensagem em buffer para não perder dados importantes
+            lastWSMessage = evt.data;
+            return;
+          }
+
+          lastWSUpdate = now;
+
+          // Se tinha mensagem no buffer, processa a mais recente
+          const dataToProcess = lastWSMessage || evt.data;
+          lastWSMessage = null;
+
+          try {
+            const msg = JSON.parse(dataToProcess);
+
+            // Detectar eventos de motion_tick
+            if (msg.type === 'motion_tick' && msg.pose_cmd) {
+              updateVisualizationFromMotion(msg.pose_cmd);
+
+              // Atualizar timer do movimento em tempo real usando elapsed_ms
+              if (msg.elapsed_ms !== undefined) {
+                const elapsedSeconds = Math.floor(msg.elapsed_ms / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                const elapsedEl = document.getElementById('motion-elapsed');
+                if (elapsedEl) {
+                  elapsedEl.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+              }
+
+              // Capturar dados para o gráfico de movimento
+              if (msg.actuators_cmd) {
+                // Se actuators_real vier como zeros, usar os valores da telemetria
+                let actuators_real = msg.actuators_real || [];
+                const allZeros = actuators_real.every((v) => v === 0);
+
+                if (allZeros && window.lastActuatorsReal) {
+                  actuators_real = window.lastActuatorsReal;
+                }
+
+                updateMotionGraph(msg.elapsed_ms || 0, msg.routine || 'unknown', msg.pose_cmd, msg.actuators_cmd, actuators_real);
+              } else if (chartRecording) {
+                console.warn('⚠️ motion_tick sem actuators_cmd:', msg);
+              }
+            } else {
+              // Telemetria normal
+              const data = normalizeTelemetry(msg);
+              applyLiveTelemetry(data);
+              // Os valores reais são capturados em updateLiveMeasures()
+            }
+          } catch (e) {
+            console.error('❌ Erro ao processar mensagem WS:', e, dataToProcess);
+          }
+        };
+      }
+
+      function scheduleReconnect() {
+        if (wsTimer) clearTimeout(wsTimer);
+        wsTimer = setTimeout(() => {
+          if (serialConnected) {
+            initTelemetryWS();
+          }
+        }, 1000);
+      }
+
+      async function checkExistingConnection() {
+        try {
+          // Verifica o status real no backend
+          const res = await fetch(`${API_BASE}/serial/status`);
+          const status = await res.json();
+
+          if (status.connected && status.port) {
+            // Backend está conectado
+            serialConnected = true;
+            setSerialStatus(true, status.port);
+
+            // Preenche o select com a porta conectada
+            const select = document.getElementById('serial-port-select');
+            if (![...select.options].some((opt) => opt.value === status.port)) {
+              const opt = document.createElement('option');
+              opt.value = status.port;
+              opt.textContent = status.port;
+              opt.selected = true;
+              select.appendChild(opt);
+            } else {
+              select.value = status.port;
+            }
+
+            // Reconecta ao WebSocket
+            initTelemetryWS();
+          } else {
+            console.log('❌ Backend não está conectado');
+          }
+
+          // Verificar se há movimento rodando
+          await checkMotionStatus();
+        } catch (err) {
+          console.error('⚠️ Erro ao verificar status:', err);
+        }
+      }
+
+      // Atualizar visualização 3D a partir de pose do motion routine
+      let motionUpdatePending = false;
+      let lastMotionPose = null;
+
+      async function updateVisualizationFromMotion(pose_cmd) {
+        // Guardar a última pose recebida
+        lastMotionPose = pose_cmd;
+
+        // Se já tem uma atualização pendente, skip (throttle)
+        if (motionUpdatePending) {
+          return;
+        }
+
+        motionUpdatePending = true;
+
+        try {
+          // Calcular cinemática inversa para a pose
+          const response = await fetch(`${API_BASE}/calculate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(lastMotionPose),
+          });
+
+          if (!response.ok) {
+            console.warn('⚠️ Falha ao calcular IK para motion:', lastMotionPose);
+            motionUpdatePending = false;
+            return;
+          }
+
+          const calcData = await response.json();
+
+          // Atualizar APENAS Preview (simulado) - Live é atualizado pela telemetria real
+          if (calcData.base_points && calcData.platform_points && calcData.actuators) {
+            draw3DPlatform('canvas-preview', calcData);
+          }
+        } catch (error) {
+          console.error('❌ Erro ao atualizar visualização de motion:', error);
+        } finally {
+          // Libera após um pequeno delay para throttle (máximo ~30 FPS)
+          setTimeout(() => {
+            motionUpdatePending = false;
+          }, 33);
+        }
+      }
+
+      // ========== IndexedDB para Gráfico de Movimento ==========
+      function initMotionDB() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(MOTION_DB_NAME, MOTION_DB_VERSION);
+
+          request.onerror = () => reject(request.error);
+
+          request.onsuccess = () => {
+            motionDB = request.result;
+            resolve(motionDB);
+          };
+
+          request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(MOTION_STORE_NAME)) {
+              const objectStore = db.createObjectStore(MOTION_STORE_NAME, {
+                keyPath: 'id',
+                autoIncrement: true,
+              });
+              objectStore.createIndex('timestamp', 'timestamp', {
+                unique: false,
+              });
+            }
+          };
+        });
+      }
+
+      let saveAttempts = 0;
+      let saveSuccesses = 0;
+
+      async function saveMotionDataToDB(data) {
+        if (!motionDB || !chartRecording) return;
+
+        saveAttempts++;
+
+        return new Promise((resolve, reject) => {
+          try {
+            const transaction = motionDB.transaction([MOTION_STORE_NAME], 'readwrite');
+            const store = transaction.objectStore(MOTION_STORE_NAME);
+
+            // Handlers da transação
+            transaction.oncomplete = () => {
+              saveSuccesses++;
+              if (saveSuccesses % 10 === 0) {
+                console.log(`💾 IndexedDB: ${saveSuccesses} registros salvos (transação completa)`);
+              }
+              resolve();
+            };
+
+            transaction.onerror = () => {
+              console.error('❌ Erro na transação:', transaction.error);
+              reject(transaction.error);
+            };
+
+            transaction.onabort = () => {
+              console.error('❌ Transação abortada:', transaction.error);
+              reject(new Error('Transação abortada'));
+            };
+
+            const request = store.add(data);
+
+            request.onerror = () => {
+              console.error('❌ Erro no add():', request.error);
+              console.error('   Dados:', data);
+            };
+          } catch (error) {
+            console.error('❌ Exceção em saveMotionDataToDB:', error);
+            reject(error);
+          }
+        });
+      }
+
+      // OTIMIZAÇÃO: Função para flush do buffer de gravação em batch
+      async function flushDBWriteBuffer() {
+        if (dbWriteBuffer.length === 0) return;
+
+        const batch = [...dbWriteBuffer];
+        dbWriteBuffer = [];
+
+        if (dbWriteTimer) {
+          clearTimeout(dbWriteTimer);
+          dbWriteTimer = null;
+        }
+
+        try {
+          console.log(`💾 Gravando batch de ${batch.length} registros no IndexedDB...`);
+          await Promise.all(batch.map((data) => saveMotionDataToDB(data)));
+          console.log(`✅ Batch de ${batch.length} registros gravado com sucesso`);
+        } catch (error) {
+          console.error('❌ Erro ao gravar batch no IndexedDB:', error);
+        }
+      }
+
+      async function getAllMotionDataFromDB() {
+        if (!motionDB) return [];
+
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], 'readonly');
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+          const request = store.getAll();
+
+          request.onsuccess = () => {
+            resolve(request.result);
+          };
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      async function clearMotionDataFromDB() {
+        if (!motionDB) return;
+
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+          const request = store.clear();
+
+          request.onsuccess = () => resolve();
+          request.onerror = () => reject(request.error);
+        });
+      }
+
+      // Função de debug global (use no console: debugMotionDB())
+      window.debugMotionDB = async function () {
+        if (motionDB) {
+          try {
+            const data = await getAllMotionDataFromDB();
+
+            if (data.length > 0) {
+              console.log('   Amostra (primeiro registro):', data[0]);
+              console.log('   Amostra (último registro):', data[data.length - 1]);
+            } else {
+              console.warn('   ⚠️ IndexedDB está vazio!');
+            }
+          } catch (error) {
+            console.error('   ❌ Erro ao buscar dados:', error);
+          }
+        } else {
+          console.error('   ❌ motionDB não foi inicializado - verifique se initMotionDB() foi chamado');
+        }
+      };
+
+      window.testSaveMotionDB = async function () {
+        if (!motionDB) {
+          return;
+        }
+
+        const testData = {
+          timestamp: Date.now(),
+          routine: 'test',
+          pose: { x: 0, y: 0, z: 500, roll: 0, pitch: 0, yaw: 0 },
+          commanded: [100, 100, 100, 100, 100, 100],
+          actual: [100, 100, 100, 100, 100, 100],
+        };
+
+        return new Promise((resolve, reject) => {
+          const transaction = motionDB.transaction([MOTION_STORE_NAME], 'readwrite');
+          const store = transaction.objectStore(MOTION_STORE_NAME);
+
+          transaction.oncomplete = () => {
+            getAllMotionDataFromDB().then((data) => {});
+            resolve();
+          };
+
+          transaction.onerror = () => {
+            console.error('❌ Erro na transação:', transaction.error);
+            reject(transaction.error);
+          };
+
+          const request = store.add(testData);
+
+          request.onsuccess = () => {
+            console.log('✅ add() bem-sucedido, key:', request.result);
+          };
+
+          request.onerror = () => {
+            console.error('❌ Erro no add():', request.error);
+          };
+        });
+      };
+
+      // ========== Funções do Gráfico de Movimento ==========
+
+      async function toggleMotionChart() {
+        const section = document.getElementById('motion-chart-section');
+        const btn = document.getElementById('btn-toggle-motion-chart');
+
+        motionChartVisible = !motionChartVisible;
+
+        if (motionChartVisible) {
+          section.classList.remove('hidden');
+          btn.textContent = '📊 Esconder Gráfico';
+          if (!motionChartCmd || !motionChartReal) {
+            initMotionCharts();
+          }
+        } else {
+          section.classList.add('hidden');
+          btn.textContent = '📊 Mostrar Gráfico';
+        }
+      }
+
+      // Cores dos pistões (seguindo padrão de actuators.html)
+      const MOTION_COLORS = {
+        1: { cmd: 'rgba(59, 130, 246, 1)', real: 'rgba(59, 130, 246, 0.8)' }, // blue
+        2: { cmd: 'rgba(168, 85, 247, 1)', real: 'rgba(168, 85, 247, 0.8)' }, // purple
+        3: { cmd: 'rgba(236, 72, 153, 1)', real: 'rgba(236, 72, 153, 0.8)' }, // pink
+        4: { cmd: 'rgba(249, 115, 22, 1)', real: 'rgba(249, 115, 22, 0.8)' }, // orange
+        5: { cmd: 'rgba(20, 184, 166, 1)', real: 'rgba(20, 184, 166, 0.8)' }, // teal
+        6: { cmd: 'rgba(99, 102, 241, 1)', real: 'rgba(99, 102, 241, 0.8)' }, // indigo
+      };
+
+      function initMotionCharts() {
+        // Gráfico 1: Comandos (Setpoints)
+        const ctxCmd = document.getElementById('motion-chart-cmd').getContext('2d');
+        const cmdDatasets = [];
+        for (let i = 1; i <= 6; i++) {
+          cmdDatasets.push({
+            label: `Pistão ${i} (CMD)`,
+            data: [],
+            borderColor: MOTION_COLORS[i].cmd,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            tension: 0.4,
+          });
+        }
+
+        motionChartCmd = new Chart(ctxCmd, {
+          type: 'line',
+          data: { datasets: cmdDatasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // OTIMIZAÇÃO: sem animação
+            parsing: false, // OTIMIZAÇÃO: dados já parsed
+            normalized: true, // OTIMIZAÇÃO: coordenadas normalizadas
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            scales: {
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Tempo (s)', color: '#9ca3af' },
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Setpoint (mm)',
+                  color: '#9ca3af',
+                },
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+              },
+              zoom: {
+                pan: { enabled: true, mode: 'xy' },
+                zoom: {
+                  wheel: { enabled: true, speed: 0.1 },
+                  pinch: { enabled: true },
+                  mode: 'xy',
+                },
+              },
+            },
+          },
+        });
+
+        // Gráfico 2: Posições Reais
+        const ctxReal = document.getElementById('motion-chart-real').getContext('2d');
+        const realDatasets = [];
+        for (let i = 1; i <= 6; i++) {
+          realDatasets.push({
+            label: `Pistão ${i} (Real)`,
+            data: [],
+            borderColor: MOTION_COLORS[i].real,
+            backgroundColor: MOTION_COLORS[i].real.replace('0.8', '0.1'),
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.4,
+            fill: false,
+          });
+        }
+
+        motionChartReal = new Chart(ctxReal, {
+          type: 'line',
+          data: { datasets: realDatasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // OTIMIZAÇÃO: sem animação
+            parsing: false, // OTIMIZAÇÃO: dados já parsed
+            normalized: true, // OTIMIZAÇÃO: coordenadas normalizadas
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            scales: {
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Tempo (s)', color: '#9ca3af' },
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' },
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: 'Posição Real (mm)',
+                  color: '#9ca3af',
+                },
+                ticks: { color: '#9ca3af' },
+                grid: { color: '#374151' },
+              },
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+              },
+              zoom: {
+                pan: { enabled: true, mode: 'xy' },
+                zoom: {
+                  wheel: { enabled: true, speed: 0.1 },
+                  pinch: { enabled: true },
+                  mode: 'xy',
+                },
+              },
+            },
+          },
+        });
+      }
+
+      function startMotionChart() {
+        chartRecording = true;
+        motionChartData = [];
+        motionStartTimestamp = null;
+
+        // Limpar dados antigos dos gráficos
+        if (motionChartCmd) {
+          motionChartCmd.data.datasets.forEach((ds) => (ds.data = []));
+          motionChartCmd.update('none');
+        }
+        if (motionChartReal) {
+          motionChartReal.data.datasets.forEach((ds) => (ds.data = []));
+          motionChartReal.update('none');
+        }
+
+        clearMotionDataFromDB()
+          .then(() => console.log('✅ IndexedDB limpo com sucesso'))
+          .catch((error) => console.error('❌ Erro ao limpar IndexedDB:', error));
+
+        document.getElementById('btn-start-motion-chart').classList.add('hidden');
+        document.getElementById('btn-stop-motion-chart').classList.remove('hidden');
+        document.getElementById('motion-chart-status').textContent = `🔴 Gravando... (janela de ${CHART_WINDOW_SECONDS}s)`;
+
+        showToast('Gravação dos gráficos iniciada', 'success');
+      }
+
+      function stopMotionChart() {
+        chartRecording = false;
+
+        document.getElementById('btn-start-motion-chart').classList.remove('hidden');
+        document.getElementById('btn-stop-motion-chart').classList.add('hidden');
+        document.getElementById('motion-chart-status').textContent = `⏸ Pausado (${motionChartData.length} pontos gravados)`;
+
+        showToast(`Gravação pausada - ${motionChartData.length} pontos gravados`, 'info');
+      }
+
+      function resetMotionChartZoom(type) {
+        if (type === 'cmd' && motionChartCmd) {
+          motionChartCmd.resetZoom();
+        } else if (type === 'real' && motionChartReal) {
+          motionChartReal.resetZoom();
+        }
+      }
+
+      function toggleMotionPistonVisibility(type, pistonNum) {
+        const chart = type === 'cmd' ? motionChartCmd : motionChartReal;
+        if (!chart) {
+          console.warn(`⚠️ motionChart${type} não inicializado`);
+          return;
+        }
+
+        const checkbox = document.getElementById(`motion-${type}-piston-${pistonNum}`);
+        if (!checkbox) {
+          console.error(`❌ Checkbox motion-${type}-piston-${pistonNum} não encontrado`);
+          return;
+        }
+
+        const isVisible = checkbox.checked;
+        const datasetIndex = pistonNum - 1;
+
+        if (!chart.data.datasets[datasetIndex]) {
+          console.error(`❌ Dataset não encontrado no índice ${datasetIndex}`);
+          return;
+        }
+
+        chart.data.datasets[datasetIndex].hidden = !isVisible;
+        chart.update();
+      }
+
+      function toggleAllMotionPistons(type, visible) {
+        for (let i = 1; i <= 6; i++) {
+          const checkbox = document.getElementById(`motion-${type}-piston-${i}`);
+          if (checkbox) {
+            checkbox.checked = visible;
+            toggleMotionPistonVisibility(type, i);
+          }
+        }
+      }
+
+      function clearMotionChart() {
+        chartRecording = false;
+        motionChartData = [];
+        motionStartTimestamp = null;
+        saveAttempts = 0;
+        saveSuccesses = 0;
+        clearMotionDataFromDB();
+
+        // Limpar ambos os gráficos
+        if (motionChartCmd) {
+          motionChartCmd.data.datasets.forEach((dataset) => {
+            dataset.data = [];
+          });
+          motionChartCmd.update('none');
+          motionChartCmd.resetZoom();
+        }
+
+        if (motionChartReal) {
+          motionChartReal.data.datasets.forEach((dataset) => {
+            dataset.data = [];
+          });
+          motionChartReal.update('none');
+          motionChartReal.resetZoom();
+        }
+
+        document.getElementById('btn-start-motion-chart').classList.remove('hidden');
+        document.getElementById('btn-stop-motion-chart').classList.add('hidden');
+        document.getElementById('motion-chart-status').textContent = 'Pronto para iniciar gravação';
+
+        showToast('Gráficos limpos com sucesso', 'success');
+      }
+
+      async function exportMotionToCSV() {
+        try {
+          const allData = await getAllMotionDataFromDB();
+
+          if (allData.length === 0) {
+            showToast('Nenhum dado de movimento para exportar!', 'warning');
+            return;
+          }
+
+          // Cabeçalho CSV
+          let csvContent = 'Timestamp,Routine,X_cmd,Y_cmd,Z_cmd,Roll_cmd,Pitch_cmd,Yaw_cmd,' + 'P1_cmd,P2_cmd,P3_cmd,P4_cmd,P5_cmd,P6_cmd,' + 'P1_real,P2_real,P3_real,P4_real,P5_real,P6_real\n';
+
+          // Dados
+          allData.forEach((row) => {
+            const timestamp = new Date(row.timestamp).toISOString();
+            const routine = row.routine || 'unknown';
+            const pose = row.pose || {};
+            const cmd = row.commanded || [];
+            const real = row.actual || [];
+
+            csvContent += `${timestamp},${routine},` + `${pose.x || 0},${pose.y || 0},${pose.z || 0},` + `${pose.roll || 0},${pose.pitch || 0},${pose.yaw || 0},` + `${cmd.join(',')},${real.join(',')}\n`;
+          });
+
+          // Download
+          const blob = new Blob([csvContent], {
+            type: 'text/csv;charset=utf-8;',
+          });
+          const link = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          const filename = `motion_trajectory_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+
+          link.setAttribute('href', url);
+          link.setAttribute('download', filename);
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+
+          showToast(`CSV exportado com sucesso! ${allData.length} registros salvos`, 'success');
+        } catch (error) {
+          console.error('❌ Erro ao exportar CSV:', error);
+          showToast(`Erro ao exportar CSV: ${error.message}`, 'error');
+        }
+      }
+
+      function updateMotionGraph(timestamp, routine, pose, commandedLengths, actualLengths) {
+        // Só processa se estiver gravando
+        if (!chartRecording) {
+          return;
+        }
+
+        if (!motionChartCmd || !motionChartReal) {
+          console.warn('⚠️ updateMotionGraph: gráficos não inicializados');
+          return;
+        }
+
+        const now = Date.now();
+
+        // Inicializar timestamp de referência no primeiro dado
+        if (motionStartTimestamp === null) {
+          motionStartTimestamp = now;
+        }
+
+        const timeInSeconds = timestamp / 1000.0;
+
+        const dataPoint = {
+          timestamp: now,
+          routine: routine,
+          pose: pose,
+          commanded: commandedLengths,
+          actual: actualLengths,
+        };
+
+        motionChartData.push(dataPoint);
+
+        // OTIMIZAÇÃO: Batch writes no IndexedDB
+        dbWriteBuffer.push(dataPoint);
+
+        if (dbWriteBuffer.length >= DB_BATCH_SIZE) {
+          // Buffer cheio, flush imediatamente
+          flushDBWriteBuffer();
+        } else if (!dbWriteTimer) {
+          // Inicia timer para flush após intervalo
+          dbWriteTimer = setTimeout(flushDBWriteBuffer, DB_BATCH_INTERVAL);
+        }
+
+        // OTIMIZAÇÃO: Atualizar gráficos de forma eficiente
+        // Gráfico 1: Comandos (Setpoints)
+        commandedLengths.forEach((length, i) => {
+          motionChartCmd.data.datasets[i].data.push({
+            x: timeInSeconds,
+            y: length,
+          });
+        });
+
+        // Gráfico 2: Posições Reais
+        actualLengths.forEach((length, i) => {
+          motionChartReal.data.datasets[i].data.push({
+            x: timeInSeconds,
+            y: length,
+          });
+        });
+
+        // Limita pontos no gráfico para performance (janela deslizante)
+        if (motionChartData.length > maxDataPoints) {
+          motionChartData.shift();
+        }
+
+        // OTIMIZAÇÃO: Remove pontos antigos do gráfico de forma eficiente (O(n) ao invés de O(n²))
+        const windowStart = timeInSeconds - CHART_WINDOW_SECONDS;
+
+        motionChartCmd.data.datasets.forEach((dataset) => {
+          // Encontra primeiro índice dentro da janela
+          const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
+          if (cutIndex > 0) {
+            dataset.data = dataset.data.slice(cutIndex);
+          }
+
+          // OTIMIZAÇÃO: Decimação se exceder limite de pontos visíveis
+          if (dataset.data.length > MAX_VISIBLE_POINTS) {
+            const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
+            const decimated = [];
+            for (let i = 0; i < dataset.data.length - 1; i += step) {
+              decimated.push(dataset.data[i]);
+            }
+            // Sempre mantém o último ponto para garantir continuidade
+            decimated.push(dataset.data[dataset.data.length - 1]);
+            dataset.data = decimated;
+          }
+        });
+
+        motionChartReal.data.datasets.forEach((dataset) => {
+          // Encontra primeiro índice dentro da janela
+          const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
+          if (cutIndex > 0) {
+            dataset.data = dataset.data.slice(cutIndex);
+          }
+
+          // OTIMIZAÇÃO: Decimação se exceder limite de pontos visíveis
+          if (dataset.data.length > MAX_VISIBLE_POINTS) {
+            const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
+            const decimated = [];
+            for (let i = 0; i < dataset.data.length - 1; i += step) {
+              decimated.push(dataset.data[i]);
+            }
+            // Sempre mantém o último ponto para garantir continuidade
+            decimated.push(dataset.data[dataset.data.length - 1]);
+            dataset.data = decimated;
+          }
+        });
+
+        // OTIMIZAÇÃO: Atualizar gráficos sem animação (modo "none" = mais rápido)
+        motionChartCmd.update('none');
+        motionChartReal.update('none');
+
+        // Atualiza status com contagem
+        document.getElementById('motion-chart-status').textContent = `🔴 Gravando... (${motionChartData.length} pontos em memória, janela de ${CHART_WINDOW_SECONDS}s)`;
+      }
+
+      // OTIMIZAÇÃO: Monitor de Performance (TAREFA 7)
+      let frameCount = 0;
+      let lastFPSCheck = performance.now();
+      let performanceWarningShown = false;
+
+      function monitorPerformance() {
+        frameCount++;
+        const now = performance.now();
+
+        if (now - lastFPSCheck >= 1000) {
+          const fps = frameCount;
+          frameCount = 0;
+          lastFPSCheck = now;
+
+          if (fps < 20 && !performanceWarningShown) {
+            console.warn(`⚠️ FPS BAIXO: ${fps} FPS`);
+            console.warn(`   Considere:
+              - Reduzir CHART_WINDOW_SECONDS (atual: ${CHART_WINDOW_SECONDS}s)
+              - Reduzir MAX_VISIBLE_POINTS (atual: ${MAX_VISIBLE_POINTS})
+              - Aumentar DB_BATCH_SIZE (atual: ${DB_BATCH_SIZE})
+              - Aumentar WS_UPDATE_INTERVAL (atual: ${33}ms)
+            `);
+            performanceWarningShown = true;
+
+            // Reset warning após 30 segundos para permitir novo aviso se continuar ruim
+            setTimeout(() => {
+              performanceWarningShown = false;
+            }, 30000);
+          } else if (fps >= 50) {
+            // FPS está bom, pode mostrar aviso novamente se piorar
+            performanceWarningShown = false;
+          }
+        }
+
+        requestAnimationFrame(monitorPerformance);
+      }
+
+      window.addEventListener('DOMContentLoaded', async () => {
+        setupInputSync();
+        init3D('canvas-preview');
+        init3D('canvas-live');
+        await loadSerialPorts();
+        await checkExistingConnection();
+
+        // Inicializar IndexedDB para gráfico de movimento
+        try {
+          await initMotionDB();
+          console.log('✅ MotionDB pronto');
+        } catch (error) {
+          console.error('❌ Erro ao inicializar MotionDB:', error);
+        }
+        document.getElementById('btn-refresh-ports').addEventListener('click', loadSerialPorts);
+        document.getElementById('btn-open-serial').addEventListener('click', openSerial);
+        document.getElementById('btn-close-serial').addEventListener('click', closeSerial);
+        document.getElementById('btn-calc').addEventListener('click', calculatePosition);
+        document.getElementById('btn-reset').addEventListener('click', resetPosition);
+        document.getElementById('btn-apply').addEventListener('click', applyToBench);
+        document.getElementById('btn-reset-cam-prev').addEventListener('click', () => resetCamera('canvas-preview'));
+        document.getElementById('btn-reset-cam-live').addEventListener('click', () => resetCamera('canvas-live'));
+        calculatePosition();
+
+        // Atualiza status periodicamente
+        setInterval(updateConnectionStatus, 2000);
+
+        // OTIMIZAÇÃO: Iniciar monitor de performance
+        requestAnimationFrame(monitorPerformance);
+      });
+
+      // ============ MOTION ROUTINES ============
+      const MOTION_PRESET_CONFIG = {
+        sine_z: {
+          title: 'Senoide Vertical (Z)',
+          routine: 'sine_axis',
+          axis: 'z',
+          defaultParams: ['amp', 'hz', 'duration_s'],
+        },
+        circle_xy: {
+          title: 'Círculo XY',
+          routine: 'circle_xy',
+          defaultParams: ['ax', 'ay', 'hz', 'duration_s'],
+        },
+        heave_pitch: {
+          title: 'Heave & Pitch',
+          routine: 'heave_pitch',
+          defaultParams: ['amp', 'ay', 'hz', 'duration_s'],
+        },
+        sine_pitch: {
+          title: 'Senoide Pitch',
+          routine: 'sine_axis',
+          axis: 'pitch',
+          defaultParams: ['amp', 'hz', 'duration_s'],
+        },
+        sine_roll: {
+          title: 'Senoide Roll',
+          routine: 'sine_axis',
+          axis: 'roll',
+          defaultParams: ['amp', 'hz', 'duration_s'],
+        },
+        helix: {
+          title: 'Helix (Espiral)',
+          routine: 'helix',
+          defaultParams: ['ax', 'ay', 'z_amp_mm', 'z_cycles', 'hz', 'duration_s'],
+        },
+      };
+
+      let motionStatusInterval = null;
+      // Timer agora vem direto do WebSocket motion_tick (elapsed_ms)
+
+      // Iniciar preset
+      document.querySelectorAll('.btn-start-motion').forEach((btn) => {
+        btn.addEventListener('click', async function () {
+          const card = this.closest('.motion-preset-card');
+          const presetKey = card.dataset.preset;
+          const config = MOTION_PRESET_CONFIG[presetKey];
+
+          const payload = { routine: config.routine };
+          if (config.axis) payload.axis = config.axis;
+
+          config.defaultParams.forEach((param) => {
+            const input = card.querySelector(`[data-param="${param}"]`);
+            if (input) payload[param] = parseFloat(input.value);
+          });
+
+          if (config.extraDefaults) Object.assign(payload, config.extraDefaults);
+
+          try {
+            // Atualizar UI imediatamente para "Indo para HOME..."
+            const statusDot = document.getElementById('motion-status-dot');
+            const statusText = document.getElementById('motion-status-text');
+            const elapsedText = document.getElementById('motion-elapsed');
+
+            statusDot.className = 'w-3 h-3 rounded-full bg-yellow-500 pulse-dot';
+            statusText.textContent = 'Indo para HOME...';
+            elapsedText.textContent = '00:00';
+
+            const response = await fetch(`${API_BASE}/motion/start`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+              card.classList.add('active');
+              showToast(`Rotina ${config.title} iniciada`, 'success');
+
+              // Aguardar 1.5s (tempo de ir para HOME + calibração)
+              setTimeout(() => {
+                statusText.textContent = 'Rodando';
+                statusDot.className = 'w-3 h-3 rounded-full motion-status-running';
+                startMotionMonitoring();
+              }, 1500);
+            } else {
+              // Voltar ao estado parado em caso de erro
+              statusDot.className = 'w-3 h-3 rounded-full motion-status-stopped';
+              statusText.textContent = 'Parado';
+              showToast(`Erro: ${data.detail || 'Falha ao iniciar rotina'}`, 'error');
+            }
+          } catch (error) {
+            // Voltar ao estado parado em caso de erro
+            const statusDot = document.getElementById('motion-status-dot');
+            const statusText = document.getElementById('motion-status-text');
+            statusDot.className = 'w-3 h-3 rounded-full motion-status-stopped';
+            statusText.textContent = 'Parado';
+            showToast(`Erro de conexão: ${error.message}`, 'error');
+          }
+        });
+      });
+
+      // Parar rotina
+      document.getElementById('btn-motion-stop').addEventListener('click', async function () {
+        try {
+          const response = await fetch(`${API_BASE}/motion/stop`, {
+            method: 'POST',
+          });
+          if (response.ok) {
+            showToast('Rotina de movimento parada', 'info');
+            stopMotionMonitoring();
+            updateMotionUIState(false);
+          } else {
+            showToast('Erro ao parar rotina', 'error');
+          }
+        } catch (error) {
+          showToast(`Erro: ${error.message}`, 'error');
+        }
+      });
+
+      function startMotionMonitoring() {
+        if (motionStatusInterval) return;
+        motionStatusInterval = setInterval(checkMotionStatus, 500);
+        // Timer agora é atualizado pelo WebSocket motion_tick (mais preciso)
+      }
+
+      function stopMotionMonitoring() {
+        if (motionStatusInterval) {
+          clearInterval(motionStatusInterval);
+          motionStatusInterval = null;
+        }
+      }
+
+      async function checkMotionStatus() {
+        try {
+          const response = await fetch(`${API_BASE}/motion/status`);
+          const status = await response.json();
+
+          if (status.running) {
+            updateMotionUIState(true, status);
+          } else {
+            updateMotionUIState(false);
+            stopMotionMonitoring();
+          }
+        } catch (error) {
+          console.error('Erro ao verificar status da rotina:', error);
+        }
+      }
+
+      function updateMotionUIState(running, status = null) {
+        const statusDot = document.getElementById('motion-status-dot');
+        const statusText = document.getElementById('motion-status-text');
+        const btnStop = document.getElementById('btn-motion-stop');
+        const btnApply = document.getElementById('btn-apply');
+        const btnToggleChart = document.getElementById('btn-toggle-motion-chart');
+
+        // Remover active de todos os cards
+        document.querySelectorAll('.motion-preset-card').forEach((card) => {
+          card.classList.remove('active');
+        });
+
+        if (running && status) {
+          statusDot.className = 'w-3 h-3 rounded-full motion-status-running';
+          statusText.textContent = 'Rodando';
+          btnStop.disabled = false;
+
+          // Desabilitar botão "Aplicar na Bancada" durante movimento
+          if (btnApply) {
+            btnApply.disabled = true;
+            btnApply.style.opacity = '0.5';
+            btnApply.style.cursor = 'not-allowed';
+          }
+
+          // Mostrar botão de toggle do gráfico
+          if (btnToggleChart) {
+            btnToggleChart.classList.remove('hidden');
+          }
+
+          // Iniciar captura do gráfico
+          startMotionGraph();
+
+          // Ativar card correspondente
+          const presetKey = findMotionPresetKey(status.routine, status.params);
+          if (presetKey) {
+            const card = document.querySelector(`[data-preset="${presetKey}"]`);
+            if (card) card.classList.add('active');
+          }
+        } else {
+          statusDot.className = 'w-3 h-3 rounded-full motion-status-stopped';
+          statusText.textContent = 'Parado';
+          btnStop.disabled = true;
+          document.getElementById('motion-elapsed').textContent = '00:00';
+
+          // Reabilitar botão "Aplicar na Bancada" quando parar
+          if (btnApply) {
+            btnApply.disabled = false;
+            btnApply.style.opacity = '1';
+            btnApply.style.cursor = 'pointer';
+          }
+
+          // NÃO esconder botão de toggle se o gráfico estiver aberto
+          // Só esconde se o gráfico não estiver visível
+          if (btnToggleChart && !motionChartVisible) {
+            btnToggleChart.classList.add('hidden');
+          }
+
+          // Finalizar captura do gráfico
+          stopMotionGraph();
+        }
+      }
+
+      function findMotionPresetKey(routine, params) {
+        for (const [key, config] of Object.entries(MOTION_PRESET_CONFIG)) {
+          if (config.routine === routine) {
+            if (routine === 'sine_axis' && config.axis === params?.axis) {
+              return key;
+            } else if (routine !== 'sine_axis') {
+              return key;
+            }
+          }
+        }
+        return null;
+      }
+    </script>
+  </body>
+</html>

@@ -58,164 +58,8 @@ function showToast(message, type = "info") {
   }).showToast();
 }
 
-// ========== Conexão Serial ==========
-async function loadSerialPorts() {
-  const sel = document.getElementById("serial-port-select");
-  try {
-    const resp = await fetch(`${API_BASE}/serial/ports`);
-    if (!resp.ok) throw new Error(`Erro ${resp.status}: ${resp.statusText}`);
-    const data = await resp.json();
-    const ports = Array.isArray(data.ports) ? data.ports : [];
-    sel.innerHTML = '<option value="">Selecione uma porta...</option>';
-    ports.forEach((p) => {
-      const opt = document.createElement("option");
-      opt.value = p;
-      opt.textContent = p;
-      sel.appendChild(opt);
-    });
-  } catch (e) {
-    console.error("Erro ao listar portas:", e);
-    sel.innerHTML = '<option value="">Erro ao carregar</option>';
-  }
-}
-
-async function updateConnectionStatus() {
-  try {
-    const res = await fetch(`${API_BASE}/serial/status`);
-    const status = await res.json();
-
-    const indicator = document.getElementById("status-indicator");
-    const text = document.getElementById("status-text");
-    const portSpan = document.getElementById("status-port");
-
-    serialConnected = status.connected;
-
-    if (status.connected) {
-      indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-      text.textContent = "Conectado";
-      text.className = "text-green-500 font-medium";
-      portSpan.textContent = status.port || "--";
-    } else {
-      indicator.className = "w-3 h-3 rounded-full bg-gray-500";
-      text.textContent = "Desconectado";
-      text.className = "text-gray-400 font-medium";
-      portSpan.textContent = "--";
-    }
-  } catch (err) {
-    console.error("Erro ao verificar status:", err);
-  }
-}
-
-async function openSerial() {
-  const port = document.getElementById("serial-port-select").value;
-  if (!port) {
-    showToast("Selecione uma porta serial", "warning");
-    return;
-  }
-  try {
-    const resp = await fetch(`${API_BASE}/serial/open`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ port, baud: 115200 }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data?.detail || `Erro ${resp.status}`);
-
-    serialConnected = true;
-    document.getElementById("status-indicator").className =
-      "w-3 h-3 rounded-full bg-green-500 pulse-dot";
-    document.getElementById("status-text").textContent = "Conectado";
-    document.getElementById("status-text").className =
-      "text-green-500 font-medium";
-    document.getElementById("status-port").textContent = port;
-    document.getElementById("btn-open-serial").classList.add("hidden");
-    document.getElementById("btn-close-serial").classList.remove("hidden");
-
-    showToast("Conexão estabelecida!", "success");
-
-    // Conecta ao WebSocket
-    initTelemetryWS();
-
-    // Aplicar posição inicial neutra (530mm) ao conectar
-    console.log("🚀 Aplicando posição inicial neutra (Z=530mm)...");
-    try {
-      const res = await fetch(`${API_BASE}/mpu/control`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roll: 0,
-          pitch: 0,
-          yaw: 0,
-          x: 0,
-          y: 0,
-          z: DEFAULT_Z_HEIGHT, // 530mm
-          scale: 1.0,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log("✅ Posição inicial aplicada:", data);
-        showToast("✅ Plataforma em posição neutra (530mm)", "success");
-
-        // Atualizar visualização com os dados retornados
-        if (data.platform_points && data.platform_points.length > 0) {
-          currentPlatformData = {
-            pose: data.pose,
-            actuators: data.lengths_abs.map((len, i) => ({
-              length_abs: len,
-              setpoint_mm: data.setpoints_mm[i],
-              valid: true,
-            })),
-            base_points: data.base_points,
-            platform_points: data.platform_points,
-          };
-          updatePreviewMeasures(currentPlatformData.actuators);
-          draw3DPlatform("canvas-preview", currentPlatformData);
-        }
-      } else {
-        console.error("❌ Erro ao aplicar posição inicial:", res.status);
-      }
-    } catch (e) {
-      console.error("❌ Erro ao enviar posição inicial:", e);
-    }
-  } catch (e) {
-    showToast(`Erro ao conectar: ${e.message}`, "error");
-  }
-}
-
-async function closeSerial() {
-  try {
-    const resp = await fetch(`${API_BASE}/serial/close`, {
-      method: "POST",
-    });
-    if (!resp.ok) throw new Error("Erro ao desconectar");
-
-    serialConnected = false;
-    document.getElementById("status-indicator").className =
-      "w-3 h-3 rounded-full bg-gray-500";
-    document.getElementById("status-text").textContent = "Desconectado";
-    document.getElementById("status-text").className =
-      "text-gray-400 font-medium";
-    document.getElementById("status-port").textContent = "---";
-    document.getElementById("btn-open-serial").classList.remove("hidden");
-    document.getElementById("btn-close-serial").classList.add("hidden");
-
-    showToast("Conexão encerrada", "info");
-
-    // Fecha o WebSocket e cancela reconexão
-    if (wsTimer) {
-      clearTimeout(wsTimer);
-      wsTimer = null;
-    }
-    if (ws) {
-      ws.close();
-      ws = null;
-    }
-  } catch (e) {
-    showToast(`Erro ao desconectar: ${e.message}`, "error");
-  }
-}
+// ========== Funções Serial (usam common.js) ==========
+// loadSerialPorts(), openSerial(), closeSerial() vêm de common.js
 
 // ========== Three.js Setup ==========
 const COLORS = {
@@ -931,8 +775,8 @@ function initTelemetryWS() {
     try {
       const msg = JSON.parse(evt.data);
 
-      // Detectar mensagens com dados MPU - SEM THROTTLE
-      if (msg.type === "telemetry_mpu" && msg.mpu) {
+      // Detectar mensagens com dados MPU ou BNO085 - SEM THROTTLE
+      if ((msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") && msg.mpu) {
         lastMPUData = msg.mpu;
 
         // Atualizar display sempre (é rápido)
@@ -945,7 +789,7 @@ function initTelemetryWS() {
         if (controlEnabled) {
           sendMPUControl(msg.mpu);
         }
-        return; // Não aplica throttle para MPU
+        return; // Não aplica throttle para MPU/BNO085
       }
 
       // Ignorar outras mensagens por enquanto (Live desabilitado)
@@ -1149,19 +993,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("❌ Falha ao calcular visualização inicial");
   }
 
-  // Atualizar status periodicamente
-  setInterval(updateConnectionStatus, 2000);
-
-  // Botões de serial
-  document
-    .getElementById("btn-refresh-ports")
-    .addEventListener("click", loadSerialPorts);
-  document
-    .getElementById("btn-open-serial")
-    .addEventListener("click", openSerial);
-  document
-    .getElementById("btn-close-serial")
-    .addEventListener("click", closeSerial);
+  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
+  initCommonSerialControls();
 
   // Botão de recalibração
   document

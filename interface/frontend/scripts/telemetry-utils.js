@@ -19,7 +19,7 @@ const BASE_POINTS_FIXED = [
 
 /**
  * Normaliza mensagens de telemetria do WebSocket
- * Suporta formatos: telemetry, telemetry_mpu, raw
+ * Suporta formatos: telemetry, telemetry_mpu, telemetry_bno085, raw
  * @param {Object} msg - Mensagem bruta do WebSocket
  * @returns {Object} Dados normalizados
  */
@@ -33,8 +33,8 @@ function normalizeTelemetry(msg) {
     };
   }
 
-  // Telemetria padrão ou com MPU
-  if (msg.type === 'telemetry' || msg.type === 'telemetry_mpu') {
+  // Telemetria padrão, com MPU ou com BNO085
+  if (msg.type === 'telemetry' || msg.type === 'telemetry_mpu' || msg.type === 'telemetry_bno085') {
     // Comprimentos absolutos dos atuadores (múltiplos formatos possíveis)
     let actuator_lengths_abs = msg.actuator_lengths_abs || [];
 

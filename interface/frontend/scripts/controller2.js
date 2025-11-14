@@ -157,8 +157,8 @@ function updateJoystickStatus(connected, name = "") {
 // ========== Event Listeners ==========
 function registerEventListeners() {
   // Toggle joystick
-  const joystickModeCheckbox = document.getElementById("joystick-mode");
-  joystickModeCheckbox?.addEventListener("change", (e) => {
+  const joystickModeCheckbox = document.getElementById('joystick-mode');
+  joystickModeCheckbox?.addEventListener('change', (e) => {
     const enabled = e.target.checked;
 
     if (joystickController) {
@@ -172,31 +172,31 @@ function registerEventListeners() {
   });
 
   // Toggle aplicar no hardware
-  const applyToHardwareCheckbox = document.getElementById("apply-to-hardware");
-  applyToHardwareCheckbox?.addEventListener("change", (e) => {
+  const applyToHardwareCheckbox = document.getElementById('apply-to-hardware');
+  applyToHardwareCheckbox?.addEventListener('change', (e) => {
     if (joystickController) {
       joystickController.setApplyToHardware(e.target.checked);
 
       if (e.target.checked) {
-        showToast("⚠️ Comandos serão aplicados no hardware!", "warning");
+        showToast('⚠️ Comandos serão aplicados no hardware!', 'warning');
       }
     }
   });
 
   // Eventos de gamepad (conectar/desconectar)
-  window.addEventListener("gamepadconnected", (e) => {
-    console.log("🎮 Gamepad conectado:", e.gamepad.id);
+  window.addEventListener('gamepadconnected', (e) => {
+    console.log('🎮 Gamepad conectado:', e.gamepad.id);
     updateJoystickStatus(true, e.gamepad.id);
-    showToast(`Gamepad conectado: ${e.gamepad.id}`, "success");
+    showToast(`Gamepad conectado: ${e.gamepad.id}`, 'success');
   });
 
-  window.addEventListener("gamepaddisconnected", (e) => {
-    console.log("🎮 Gamepad desconectado:", e.gamepad.id);
+  window.addEventListener('gamepaddisconnected', (e) => {
+    console.log('🎮 Gamepad desconectado:', e.gamepad.id);
     updateJoystickStatus(false);
-    showToast("Gamepad desconectado", "warning");
+    showToast('Gamepad desconectado', 'warning');
 
     // Desmarcar checkbox se estava ativo
-    const checkbox = document.getElementById("joystick-mode");
+    const checkbox = document.getElementById('joystick-mode');
     if (checkbox && checkbox.checked) {
       checkbox.checked = false;
       if (joystickController) {
@@ -205,16 +205,8 @@ function registerEventListeners() {
     }
   });
 
-  // Botões de serial (usar funções do common.js)
-  document
-    .getElementById("btn-refresh-ports")
-    ?.addEventListener("click", loadSerialPorts);
-  document
-    .getElementById("btn-open-serial")
-    ?.addEventListener("click", openSerial);
-  document
-    .getElementById("btn-close-serial")
-    ?.addEventListener("click", closeSerial);
+  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
+  initCommonSerialControls();
 }
 
 // ========== Cleanup ==========
