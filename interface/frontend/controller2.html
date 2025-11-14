@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plataforma de Stewart - Controle por Joystick (Leve)</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      /* Previne FOUC */
+      html {
+        visibility: visible;
+        opacity: 1;
+      }
+      .material-icons {
+        vertical-align: middle;
+      }
+
+      /* Indicador de status do joystick */
+      .joystick-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-weight: 500;
+        font-size: 0.875rem;
+      }
+
+      .joystick-indicator.active {
+        background: linear-gradient(to right, #10b981, #059669);
+        color: white;
+      }
+
+      .joystick-indicator.inactive {
+        background: linear-gradient(to right, #6b7280, #4b5563);
+        color: #d1d5db;
+      }
+
+      /* Sliders customizados */
+      input[type="range"] {
+        width: 100%;
+        height: 6px;
+        border-radius: 3px;
+        background: #374151;
+        outline: none;
+        margin: 0.5rem 0;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #8b5cf6;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #8b5cf6;
+        cursor: pointer;
+        border: none;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      /* Grid de inputs */
+      .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+      }
+
+      .control-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .control-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #d1d5db;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .control-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #8b5cf6;
+        font-family: "Courier New", monospace;
+      }
+
+      /* Medidas dos pistões */
+      .piston-measures {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .piston-card {
+        background: #374151;
+        border: 2px solid #4b5563;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        text-align: center;
+        transition: all 0.2s;
+      }
+
+      .piston-id {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+      }
+
+      .piston-length {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #10b981;
+        font-family: "Courier New", monospace;
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- Header -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700"
+      >
+        <div class="text-center">
+          <h1
+            class="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3"
+          >
+            <span
+              class="material-icons text-purple-400"
+              style="font-size: 2.5rem"
+              >sports_esports</span
+            >
+            <span>Controle por Joystick (Leve)</span>
+          </h1>
+          <div class="flex justify-center items-center gap-2">
+            <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
+            <p class="text-gray-300">Instituto Federal de São Paulo</p>
+          </div>
+          <p class="text-gray-400 text-sm mt-1">Miyata - 2025</p>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <div id="nav-container"></div>
+
+      <!-- Status da Conexão -->
+      <div
+        id="connection-status"
+        class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div
+              id="status-indicator"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></div>
+            <span id="status-text" class="font-medium text-gray-300"
+              >Desconectado</span
+            >
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >Porta Serial</label
+            >
+            <select
+              id="serial-port-select"
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            >
+              <option value="">Selecione...</option>
+            </select>
+          </div>
+          <button
+            id="btn-refresh-ports"
+            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+          >
+            <span class="material-icons text-md">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button
+            id="btn-open-serial"
+            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+          >
+            <span class="material-icons text-sm">power</span>
+            <span>Conectar</span>
+          </button>
+          <button
+            id="btn-close-serial"
+            class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold"
+          >
+            <span class="material-icons text-md">power_off</span>
+            <span>Desconectar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Controle por Joystick -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-purple-400">sports_esports</span>
+          <span>Controle por Joystick</span>
+        </h2>
+
+        <div class="flex flex-wrap gap-4 items-center mb-4">
+          <!-- Status do Joystick -->
+          <div id="joystick-status" class="joystick-indicator inactive">
+            <span class="material-icons text-sm">gamepad</span>
+            <span id="joystick-status-text">Desconectado</span>
+          </div>
+
+          <!-- Toggle Joystick -->
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="joystick-mode" class="w-5 h-5" />
+            <span class="text-gray-300 font-medium"
+              >Ativar Controle por Joystick</span
+            >
+          </label>
+
+          <!-- Toggle Aplicar no Hardware -->
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="apply-to-hardware" class="w-5 h-5" />
+            <span class="text-gray-300 font-medium">Aplicar no Hardware</span>
+          </label>
+        </div>
+
+        <div class="bg-gray-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-300 mb-2">Instruções:</h3>
+          <ul class="text-sm text-gray-400 space-y-1">
+            <li>🕹️ <strong>Stick Esquerdo:</strong> Translação X/Y (±30mm)</li>
+            <li>🕹️ <strong>Stick Direito:</strong> Rotação Roll/Pitch (±8°)</li>
+            <li>
+              ⚠️ <strong>Limites físicos:</strong> ±30mm e ±30° para segurança
+            </li>
+            <li>
+              🔧 <strong>Hardware:</strong> Ative "Aplicar no Hardware" para
+              enviar comandos ao ESP32
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Valores Atuais -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-blue-400">tune</span>
+          <span>Valores Atuais da Pose</span>
+        </h2>
+
+        <div class="controls-grid">
+          <!-- Translação X -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-blue-400">height</span>
+              <span>X (mm)</span>
+            </div>
+            <div class="control-value" id="x-value">0.00</div>
+            <input
+              type="range"
+              id="x-slider"
+              min="-10"
+              max="10"
+              step="0.1"
+              value="0"
+              disabled
+            />
+          </div>
+
+          <!-- Translação Y -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-green-400">height</span>
+              <span>Y (mm)</span>
+            </div>
+            <div class="control-value" id="y-value">0.00</div>
+            <input
+              type="range"
+              id="y-slider"
+              min="-8"
+              max="8"
+              step="0.1"
+              value="0"
+              disabled
+            />
+          </div>
+
+          <!-- Translação Z -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-purple-400">height</span>
+              <span>Z (mm)</span>
+            </div>
+            <div class="control-value" id="z-value">500.00</div>
+            <input
+              type="range"
+              id="z-slider"
+              min="490"
+              max="500"
+              step="0.1"
+              value="500"
+              disabled
+            />
+          </div>
+
+          <!-- Roll -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-red-400"
+                >screen_rotation</span
+              >
+              <span>Roll (°)</span>
+            </div>
+            <div class="control-value" id="roll-value">0.00</div>
+            <input
+              type="range"
+              id="roll-slider"
+              min="-8"
+              max="8"
+              step="0.1"
+              value="0"
+              disabled
+            />
+          </div>
+
+          <!-- Pitch -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-yellow-400"
+                >screen_rotation</span
+              >
+              <span>Pitch (°)</span>
+            </div>
+            <div class="control-value" id="pitch-value">0.00</div>
+            <input
+              type="range"
+              id="pitch-slider"
+              min="-8"
+              max="8"
+              step="0.1"
+              value="0"
+              disabled
+            />
+          </div>
+
+          <!-- Yaw -->
+          <div class="control-item">
+            <div class="control-label">
+              <span class="material-icons text-sm text-cyan-400"
+                >screen_rotation</span
+              >
+              <span>Yaw (°)</span>
+            </div>
+            <div class="control-value" id="yaw-value">0.00</div>
+            <input
+              type="range"
+              id="yaw-slider"
+              min="-8"
+              max="8"
+              step="0.1"
+              value="0"
+              disabled
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Medidas dos Pistões -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-cyan-400">straighten</span>
+          <span>Comprimentos dos Pistões</span>
+        </h2>
+        <div class="piston-measures">
+          <div class="piston-card">
+            <div class="piston-id">Pistão 1</div>
+            <div class="piston-length" id="piston-1">--</div>
+          </div>
+          <div class="piston-card">
+            <div class="piston-id">Pistão 2</div>
+            <div class="piston-length" id="piston-2">--</div>
+          </div>
+          <div class="piston-card">
+            <div class="piston-id">Pistão 3</div>
+            <div class="piston-length" id="piston-3">--</div>
+          </div>
+          <div class="piston-card">
+            <div class="piston-id">Pistão 4</div>
+            <div class="piston-length" id="piston-4">--</div>
+          </div>
+          <div class="piston-card">
+            <div class="piston-id">Pistão 5</div>
+            <div class="piston-length" id="piston-5">--</div>
+          </div>
+          <div class="piston-card">
+            <div class="piston-id">Pistão 6</div>
+            <div class="piston-length" id="piston-6">--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <!-- Scripts do projeto (SEM Three.js) -->
+    <script src="./scripts/common.js"></script>
+    <script src="./nav-menu.js"></script>
+    <script>
+      // Insere navegação ao carregar
+      document.addEventListener("DOMContentLoaded", () => {
+        insertNavMenu("nav-container", "controller2.html");
+      });
+    </script>
+    <script type="module" src="./scripts/controller2.js"></script>
+  </body>
+</html>

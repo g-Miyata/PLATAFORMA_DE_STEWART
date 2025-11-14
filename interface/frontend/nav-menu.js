@@ -4,13 +4,15 @@
  */
 
 const NAV_ITEMS = [
-  { url: 'index.html', icon: 'home', label: 'Início' },
-  { url: 'actuators.html', icon: 'videogame_asset', label: 'Controle' },
-  { url: 'kinematics.html', icon: 'straighten', label: 'Cinemática' },
-  { url: 'controller.html', icon: 'sports_esports', label: 'Joystick' },
-  { url: 'routines.html', icon: 'autorenew', label: 'Rotinas' },
-  { url: 'motion.html', icon: 'gps_fixed', label: 'MPU-6050' },
-  { url: 'settings.html', icon: 'settings', label: 'Configurações' },
+  { url: "index.html", icon: "home", label: "Início" },
+  { url: "actuators.html", icon: "videogame_asset", label: "Controle" },
+  { url: "kinematics.html", icon: "straighten", label: "Cinemática" },
+  { url: "controller.html", icon: "sports_esports", label: "Joystick" },
+  { url: "controller2.html", icon: "sports_esports", label: "Joystick Leve" },
+  { url: "routines.html", icon: "autorenew", label: "Rotinas" },
+  { url: "motion.html", icon: "gps_fixed", label: "MPU-6050" },
+  { url: "motion2.html", icon: "gps_fixed", label: "MPU Leve" },
+  { url: "settings.html", icon: "settings", label: "Configurações" },
 ];
 
 function createNavMenu(currentPage) {
@@ -18,8 +20,12 @@ function createNavMenu(currentPage) {
     <div class="bg-gray-800 rounded-2xl shadow-sm p-3 sm:p-4 mb-4 sm:mb-6 border border-gray-700">
       <div class="flex flex-wrap gap-2 justify-center text-sm sm:text-base">
         ${NAV_ITEMS.map((item) => {
-          const isActive = window.location.pathname.endsWith(item.url) || (currentPage && currentPage === item.url);
-          const activeClass = isActive ? 'bg-green-600 text-white font-semibold' : 'bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium';
+          const isActive =
+            window.location.pathname.endsWith(item.url) ||
+            (currentPage && currentPage === item.url);
+          const activeClass = isActive
+            ? "bg-green-600 text-white font-semibold"
+            : "bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium";
 
           return `
             <a href="${item.url}" class="px-4 sm:px-6 py-2 ${activeClass} rounded-lg transition-colors flex items-center gap-2">
@@ -27,7 +33,7 @@ function createNavMenu(currentPage) {
               <span>${item.label}</span>
             </a>
           `;
-        }).join('')}
+        }).join("")}
       </div>
     </div>
   `;
@@ -35,7 +41,7 @@ function createNavMenu(currentPage) {
   return navHtml;
 }
 
-function insertNavMenu(containerId = 'nav-container', currentPage = null) {
+function insertNavMenu(containerId = "nav-container", currentPage = null) {
   const container = document.getElementById(containerId);
   if (container) {
     container.innerHTML = createNavMenu(currentPage);

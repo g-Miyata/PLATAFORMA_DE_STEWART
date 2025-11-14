@@ -513,6 +513,7 @@ class MotionRunner:
         print("🏠 Preflight: indo para HOME e calibrando limites...")
         self._go_home_smooth(duration=go_home_duration)
         self._calibrate_limits_from_home()
+        print("✅ HOME e calibração concluídos - iniciando trajetória...")
     
     def start(self, req: MotionRequest):
         """Inicia uma rotina de movimento"""
@@ -525,7 +526,7 @@ class MotionRunner:
                 "running": True,
                 "routine": req.routine,
                 "params": req.dict(),
-                "started_at": time.time(),
+                "started_at": None,  # ✅ Será definido DEPOIS do HOME terminar
                 "elapsed": 0.0
             }
             
@@ -535,7 +536,7 @@ class MotionRunner:
                 daemon=True
             )
             self.thread.start()
-            print(f"🎬 Rotina '{req.routine}' iniciada")
+            print(f"🎬 Rotina '{req.routine}' iniciada - indo para HOME...")
     
     def stop(self):
         """Para a rotina e retorna suavemente para home"""
@@ -562,7 +563,7 @@ class MotionRunner:
     def status(self) -> dict:
         """Retorna o status atual"""
         with self.lock:
-            if self.status_dict["running"] and self.status_dict["started_at"]:
+            if self.status_dict["running"] and self.status_dict["started_at"] is not None:
                 self.status_dict["elapsed"] = time.time() - self.status_dict["started_at"]
             return self.status_dict.copy()
     
@@ -576,6 +577,10 @@ class MotionRunner:
 
             # --- NOVO: sempre começar da HOME e calibrar limites a partir dela ---
             self.home_and_calibrate_limits(go_home_duration=1.2)
+            
+            # ✅ IMPORTANTE: Só começar a contar o tempo DEPOIS do HOME terminar
+            with self.lock:
+                self.status_dict["started_at"] = time.time()
             
             # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
             ramp_time = min(2.0, duration * 0.2)
@@ -807,10 +812,18 @@ class MotionRunner:
         steps = int(max(1, duration / dt))
 
         pose = self._home_pose()
-        for _ in range(steps):
+        print(f"🏠 _go_home_smooth: pose HOME = {pose}")
+        
+        # Verificar se serial está conectada
+        if not (self.serial_mgr.ser and self.serial_mgr.ser.is_open):
+            print("⚠️ AVISO: Serial NÃO conectada - movimento HOME será simulado apenas")
+        
+        sent_commands = 0
+        for i in range(steps):
             # curva suave apenas para marcar o ritmo de envio (HOME é fixa)
             L, valid, _ = self.platform.inverse_kinematics(**pose)
             if not valid:
+                print(f"⚠️ Pose HOME inválida no step {i}/{steps}")
                 time.sleep(dt)
                 continue
             
@@ -822,10 +835,16 @@ class MotionRunner:
                 # Enviar todos os 6 setpoints de uma vez
                 cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
                 self.serial_mgr.write_line(cmd)
-            except Exception:
-                pass
+                sent_commands += 1
+                if i == 0:  # Log apenas primeiro comando
+                    print(f"📤 Enviando comando HOME: {cmd}")
+            except Exception as e:
+                if i == 0:  # Log apenas primeiro erro
+                    print(f"❌ Erro ao enviar comando HOME: {e}")
             
             time.sleep(dt)
+        
+        print(f"✅ _go_home_smooth concluído: {sent_commands}/{steps} comandos enviados")
 
 motion_runner = MotionRunner(serial_mgr, platform)
 
@@ -1263,6 +1282,12 @@ def mpu_control(req: MPUControlRequest):
     OTIMIZAÇÃO: Aplica controle da plataforma baseado em dados do MPU-6050.
     Calcula cinemática inversa e envia setpoints para os atuadores.
     """
+    # 🐛 DEBUG: Log do request recebido
+    print(f"\n🎯 /mpu/control recebido:")
+    print(f"   roll={req.roll:.2f}°, pitch={req.pitch:.2f}°, yaw={req.yaw:.2f}°")
+    print(f"   x={req.x:.2f}mm, y={req.y:.2f}mm, z={req.z}mm")
+    print(f"   scale={req.scale}")
+    
     # Aplica escala aos ângulos (para suavizar movimento se necessário)
     roll_scaled = req.roll * req.scale
     pitch_scaled = req.pitch * req.scale
@@ -1271,7 +1296,7 @@ def mpu_control(req: MPUControlRequest):
     z_value = req.z if req.z is not None else platform.h0
     
     # Calcula cinemática inversa
-    L, valid, _ = platform.inverse_kinematics(
+    L, valid, P = platform.inverse_kinematics(
         x=req.x, y=req.y, z=z_value,
         roll=roll_scaled, pitch=pitch_scaled, yaw=yaw_scaled
     )
@@ -1285,11 +1310,17 @@ def mpu_control(req: MPUControlRequest):
     
     course_mm = platform.lengths_to_stroke_mm(L)
     
+    # Platform_points já vem do inverse_kinematics (terceiro retorno)
+    platform_points = P.tolist() if P is not None else []
+    
     # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
         cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
+        print(f"📤 Enviando comando MPU: {cmd}")
         serial_mgr.write_line(cmd)
+        print(f"✅ Comando MPU enviado com sucesso")
     except Exception as e:
+        print(f"❌ Erro ao enviar comando MPU: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     
     return {
@@ -1300,7 +1331,9 @@ def mpu_control(req: MPUControlRequest):
             "x": req.x, "y": req.y, "z": z_value,
             "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
         },
-        "lengths_abs": L.tolist()
+        "lengths_abs": L.tolist(),
+        "base_points": platform.base_points.tolist(),
+        "platform_points": platform_points
     }
 
 # -------------------- Joystick Control --------------------
@@ -1329,6 +1362,11 @@ def joystick_pose(req: JoystickPoseRequest):
     - base_points: Pontos da base
     - platform_points: Pontos da plataforma
     """
+    # 🐛 DEBUG: Log do request recebido
+    print(f"\n🎮 /joystick/pose recebido:")
+    print(f"   lx={req.lx:.3f}, ly={req.ly:.3f}, rx={req.rx:.3f}, ry={req.ry:.3f}")
+    print(f"   apply={req.apply}, z_base={req.z_base}")
+    
     # Constantes de mapeamento (limites físicos da plataforma)
     MAX_TRANS_MM = 30.0   # ±30mm em X e Y
     MAX_ANGLE_DEG = 8.0  # ±10° em roll, pitch, yaw

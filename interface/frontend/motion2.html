@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Controle por Acelerômetro - MPU-6050 (Leve)</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./styles/motion.css" />
+    <style>
+      /* Previne FOUC */
+      html {
+        visibility: visible;
+        opacity: 1;
+      }
+      .material-icons,
+      .material-icons-outlined {
+        vertical-align: middle;
+      }
+
+      /* Estilos para cards de pistões */
+      .piston-measures {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+      }
+
+      .piston-card {
+        background: #374151;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 2px solid #4b5563;
+        transition: all 0.2s;
+      }
+
+      .piston-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      .piston-id {
+        font-size: 0.875rem;
+        color: #9ca3af;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .piston-length {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #10b981;
+      }
+
+      .pulse-dot {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gradient-to-br from-gray-900 to-gray-800 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+      <!-- Header -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-8 mb-6 border border-gray-700"
+      >
+        <div class="text-center">
+          <div class="text-center">
+            <h1
+              class="text-4xl font-bold text-white mb-2 flex items-center justify-center gap-3"
+            >
+              <span
+                class="material-icons text-pink-400"
+                style="font-size: 2.5rem"
+                >gps_fixed</span
+              >
+              <span>Controle MPU-6050 (Versão Leve)</span>
+            </h1>
+            <div class="flex justify-center items-center gap-2">
+              <img src="./assets/ifsp.svg" alt="logo IFSP" class="w-6" />
+              <p class="text-gray-300">Instituto Federal de São Paulo</p>
+            </div>
+            <p class="text-gray-400 text-sm mt-1">Miyata - 2025</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navegação -->
+      <div id="nav-container"></div>
+
+      <!-- Status da Conexão -->
+      <div
+        id="connection-status"
+        class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div
+              id="status-indicator"
+              class="w-3 h-3 rounded-full bg-gray-500"
+            ></div>
+            <span id="status-text" class="text-gray-400 font-medium"
+              >Aguardando conexão...</span
+            >
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label
+              for="serial-port-select"
+              class="block text-sm font-medium text-gray-400 mb-2"
+              >Porta Serial</label
+            >
+            <select
+              id="serial-port-select"
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">Selecione uma porta...</option>
+            </select>
+          </div>
+          <button
+            id="btn-refresh-ports"
+            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+          >
+            <span class="material-icons text-md">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button
+            id="btn-open-serial"
+            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+          >
+            <span class="material-icons text-md">power</span>
+            <span>Conectar</span>
+          </button>
+          <button
+            id="btn-close-serial"
+            class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold hidden flex items-center gap-2"
+          >
+            <span class="material-icons text-md">power_off</span>
+            <span>Desconectar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Valores MPU (Card Horizontal) -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-blue-400">sensors</span>
+          <span>Valores do Acelerômetro (MPU-6050)</span>
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">
+              Roll (Rotação em X)
+            </div>
+            <div class="text-4xl font-bold text-blue-400 mb-3" id="mpu-roll">
+              0.0°
+            </div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div
+                id="mpu-roll-bar"
+                class="bg-blue-500 h-3 rounded-full transition-all duration-200"
+                style="width: 50%"
+              ></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">
+              Pitch (Rotação em Y)
+            </div>
+            <div class="text-4xl font-bold text-purple-400 mb-3" id="mpu-pitch">
+              0.0°
+            </div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div
+                id="mpu-pitch-bar"
+                class="bg-purple-500 h-3 rounded-full transition-all duration-200"
+                style="width: 50%"
+              ></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+
+          <div class="bg-gray-700 rounded-lg p-4 border border-gray-600">
+            <div class="text-gray-400 text-sm mb-2 font-medium">
+              Yaw (Rotação em Z)
+            </div>
+            <div class="text-4xl font-bold text-pink-400 mb-3" id="mpu-yaw">
+              0.0°
+            </div>
+            <div class="w-full bg-gray-600 rounded-full h-3">
+              <div
+                id="mpu-yaw-bar"
+                class="bg-pink-500 h-3 rounded-full transition-all duration-200"
+                style="width: 50%"
+              ></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 flex justify-between">
+              <span>-10°</span>
+              <span>0°</span>
+              <span>+10°</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="flex items-center justify-between bg-gray-700 rounded-lg p-4 border border-gray-600"
+        >
+          <div class="flex items-center gap-4">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                id="control-enabled"
+                class="w-5 h-5 rounded focus:ring-2 focus:ring-green-500"
+              />
+              <span class="text-white font-semibold">Controle Ativo</span>
+            </label>
+            <div class="flex items-center gap-2">
+              <span class="text-gray-400 text-sm">Escala:</span>
+              <input
+                type="range"
+                id="scale-slider"
+                min="0"
+                max="100"
+                value="100"
+                class="w-32"
+              />
+              <span class="text-white font-semibold w-12" id="scale-value"
+                >100%</span
+              >
+            </div>
+            <button
+              id="btn-recalibrate"
+              class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+            >
+              <span class="material-icons text-md">restart_alt</span>
+              <span>Recalibrar MPU</span>
+            </button>
+          </div>
+          <div class="text-right">
+            <div class="text-gray-400 text-sm">Taxa de Atualização</div>
+            <div class="text-white text-lg font-semibold" id="update-rate">
+              0 Hz
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medidas dos Pistões (sem 3D) -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 border border-gray-700"
+        style="margin-bottom: 30px"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-2 flex items-center gap-2"
+        >
+          <span class="material-icons text-purple-400">straighten</span>
+          <span>Comprimentos Calculados dos Atuadores</span>
+        </h2>
+        <p class="text-sm text-gray-400 mb-4">
+          Valores baseados na orientação do MPU-6050 (Roll, Pitch, Yaw) em tempo
+          real
+        </p>
+
+        <div class="piston-measures" id="piston-measures-preview">
+          <div class="piston-card" style="border-left: 3px solid #3b82f6">
+            <div class="piston-id">Pistão 1</div>
+            <div class="piston-length" id="preview-piston-1">--- mm</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #a855f7">
+            <div class="piston-id">Pistão 2</div>
+            <div class="piston-length" id="preview-piston-2">--- mm</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #ec4899">
+            <div class="piston-id">Pistão 3</div>
+            <div class="piston-length" id="preview-piston-3">--- mm</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #f97316">
+            <div class="piston-id">Pistão 4</div>
+            <div class="piston-length" id="preview-piston-4">--- mm</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #14b8a6">
+            <div class="piston-id">Pistão 5</div>
+            <div class="piston-length" id="preview-piston-5">--- mm</div>
+          </div>
+          <div class="piston-card" style="border-left: 3px solid #6366f1">
+            <div class="piston-id">Pistão 6</div>
+            <div class="piston-length" id="preview-piston-6">--- mm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/toastify-js"
+    ></script>
+    <script src="nav-menu.js"></script>
+    <script>
+      // Insere navegação ao carregar
+      document.addEventListener("DOMContentLoaded", () => {
+        insertNavMenu("nav-container", "motion2.html");
+      });
+    </script>
+    <script src="./scripts/motion2.js"></script>
+  </body>
+</html>
