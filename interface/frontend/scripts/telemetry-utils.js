@@ -25,27 +25,41 @@ const BASE_POINTS_FIXED = [
  */
 function normalizeTelemetry(msg) {
   // Mensagem raw (apenas log, sem dados úteis)
-  if (msg.type === 'raw') {
+  if (msg.type === "raw") {
     return {
-      type: 'raw',
-      raw: msg.raw || msg.data || '',
+      type: "raw",
+      raw: msg.raw || msg.data || "",
       timestamp: msg.ts || Date.now(),
     };
   }
 
   // Telemetria padrão, com MPU ou com BNO085
-  if (msg.type === 'telemetry' || msg.type === 'telemetry_mpu' || msg.type === 'telemetry_bno085') {
+  if (
+    msg.type === "telemetry" ||
+    msg.type === "telemetry_mpu" ||
+    msg.type === "telemetry_bno085"
+  ) {
     // Comprimentos absolutos dos atuadores (múltiplos formatos possíveis)
     let actuator_lengths_abs = msg.actuator_lengths_abs || [];
 
+    console.log("🔍 DEBUG normalizeTelemetry:", {
+      type: msg.type,
+      hasActuatorLengths: !!msg.actuator_lengths_abs,
+      hasY: !!msg.Y,
+      hasPlatformPoints: !!msg.platform_points_live,
+      Y_values: msg.Y,
+    });
+
     // Se não tiver actuator_lengths_abs, tentar base_sp_mm (ESP32 envia setpoints em mm)
     if (!actuator_lengths_abs.length && Array.isArray(msg.base_sp_mm)) {
+      console.log("📊 Convertendo base_sp_mm para actuator_lengths_abs");
       // Converter de curso (0-180mm) para comprimento absoluto (498-678mm)
       actuator_lengths_abs = msg.base_sp_mm.map((sp) => sp + 498);
     }
 
-    // Se tiver Y (feedback do sensor), usar como comprimento absoluto
-    if (Array.isArray(msg.Y) && msg.Y.some((y) => y > 0)) {
+    // Se tiver Y (feedback do sensor), usar como comprimento absoluto (PRIORIDADE MÁXIMA)
+    if (Array.isArray(msg.Y) && msg.Y.length === 6) {
+      console.log("📊 Usando Y para actuator_lengths_abs:", msg.Y);
       // Y já está em mm de curso (0-250), converter para absoluto
       actuator_lengths_abs = msg.Y.map((y) => y + 498);
     }
@@ -75,16 +89,23 @@ function normalizeTelemetry(msg) {
       mpu: msg.mpu || null,
 
       // Formato da mensagem
-      format: msg.format || 'standard',
+      format: msg.format || "standard",
     };
+
+    console.log("✅ Telemetria normalizada:", {
+      type: normalized.type,
+      actuator_lengths_count: normalized.actuator_lengths_abs.length,
+      has_platform_points: !!normalized.platform_points_live,
+      has_pose: !!normalized.pose_live,
+    });
 
     return normalized;
   }
 
   // Formato desconhecido
-  console.warn('⚠️ Formato de telemetria desconhecido:', msg);
+  console.warn("⚠️ Formato de telemetria desconhecido:", msg);
   return {
-    type: 'unknown',
+    type: "unknown",
     raw: JSON.stringify(msg),
     timestamp: Date.now(),
   };
@@ -100,8 +121,15 @@ function normalizeTelemetry(msg) {
  * @returns {Array} Pontos estimados da plataforma [[x,y,z], ...]
  */
 function reconstructPlatformPoints(basePoints, actuators) {
-  if (!basePoints || basePoints.length !== 6 || !actuators || actuators.length !== 6) {
-    console.warn('⚠️ Dados insuficientes para reconstruir pontos da plataforma');
+  if (
+    !basePoints ||
+    basePoints.length !== 6 ||
+    !actuators ||
+    actuators.length !== 6
+  ) {
+    console.warn(
+      "⚠️ Dados insuficientes para reconstruir pontos da plataforma"
+    );
     return null;
   }
 
@@ -129,24 +157,52 @@ function reconstructPlatformPoints(basePoints, actuators) {
  * @param {Function} customCallback - Callback adicional (opcional)
  */
 function applyLiveTelemetry(containerId, data, customCallback) {
-  if (!data || data.type === 'raw') {
+  console.log("🎨 applyLiveTelemetry chamado:", {
+    containerId,
+    dataType: data?.type,
+    hasData: !!data,
+  });
+
+  if (!data || data.type === "raw") {
+    console.log("⏭️ Ignorando mensagem raw ou vazia");
     return; // Ignora mensagens raw
+  }
+
+  // ✅ SEGURANÇA: Verificar se actuator_lengths_abs existe e tem dados
+  if (!data.actuator_lengths_abs || data.actuator_lengths_abs.length === 0) {
+    console.warn(
+      "⚠️ Sem dados de comprimento dos atuadores - pulando renderização"
+    );
+    return;
   }
 
   // Se já temos os pontos da plataforma do backend, usar diretamente
   let platformPoints = data.platform_points_live;
 
   // Se não temos, tentar reconstruir a partir dos comprimentos
-  if (!platformPoints && data.actuator_lengths_abs && data.actuator_lengths_abs.length === 6) {
-    const actuatorsData = data.actuator_lengths_abs.map((length) => ({ length }));
+  if (
+    !platformPoints &&
+    data.actuator_lengths_abs &&
+    data.actuator_lengths_abs.length === 6
+  ) {
+    console.log(
+      "🔧 Reconstruindo pontos da plataforma a partir de actuator_lengths_abs"
+    );
+    const actuatorsData = data.actuator_lengths_abs.map((length) => ({
+      length,
+    }));
     platformPoints = reconstructPlatformPoints(data.base_points, actuatorsData);
   }
 
   // Se ainda não temos pontos, não podemos renderizar
   if (!platformPoints) {
-    console.warn('⚠️ Não foi possível obter pontos da plataforma');
+    console.warn(
+      "⚠️ Não foi possível obter pontos da plataforma após reconstrução"
+    );
     return;
   }
+
+  console.log("✅ Dados prontos para renderização 3D");
 
   // Preparar dados para renderização 3D
   const renderData = {
@@ -167,11 +223,11 @@ function applyLiveTelemetry(containerId, data, customCallback) {
 
   // Atualizar medidas dos pistões
   if (window.updatePistonMeasures) {
-    window.updatePistonMeasures('piston-live', renderData.actuators);
+    window.updatePistonMeasures("piston-live", renderData.actuators);
   }
 
   // Callback customizado (se fornecido)
-  if (typeof customCallback === 'function') {
+  if (typeof customCallback === "function") {
     customCallback(data, renderData);
   }
 }

@@ -65,18 +65,40 @@ function updateLiveMeasures(actuators) {
 
 // ========== Atualizar Dados do MPU-6050 ==========
 function updateMPUData(mpuData, quaternions) {
-  if (!mpuData) return;
+  const mpuSection = document.getElementById("mpu-data-section");
+  const rollEl = document.getElementById("mpu-roll");
+  const pitchEl = document.getElementById("mpu-pitch");
+  const yawEl = document.getElementById("mpu-yaw");
+  const quatDisplay = document.getElementById("quaternion-display");
+  const quatText = document.getElementById("quat-text");
 
-  const mpuSection = document.getElementById('mpu-data-section');
-  const rollEl = document.getElementById('mpu-roll');
-  const pitchEl = document.getElementById('mpu-pitch');
-  const yawEl = document.getElementById('mpu-yaw');
-  const quatDisplay = document.getElementById('quaternion-display');
-  const quatText = document.getElementById('quat-text');
+  // ✅ VALIDAÇÃO: Se não tem dados válidos, OCULTAR seção MPU
+  if (
+    !mpuData ||
+    typeof mpuData.roll !== "number" ||
+    typeof mpuData.pitch !== "number" ||
+    typeof mpuData.yaw !== "number"
+  ) {
+    if (mpuSection) {
+      mpuSection.classList.add("hidden");
+    }
+    console.log("❌ Dados MPU inválidos ou ausentes - ocultando seção");
+    return;
+  }
+
+  // ✅ VALIDAÇÃO ADICIONAL: Verificar se valores não são NaN
+  if (isNaN(mpuData.roll) || isNaN(mpuData.pitch) || isNaN(mpuData.yaw)) {
+    if (mpuSection) {
+      mpuSection.classList.add("hidden");
+    }
+    console.log("❌ Dados MPU contêm NaN - ocultando seção");
+    return;
+  }
 
   if (mpuSection && rollEl && pitchEl && yawEl) {
     // Exibir seção se estava oculta
-    mpuSection.classList.remove('hidden');
+    mpuSection.classList.remove("hidden");
+    console.log("✅ Exibindo seção MPU com dados válidos:", mpuData);
 
     // Atualizar valores com 2 casas decimais
     rollEl.textContent = Number(mpuData.roll).toFixed(2);
@@ -98,11 +120,14 @@ function updateMPUData(mpuData, quaternions) {
         return `${value}${symbol}`; // Já tem o sinal negativo
       };
 
-      const quatStr = `q = ${w} ${formatComponent(x, 'i')} ${formatComponent(y, 'j')} ${formatComponent(z, 'k')}`;
+      const quatStr = `q = ${w} ${formatComponent(x, "i")} ${formatComponent(
+        y,
+        "j"
+      )} ${formatComponent(z, "k")}`;
       quatText.textContent = quatStr;
-      quatDisplay.style.display = 'flex';
+      quatDisplay.style.display = "flex";
     } else if (quatDisplay) {
-      quatDisplay.style.display = 'none';
+      quatDisplay.style.display = "none";
     }
   }
 }
@@ -110,25 +135,26 @@ function updateMPUData(mpuData, quaternions) {
 // ========== Recalibrar MPU-6050 ==========
 async function recalibrateMPU() {
   if (!serialConnected) {
-    showToast('Conecte-se primeiro à porta serial', 'warning');
+    showToast("Conecte-se primeiro à porta serial", "warning");
     return;
   }
 
-  const btn = document.getElementById('btn-mpu-recalibrate');
+  const btn = document.getElementById("btn-mpu-recalibrate");
   const originalText = btn.innerHTML;
 
   try {
     // Feedback visual
     btn.disabled = true;
-    btn.innerHTML = '<span class="material-icons animate-spin" style="font-size: 0.875rem">refresh</span><span>Calibrando...</span>';
+    btn.innerHTML =
+      '<span class="material-icons animate-spin" style="font-size: 0.875rem">refresh</span><span>Calibrando...</span>';
 
-    showToast('📡 Enviando comando de recalibração...', 'info');
+    showToast("📡 Enviando comando de recalibração...", "info");
 
     // Envia comando "recalibra" via serial (envia comando ESP-NOW para o MPU)
     const response = await fetch(`${API_BASE}/serial/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'recalibra' }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command: "recalibra" }),
     });
 
     if (!response.ok) {
@@ -137,11 +163,11 @@ async function recalibrateMPU() {
     }
 
     const result = await response.json();
-    console.log('✅ Comando de recalibração enviado:', result);
-    showToast('✅ Comando "recalibra" enviado ao ESP32!', 'success');
+    console.log("✅ Comando de recalibração enviado:", result);
+    showToast('✅ Comando "recalibra" enviado ao ESP32!', "success");
   } catch (error) {
-    console.error('❌ Erro ao recalibrar MPU:', error);
-    showToast(`❌ Erro ao recalibrar: ${error.message}`, 'error');
+    console.error("❌ Erro ao recalibrar MPU:", error);
+    showToast(`❌ Erro ao recalibrar: ${error.message}`, "error");
   } finally {
     btn.disabled = false;
     btn.innerHTML = originalText;
@@ -150,17 +176,17 @@ async function recalibrateMPU() {
 
 // ========== Calcular Posição ==========
 async function calculatePosition() {
-  const loading = document.getElementById('loading');
-  const errBox = document.getElementById('error-message');
+  const loading = document.getElementById("loading");
+  const errBox = document.getElementById("error-message");
 
   try {
-    loading.style.display = 'block';
-    errBox.style.display = 'none';
+    loading.style.display = "block";
+    errBox.style.display = "none";
 
     const pose = getPoseFromUI();
     const resp = await fetch(`${API_BASE}/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pose),
     });
 
@@ -171,67 +197,67 @@ async function calculatePosition() {
 
     // Atualizar preview usando three-utils.js
     updatePreviewMeasures(data.actuators);
-    draw3DPlatform('canvas-preview', data);
+    draw3DPlatform("canvas-preview", data);
 
     // Mostrar/ocultar botão de aplicar
-    const applyBtn = document.getElementById('btn-apply');
-    const applyErr = document.getElementById('apply-error');
-    applyErr.style.display = 'none';
+    const applyBtn = document.getElementById("btn-apply");
+    const applyErr = document.getElementById("apply-error");
+    applyErr.style.display = "none";
 
     if (data.valid) {
-      applyBtn.style.display = 'block';
-      showToast('Posição válida calculada', 'success');
+      applyBtn.style.display = "block";
+      showToast("Posição válida calculada", "success");
     } else {
-      applyBtn.style.display = 'none';
-      showToast('Posição inválida para a plataforma', 'error');
+      applyBtn.style.display = "none";
+      showToast("Posição inválida para a plataforma", "error");
     }
   } catch (e) {
     console.error(e);
     errBox.textContent = `Erro: ${e.message}`;
-    errBox.style.display = 'block';
+    errBox.style.display = "block";
   } finally {
-    loading.style.display = 'none';
+    loading.style.display = "none";
   }
 }
 
 // ========== Resetar Posição ==========
 function resetPosition() {
-  document.getElementById('x-pos').value = 0;
-  document.getElementById('y-pos').value = 0;
-  document.getElementById('z-pos').value = 500;
-  document.getElementById('roll').value = 0;
-  document.getElementById('pitch').value = 0;
-  document.getElementById('yaw').value = 0;
-  document.getElementById('x-slider').value = 0;
-  document.getElementById('y-slider').value = 0;
-  document.getElementById('z-slider').value = 500;
-  document.getElementById('roll-slider').value = 0;
-  document.getElementById('pitch-slider').value = 0;
-  document.getElementById('yaw-slider').value = 0;
+  document.getElementById("x-pos").value = 0;
+  document.getElementById("y-pos").value = 0;
+  document.getElementById("z-pos").value = 500;
+  document.getElementById("roll").value = 0;
+  document.getElementById("pitch").value = 0;
+  document.getElementById("yaw").value = 0;
+  document.getElementById("x-slider").value = 0;
+  document.getElementById("y-slider").value = 0;
+  document.getElementById("z-slider").value = 500;
+  document.getElementById("roll-slider").value = 0;
+  document.getElementById("pitch-slider").value = 0;
+  document.getElementById("yaw-slider").value = 0;
   calculatePosition();
 }
 
 // ========== Aplicar na Bancada ==========
 async function applyToBench() {
-  const applyBtn = document.getElementById('btn-apply');
-  const applyErr = document.getElementById('apply-error');
+  const applyBtn = document.getElementById("btn-apply");
+  const applyErr = document.getElementById("apply-error");
   const originalText = applyBtn.textContent;
 
   try {
     applyBtn.disabled = true;
-    applyBtn.textContent = '⏳ Aplicando...';
-    applyErr.style.display = 'none';
+    applyBtn.textContent = "⏳ Aplicando...";
+    applyErr.style.display = "none";
 
     if (!currentPlatformData || !currentPlatformData.valid) {
-      throw new Error('Calcule uma posição válida primeiro');
+      throw new Error("Calcule uma posição válida primeiro");
     }
 
     const pose = currentPlatformData.pose;
-    console.log('🚀 Aplicando pose na bancada:', pose);
+    console.log("🚀 Aplicando pose na bancada:", pose);
 
     const resp = await fetch(`${API_BASE}/apply_pose`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pose),
     });
 
@@ -241,26 +267,26 @@ async function applyToBench() {
     }
 
     const data = await resp.json();
-    console.log('✅ Resposta do backend:', data);
+    console.log("✅ Resposta do backend:", data);
 
     if (data.applied) {
-      console.log('✓ Setpoints aplicados:', data.setpoints_mm);
-      applyBtn.textContent = '✓ Aplicado!';
-      showToast('Pose aplicada com sucesso!', 'success');
+      console.log("✓ Setpoints aplicados:", data.setpoints_mm);
+      applyBtn.textContent = "✓ Aplicado!";
+      showToast("Pose aplicada com sucesso!", "success");
       setTimeout(() => {
         applyBtn.textContent = originalText;
         applyBtn.disabled = false;
       }, 2000);
     } else {
-      throw new Error(data.message || 'Falha ao aplicar pose');
+      throw new Error(data.message || "Falha ao aplicar pose");
     }
   } catch (e) {
     console.error(e);
     applyErr.textContent = `Erro ao aplicar: ${e.message}`;
-    applyErr.style.display = 'block';
+    applyErr.style.display = "block";
     applyBtn.textContent = originalText;
     applyBtn.disabled = false;
-    showToast(`Erro: ${e.message}`, 'error');
+    showToast(`Erro: ${e.message}`, "error");
   }
 }
 
@@ -270,45 +296,45 @@ async function updateConnectionStatus() {
     const res = await fetch(`${API_BASE}/serial/status`);
     const status = await res.json();
 
-    const indicator = document.getElementById('status-indicator');
-    const text = document.getElementById('status-text');
-    const portSpan = document.getElementById('status-port');
+    const indicator = document.getElementById("status-indicator");
+    const text = document.getElementById("status-text");
+    const portSpan = document.getElementById("status-port");
 
     if (status.connected && status.port) {
-      indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
-      text.textContent = 'Conectado';
+      indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
+      text.textContent = "Conectado";
       portSpan.textContent = status.port;
     } else {
-      indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-      text.textContent = 'Desconectado';
-      portSpan.textContent = '--';
+      indicator.className = "w-3 h-3 rounded-full bg-red-500";
+      text.textContent = "Desconectado";
+      portSpan.textContent = "--";
     }
   } catch (err) {
-    console.error('Erro ao verificar status:', err);
+    console.error("Erro ao verificar status:", err);
   }
 }
 
 // ========== Status de Conexão Serial (usa funções do common.js) ==========
-function setSerialStatus(connected, port = '') {
+function setSerialStatus(connected, port = "") {
   serialConnected = connected;
-  const indicator = document.getElementById('status-indicator');
-  const text = document.getElementById('status-text');
-  const portSpan = document.getElementById('status-port');
-  const btnConnect = document.getElementById('btn-open-serial');
-  const btnDisconnect = document.getElementById('btn-close-serial');
+  const indicator = document.getElementById("status-indicator");
+  const text = document.getElementById("status-text");
+  const portSpan = document.getElementById("status-port");
+  const btnConnect = document.getElementById("btn-open-serial");
+  const btnDisconnect = document.getElementById("btn-close-serial");
 
   if (connected) {
-    indicator.className = 'w-3 h-3 rounded-full bg-green-500 pulse-dot';
-    text.textContent = 'Conectado';
+    indicator.className = "w-3 h-3 rounded-full bg-green-500 pulse-dot";
+    text.textContent = "Conectado";
     portSpan.textContent = port;
-    btnConnect.classList.add('hidden');
-    btnDisconnect.classList.remove('hidden');
+    btnConnect.classList.add("hidden");
+    btnDisconnect.classList.remove("hidden");
   } else {
-    indicator.className = 'w-3 h-3 rounded-full bg-red-500';
-    text.textContent = 'Desconectado';
-    portSpan.textContent = '--';
-    btnConnect.classList.remove('hidden');
-    btnDisconnect.classList.add('hidden');
+    indicator.className = "w-3 h-3 rounded-full bg-red-500";
+    text.textContent = "Desconectado";
+    portSpan.textContent = "--";
+    btnConnect.classList.remove("hidden");
+    btnDisconnect.classList.add("hidden");
   }
 }
 
@@ -317,12 +343,26 @@ function setSerialStatus(connected, port = '') {
 let lastWSUpdate = 0;
 let lastWSMessage = null;
 const WS_UPDATE_INTERVAL = 33; // ~30 FPS
+let heartbeatTimer = null;
+let lastMessageTime = 0;
 
 function initLocalTelemetryWS() {
-  console.log('🔌 Inicializando WebSocket local...');
+  console.log("🔌 Inicializando WebSocket local...");
+
+  // ✅ GARANTIR que seção MPU começa oculta ao inicializar WebSocket
+  const mpuSection = document.getElementById("mpu-data-section");
+  if (mpuSection) {
+    mpuSection.classList.add("hidden");
+    console.log("🔒 Seção MPU iniciada como oculta");
+  }
+
+  // Limpar timers anteriores
+  if (wsTimer) clearTimeout(wsTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
 
   if (ws) {
     try {
+      ws.onclose = null; // Remover handler para evitar reconexão duplicada
       ws.close();
     } catch (_) {}
     ws = null;
@@ -330,28 +370,46 @@ function initLocalTelemetryWS() {
 
   try {
     ws = new WebSocket(WS_URL);
-    console.log('🔌 WebSocket criado:', WS_URL);
+    console.log("🔌 WebSocket criado:", WS_URL);
   } catch (e) {
-    console.error('❌ Erro ao criar WebSocket:', e);
+    console.error("❌ Erro ao criar WebSocket:", e);
     scheduleReconnect();
     return;
   }
 
   ws.onopen = () => {
-    console.log('✅ WebSocket conectado (kinematics)');
+    console.log("✅ WebSocket conectado (kinematics)");
     if (wsTimer) clearTimeout(wsTimer);
+    lastMessageTime = Date.now();
+
+    // ✅ Heartbeat: verifica se está recebendo mensagens
+    heartbeatTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastMessage = now - lastMessageTime;
+
+      if (timeSinceLastMessage > 5000 && serialConnected) {
+        console.warn(
+          "⚠️ WebSocket sem mensagens há",
+          Math.round(timeSinceLastMessage / 1000),
+          "s - reconectando..."
+        );
+        initLocalTelemetryWS();
+      }
+    }, 3000);
   };
 
   ws.onclose = () => {
-    console.log('❌ WebSocket desconectado');
+    console.log("❌ WebSocket desconectado");
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
     scheduleReconnect();
   };
 
   ws.onerror = (e) => {
-    console.error('❌ WebSocket error:', e);
+    console.error("❌ WebSocket error:", e);
   };
 
   ws.onmessage = (evt) => {
+    lastMessageTime = Date.now();
     const now = performance.now();
 
     if (now - lastWSUpdate < WS_UPDATE_INTERVAL) {
@@ -366,7 +424,7 @@ function initLocalTelemetryWS() {
 
     try {
       const msg = JSON.parse(dataToProcess);
-      console.log('📨 Mensagem WS recebida (kinematics):', {
+      console.log("📨 Mensagem WS recebida (kinematics):", {
         type: msg.type,
         hasMPU: !!msg.mpu,
         hasQuaternions: !!msg.quaternions,
@@ -374,34 +432,52 @@ function initLocalTelemetryWS() {
       });
 
       // Se vier motion_tick com pose_cmd, apenas atualiza Preview
-      if (msg.type === 'motion_tick' && msg.pose_cmd) {
+      if (msg.type === "motion_tick" && msg.pose_cmd) {
         updateVisualizationFromMotion(msg.pose_cmd);
         return;
       }
 
       // Telemetria normal
       const data = normalizeTelemetry(msg);
-      console.log('📊 Dados normalizados (kinematics):', {
+      console.log("📊 Dados normalizados (kinematics):", {
         type: data.type,
-        hasActuators: !!data.actuators,
+        hasActuatorLengths: !!data.actuator_lengths_abs,
+        actuatorLengthsCount: data.actuator_lengths_abs?.length || 0,
         hasMPU: !!data.mpu,
+        hasPlatformPoints: !!data.platform_points_live,
+        hasBasePosePoints: !!data.base_points,
       });
 
-      // Atualizar dados do MPU se disponível
-      if (data.mpu) {
-        console.log('🎯 Atualizando MPU data:', data.mpu, 'Quaternions:', msg.quaternions);
+      // ✅ Atualizar dados do MPU se disponível e válido
+      if (data.mpu && typeof data.mpu === "object") {
+        console.log(
+          "🎯 Dados MPU recebidos:",
+          data.mpu,
+          "Quaternions:",
+          msg.quaternions
+        );
         updateMPUData(data.mpu, msg.quaternions);
+      } else {
+        // ✅ Se não tem MPU, garantir que seção está oculta
+        const mpuSection = document.getElementById("mpu-data-section");
+        if (mpuSection && !mpuSection.classList.contains("hidden")) {
+          console.log("🚫 Sem dados MPU - ocultando seção");
+          mpuSection.classList.add("hidden");
+        }
       }
 
       // Usar função do telemetry-utils.js para aplicar no 3D
-      applyLiveTelemetry('canvas-live', data, (normalizedData, renderData) => {
+      applyLiveTelemetry("canvas-live", data, (normalizedData, renderData) => {
         // Callback: atualizar medidas dos pistões
         if (renderData && renderData.actuators) {
+          console.log("📏 Atualizando medidas dos pistões");
           updateLiveMeasures(renderData.actuators);
+        } else {
+          console.warn("⚠️ renderData sem actuators:", renderData);
         }
       });
     } catch (e) {
-      console.error('❌ Erro ao processar mensagem WS:', e, dataToProcess);
+      console.error("❌ Erro ao processar mensagem WS:", e, dataToProcess);
     }
   };
 
@@ -428,8 +504,8 @@ async function updateVisualizationFromMotion(pose_cmd) {
 
   try {
     const response = await fetch(`${API_BASE}/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(lastMotionPose),
     });
 
@@ -440,11 +516,15 @@ async function updateVisualizationFromMotion(pose_cmd) {
 
     const calcData = await response.json();
 
-    if (calcData.base_points && calcData.platform_points && calcData.actuators) {
-      draw3DPlatform('canvas-preview', calcData);
+    if (
+      calcData.base_points &&
+      calcData.platform_points &&
+      calcData.actuators
+    ) {
+      draw3DPlatform("canvas-preview", calcData);
     }
   } catch (error) {
-    console.error('❌ Erro ao atualizar visualização de motion:', error);
+    console.error("❌ Erro ao atualizar visualização de motion:", error);
   } finally {
     setTimeout(() => {
       motionUpdatePending = false;
@@ -461,9 +541,9 @@ async function checkExistingConnection() {
       serialConnected = true;
       setSerialStatus(true, status.port);
 
-      const select = document.getElementById('serial-port-select');
+      const select = document.getElementById("serial-port-select");
       if (![...select.options].some((opt) => opt.value === status.port)) {
-        const opt = document.createElement('option');
+        const opt = document.createElement("option");
         opt.value = status.port;
         opt.textContent = status.port;
         opt.selected = true;
@@ -475,32 +555,40 @@ async function checkExistingConnection() {
       initLocalTelemetryWS();
     }
   } catch (err) {
-    console.error('⚠️ Erro ao verificar status:', err);
+    console.error("⚠️ Erro ao verificar status:", err);
   }
 }
 
 // ========== Inicialização ==========
-window.addEventListener('DOMContentLoaded', async () => {
-  console.log('🎬 Inicializando Cinemática...');
+window.addEventListener("DOMContentLoaded", async () => {
+  console.log("🎬 Inicializando Cinemática...");
 
   // Sincronizar inputs
   setupInputSync();
 
   // Inicializar cenas 3D (usando three-utils.js)
-  init3D('canvas-preview');
-  init3D('canvas-live');
+  init3D("canvas-preview");
+  init3D("canvas-live");
 
   // Inicializa controles seriais comuns (event listeners + CSS da fonte)
   initCommonSerialControls();
 
   // Conectar botão de aplicar
-  document.getElementById('btn-apply').addEventListener('click', applyToBench);
+  document.getElementById("btn-apply").addEventListener("click", applyToBench);
 
   // Conectar botão de recalibração do MPU
-  document.getElementById('btn-mpu-recalibrate').addEventListener('click', recalibrateMPU);
+  document
+    .getElementById("btn-mpu-recalibrate")
+    .addEventListener("click", recalibrateMPU);
 
   // Calcular posição inicial
   calculatePosition();
 
-  console.log('✅ Cinemática inicializada');
+  console.log("✅ Cinemática inicializada");
+
+  // ✅ IMPORTANTE: Sobrescrever função global para usar a versão local desta página
+  window.initTelemetryWS = initLocalTelemetryWS;
+  console.log(
+    "🔧 initTelemetryWS sobrescrito com versão local de kinematics.js"
+  );
 });

@@ -573,6 +573,11 @@ class SerialManager:
                 "base_points": platform.B.tolist(),
             }
             
+            # Log detalhado para debug (só mostra a cada 30 mensagens para não poluir)
+            import random
+            if random.random() < 0.033:  # ~3% das mensagens
+                print(f"📡 Broadcasting telemetry: type={msg_type}, Y={Y[:2]}..., has_pose={pose_live is not None}, has_points={P_live is not None}")
+            
             if self.loop:
                 asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(payload), self.loop)
 
@@ -681,7 +686,7 @@ class MotionRunner:
                 "running": True,
                 "routine": req.routine,
                 "params": req.dict(),
-                "started_at": None,  # ✅ Será definido DEPOIS do HOME terminar
+                "started_at": time.time(),  # ✅ Define imediatamente (HOME já foi feito no endpoint)
                 "elapsed": 0.0
             }
             
@@ -730,12 +735,9 @@ class MotionRunner:
             hz = req.hz
             dt = 1.0 / 60.0  # 60 Hz
 
-            # --- NOVO: sempre começar da HOME e calibrar limites a partir dela ---
-            self.home_and_calibrate_limits(go_home_duration=1.2)
-            
-            # ✅ IMPORTANTE: Só começar a contar o tempo DEPOIS do HOME terminar
-            with self.lock:
-                self.status_dict["started_at"] = time.time()
+            # ✅ HOME agora é executado ANTES da thread iniciar (no endpoint /motion/start)
+            # Removida chamada duplicada de home_and_calibrate_limits() aqui
+            # started_at já foi definido no método start() antes de spawnar esta thread
             
             # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
             ramp_time = min(2.0, duration * 0.2)
@@ -1318,6 +1320,21 @@ def motion_start(req: MotionRequest):
                 else:
                     req.amp = 2.0  # graus
         
+        # ✅ Verificar se serial está conectada ANTES de qualquer operação
+        if not (serial_mgr.ser and serial_mgr.ser.is_open):
+            raise RuntimeError("Serial não conectada. Conecte primeiro.")
+        
+        # ✅ Ir para HOME e calibrar limites ANTES de iniciar a rotina (versão legada)
+        print("🏠 Indo para HOME e calibrando limites antes de iniciar rotina...")
+        try:
+            motion_runner.home_and_calibrate_limits(go_home_duration=1.2)
+            print("✅ HOME e calibração concluídos - iniciando rotina...")
+        except Exception as e:
+            print(f"❌ Erro ao executar HOME e calibração: {e}")
+            import traceback
+            traceback.print_exc()
+            raise RuntimeError(f"Falha ao ir para HOME: {e}")
+        
         # Iniciar rotina
         motion_runner.start(req)
         
@@ -1332,6 +1349,9 @@ def motion_start(req: MotionRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        print(f"❌ ERRO INESPERADO em /motion/start: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/motion/stop")

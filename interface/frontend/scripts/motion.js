@@ -701,52 +701,22 @@ const BASE_POINTS_FIXED = [
   [-136.8, -273.6, 0],
 ];
 
-function normalizeTelemetry(msg) {
-  const out = {};
-  if (msg.pose) out.pose = msg.pose;
+// ✅ REMOVIDA função normalizeTelemetry duplicada - agora usa a de telemetry-utils.js
+// que já está disponível globalmente via window.normalizeTelemetry
 
-  // Base points - usa os fixos se não vier no WebSocket
-  if (msg.base_points) {
-    out.base_points = msg.base_points;
-  } else if (msg.base_points_live) {
-    out.base_points = msg.base_points_live;
-  } else {
-    out.base_points = BASE_POINTS_FIXED;
-  }
-
-  // Platform points - PRIORIZA platform_points_live (do backend)
-  if (msg.platform_points_live) {
-    out.platform_points = msg.platform_points_live;
-  } else if (msg.platform_points) {
-    out.platform_points = msg.platform_points;
-  }
-
-  if (typeof msg.valid === "boolean") out.valid = msg.valid;
-
-  // Processa os atuadores
-  if (msg.actuators) {
-    out.actuators = msg.actuators.map((a) => ({
-      length_abs: a.length_abs || a.length || 0,
-      valid: a.valid !== undefined ? a.valid : true,
-    }));
-  } else if (Array.isArray(msg.actuator_lengths_abs)) {
-    out.actuators = msg.actuator_lengths_abs.map((len, i) => ({
-      length_abs: len,
-      valid: true,
-    }));
-  } else if (Array.isArray(msg.lengths)) {
-    out.actuators = msg.lengths.map((len, i) => ({
-      length_abs: len,
-      valid: true,
-    }));
-  }
-
-  return out;
-}
+let heartbeatTimer = null;
+let lastMessageTime = 0;
 
 function initTelemetryWS() {
+  // Limpar timers anteriores
+  if (wsTimer) clearTimeout(wsTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+
   if (ws) {
-    ws.close();
+    try {
+      ws.onclose = null; // Remover handler para evitar reconexão duplicada
+      ws.close();
+    } catch (_) {}
     ws = null;
   }
 
@@ -759,11 +729,29 @@ function initTelemetryWS() {
   }
 
   ws.onopen = () => {
-    console.log("WebSocket conectado");
+    console.log("✅ WebSocket conectado (motion)");
+    if (wsTimer) clearTimeout(wsTimer);
+    lastMessageTime = Date.now();
+
+    // ✅ Heartbeat: verifica se está recebendo mensagens
+    heartbeatTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastMessage = now - lastMessageTime;
+
+      if (timeSinceLastMessage > 5000 && serialConnected) {
+        console.warn(
+          "⚠️ WebSocket sem mensagens há",
+          Math.round(timeSinceLastMessage / 1000),
+          "s - reconectando..."
+        );
+        initTelemetryWS();
+      }
+    }, 3000);
   };
 
   ws.onclose = () => {
-    console.log("WebSocket desconectado");
+    console.log("❌ WebSocket desconectado");
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
     scheduleReconnect();
   };
 
@@ -772,11 +760,16 @@ function initTelemetryWS() {
   };
 
   ws.onmessage = (evt) => {
+    lastMessageTime = Date.now();
+
     try {
       const msg = JSON.parse(evt.data);
 
       // Detectar mensagens com dados MPU ou BNO085 - SEM THROTTLE
-      if ((msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") && msg.mpu) {
+      if (
+        (msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") &&
+        msg.mpu
+      ) {
         lastMPUData = msg.mpu;
 
         // Atualizar display sempre (é rápido)
@@ -1063,5 +1056,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("scale-value").textContent = `${e.target.value}%`;
   });
 
-  showToast('🚀 Sistema Acelerometro Pronto', 'success');
+  // ✅ IMPORTANTE: Sobrescrever função global para usar a versão local desta página
+  window.initTelemetryWS = initTelemetryWS;
+  console.log("🔧 initTelemetryWS sobrescrito com versão local de motion.js");
+
+  showToast("🚀 Sistema Acelerometro Pronto", "success");
 });

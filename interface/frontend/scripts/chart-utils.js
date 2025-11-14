@@ -5,12 +5,12 @@
 
 // Cores dos pistões (compartilhado)
 const PISTON_COLORS = {
-  1: { y: 'rgba(59, 130, 246, 0.8)', sp: 'rgba(59, 130, 246, 1)' }, // blue
-  2: { y: 'rgba(168, 85, 247, 0.8)', sp: 'rgba(168, 85, 247, 1)' }, // purple
-  3: { y: 'rgba(236, 72, 153, 0.8)', sp: 'rgba(236, 72, 153, 1)' }, // pink
-  4: { y: 'rgba(249, 115, 22, 0.8)', sp: 'rgba(249, 115, 22, 1)' }, // orange
-  5: { y: 'rgba(20, 184, 166, 0.8)', sp: 'rgba(20, 184, 166, 1)' }, // teal
-  6: { y: 'rgba(99, 102, 241, 0.8)', sp: 'rgba(99, 102, 241, 1)' }, // indigo
+  1: { y: "rgba(59, 130, 246, 0.8)", sp: "rgba(59, 130, 246, 1)" }, // blue
+  2: { y: "rgba(168, 85, 247, 0.8)", sp: "rgba(168, 85, 247, 1)" }, // purple
+  3: { y: "rgba(236, 72, 153, 0.8)", sp: "rgba(236, 72, 153, 1)" }, // pink
+  4: { y: "rgba(249, 115, 22, 0.8)", sp: "rgba(249, 115, 22, 1)" }, // orange
+  5: { y: "rgba(20, 184, 166, 0.8)", sp: "rgba(20, 184, 166, 1)" }, // teal
+  6: { y: "rgba(99, 102, 241, 0.8)", sp: "rgba(99, 102, 241, 1)" }, // indigo
 };
 
 // Variáveis globais do gráfico
@@ -24,7 +24,7 @@ let currentSetpoints = [0, 0, 0, 0, 0, 0]; // Rastreia setpoint individual de ca
 // ========== IndexedDB Functions ==========
 function initDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('TelemetryDB', 1);
+    const request = indexedDB.open("TelemetryDB", 1);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
@@ -34,12 +34,12 @@ function initDB() {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains('telemetry')) {
-        const store = db.createObjectStore('telemetry', {
-          keyPath: 'id',
+      if (!db.objectStoreNames.contains("telemetry")) {
+        const store = db.createObjectStore("telemetry", {
+          keyPath: "id",
           autoIncrement: true,
         });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
+        store.createIndex("timestamp", "timestamp", { unique: false });
       }
     };
   });
@@ -49,8 +49,8 @@ async function saveTelemetryToDB(data) {
   if (!db || !chartRecording) return;
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['telemetry'], 'readwrite');
-    const store = transaction.objectStore('telemetry');
+    const transaction = db.transaction(["telemetry"], "readwrite");
+    const store = transaction.objectStore("telemetry");
     const request = store.add(data);
 
     request.onsuccess = () => resolve();
@@ -62,8 +62,8 @@ async function clearTelemetryDB() {
   if (!db) return;
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['telemetry'], 'readwrite');
-    const store = transaction.objectStore('telemetry');
+    const transaction = db.transaction(["telemetry"], "readwrite");
+    const store = transaction.objectStore("telemetry");
     const request = store.clear();
 
     request.onsuccess = () => resolve();
@@ -75,8 +75,8 @@ async function getAllTelemetryFromDB() {
   if (!db) return [];
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(['telemetry'], 'readonly');
-    const store = transaction.objectStore('telemetry');
+    const transaction = db.transaction(["telemetry"], "readonly");
+    const store = transaction.objectStore("telemetry");
     const request = store.getAll();
 
     request.onsuccess = () => resolve(request.result);
@@ -85,20 +85,20 @@ async function getAllTelemetryFromDB() {
 }
 
 // ========== Chart Functions ==========
-function initChart(canvasId = 'telemetry-chart') {
+function initChart(canvasId = "telemetry-chart") {
   const canvas = document.getElementById(canvasId);
-  
+
   if (!canvas) {
     console.error(`❌ Canvas com id "${canvasId}" não encontrado!`);
     return null;
   }
 
-  if (typeof Chart === 'undefined') {
-    console.error('❌ Chart.js não está carregado!');
+  if (typeof Chart === "undefined") {
+    console.error("❌ Chart.js não está carregado!");
     return null;
   }
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
 
   const datasets = [];
   for (let i = 1; i <= 6; i++) {
@@ -107,7 +107,7 @@ function initChart(canvasId = 'telemetry-chart') {
       label: `Pistão ${i} (Y)`,
       data: [],
       borderColor: PISTON_COLORS[i].y,
-      backgroundColor: PISTON_COLORS[i].y.replace('0.8', '0.1'),
+      backgroundColor: PISTON_COLORS[i].y.replace("0.8", "0.1"),
       borderWidth: 2,
       pointRadius: 0,
       tension: 0.4,
@@ -118,7 +118,7 @@ function initChart(canvasId = 'telemetry-chart') {
       label: `Pistão ${i} (SP)`,
       data: [],
       borderColor: PISTON_COLORS[i].sp,
-      backgroundColor: 'transparent',
+      backgroundColor: "transparent",
       borderWidth: 3,
       borderDash: [5, 5],
       pointRadius: 0,
@@ -127,14 +127,14 @@ function initChart(canvasId = 'telemetry-chart') {
   }
 
   telemetryChart = new Chart(ctx, {
-    type: 'line',
+    type: "line",
     data: { labels: [], datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
       interaction: {
-        mode: 'index',
+        mode: "index",
         intersect: false,
       },
       plugins: {
@@ -142,13 +142,13 @@ function initChart(canvasId = 'telemetry-chart') {
           display: false,
         },
         tooltip: {
-          mode: 'index',
+          mode: "index",
           intersect: false,
         },
         zoom: {
           pan: {
             enabled: true,
-            mode: 'xy',
+            mode: "xy",
             modifierKey: null,
           },
           zoom: {
@@ -159,11 +159,11 @@ function initChart(canvasId = 'telemetry-chart') {
             pinch: {
               enabled: true,
             },
-            mode: 'xy',
+            mode: "xy",
           },
           limits: {
-            x: { min: 'original', max: 'original' },
-            y: { min: 'original', max: 'original' },
+            x: { min: "original", max: "original" },
+            y: { min: "original", max: "original" },
           },
         },
       },
@@ -172,27 +172,27 @@ function initChart(canvasId = 'telemetry-chart') {
           display: true,
           title: {
             display: true,
-            text: 'Tempo (s)',
-            color: '#9ca3af',
+            text: "Tempo (s)",
+            color: "#9ca3af",
           },
-          ticks: { color: '#9ca3af' },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+          ticks: { color: "#9ca3af" },
+          grid: { color: "rgba(75, 85, 99, 0.3)" },
         },
         y: {
           display: true,
           title: {
             display: true,
-            text: 'Posição (mm)',
-            color: '#9ca3af',
+            text: "Posição (mm)",
+            color: "#9ca3af",
           },
-          ticks: { color: '#9ca3af' },
-          grid: { color: 'rgba(75, 85, 99, 0.3)' },
+          ticks: { color: "#9ca3af" },
+          grid: { color: "rgba(75, 85, 99, 0.3)" },
         },
       },
     },
   });
 
-  console.log('✅ Gráfico de telemetria inicializado com sucesso!');
+  console.log("✅ Gráfico de telemetria inicializado com sucesso!");
   return telemetryChart;
 }
 
@@ -201,34 +201,42 @@ function startChart() {
   chartData = [];
   clearTelemetryDB();
 
-  const btnStart = document.getElementById('btn-start-chart');
-  const btnStop = document.getElementById('btn-stop-chart');
-  const status = document.getElementById('chart-status');
+  const btnStart = document.getElementById("btn-start-chart");
+  const btnStop = document.getElementById("btn-stop-chart");
+  const status = document.getElementById("chart-status");
 
-  if (btnStart) btnStart.classList.add('hidden');
-  if (btnStop) btnStop.classList.remove('hidden');
-  if (status) status.textContent = '🔴 Gravando...';
+  if (btnStart) btnStart.classList.add("hidden");
+  if (btnStop) btnStop.classList.remove("hidden");
+  if (status) {
+    status.textContent = "🔴 Gravando...";
+    status.style.color = ""; // Reset cor
+  }
+
+  console.log("✅ Gravação de telemetria INICIADA");
 
   if (window.showToast) {
-    window.showToast('Gravação da telemetria iniciada', 'success');
+    window.showToast("Gravação da telemetria iniciada", "success");
   }
 }
 
 function stopChart() {
   chartRecording = false;
 
-  const btnStart = document.getElementById('btn-start-chart');
-  const btnStop = document.getElementById('btn-stop-chart');
-  const status = document.getElementById('chart-status');
+  const btnStart = document.getElementById("btn-start-chart");
+  const btnStop = document.getElementById("btn-stop-chart");
+  const status = document.getElementById("chart-status");
 
-  if (btnStart) btnStart.classList.remove('hidden');
-  if (btnStop) btnStop.classList.add('hidden');
+  if (btnStart) btnStart.classList.remove("hidden");
+  if (btnStop) btnStop.classList.add("hidden");
   if (status) {
     status.textContent = `⏸ Pausado (${chartData.length} pontos gravados)`;
   }
 
   if (window.showToast) {
-    window.showToast(`Gravação pausada - ${chartData.length} pontos gravados`, 'info');
+    window.showToast(
+      `Gravação pausada - ${chartData.length} pontos gravados`,
+      "info"
+    );
   }
 }
 
@@ -250,16 +258,16 @@ function clearChart() {
     telemetryChart.resetZoom();
   }
 
-  const btnStart = document.getElementById('btn-start-chart');
-  const btnStop = document.getElementById('btn-stop-chart');
-  const status = document.getElementById('chart-status');
+  const btnStart = document.getElementById("btn-start-chart");
+  const btnStop = document.getElementById("btn-stop-chart");
+  const status = document.getElementById("chart-status");
 
-  if (btnStart) btnStart.classList.remove('hidden');
-  if (btnStop) btnStop.classList.add('hidden');
-  if (status) status.textContent = 'Pronto para iniciar gravação';
+  if (btnStart) btnStart.classList.remove("hidden");
+  if (btnStop) btnStop.classList.add("hidden");
+  if (status) status.textContent = "Pronto para iniciar gravação";
 
   if (window.showToast) {
-    window.showToast('Gráfico limpo com sucesso', 'success');
+    window.showToast("Gráfico limpo com sucesso", "success");
   }
 }
 
@@ -290,23 +298,42 @@ function toggleAllPistons(visible) {
 }
 
 function updateChart(telemetryData) {
-  if (!chartRecording) {
-    console.log('⏸️ Gráfico pausado - clique em "Começar" para gravar');
-    return;
-  }
-  
+  console.log("📈 updateChart chamado:", {
+    isRecording: chartRecording,
+    hasChart: !!telemetryChart,
+    hasY: !!telemetryData.Y,
+  });
+
   if (!telemetryChart) {
-    console.error('❌ telemetryChart não está inicializado!');
-    return;
-  }
-  
-  if (!telemetryData.Y) {
-    console.warn('⚠️ telemetryData.Y não existe:', telemetryData);
+    console.error("❌ telemetryChart não está inicializado!");
     return;
   }
 
+  if (!telemetryData.Y) {
+    console.warn("⚠️ telemetryData.Y não existe:", telemetryData);
+    return;
+  }
+
+  if (!chartRecording) {
+    console.log('⏸️ Gráfico pausado - clique em "Começar" para gravar');
+
+    // ✅ Atualizar status para lembrar o usuário
+    const status = document.getElementById("chart-status");
+    if (status && !status.textContent.includes("Clique")) {
+      status.textContent =
+        '⏸️ Gráfico pausado - Clique em "Começar" para iniciar gravação';
+      status.style.color = "#fbbf24"; // amarelo
+    }
+
+    return;
+  }
+
+  console.log("✅ Adicionando ponto ao gráfico:", telemetryData.Y);
+
   const now = Date.now();
-  const timeLabel = ((now - (chartData[0]?.timestamp || now)) / 1000).toFixed(1);
+  const timeLabel = ((now - (chartData[0]?.timestamp || now)) / 1000).toFixed(
+    1
+  );
 
   // Usa os setpoints individuais rastreados de cada pistão
   const setpoints = [...currentSetpoints];
@@ -322,7 +349,9 @@ function updateChart(telemetryData) {
   chartData.push(dataPoint);
 
   // Salva no IndexedDB (sem limite)
-  saveTelemetryToDB(dataPoint).catch((err) => console.error('Erro ao salvar no DB:', err));
+  saveTelemetryToDB(dataPoint).catch((err) =>
+    console.error("Erro ao salvar no DB:", err)
+  );
 
   // Limita pontos no gráfico para performance
   if (chartData.length > maxDataPoints) {
@@ -336,7 +365,8 @@ function updateChart(telemetryData) {
     // Y (posição atual)
     telemetryChart.data.datasets[i * 2].data.push(telemetryData.Y[i] || 0);
     // SP (setpoint individual de cada pistão)
-    const setpointValue = setpoints[i] !== null ? setpoints[i] : telemetryData.Y[i] || 0;
+    const setpointValue =
+      setpoints[i] !== null ? setpoints[i] : telemetryData.Y[i] || 0;
     telemetryChart.data.datasets[i * 2 + 1].data.push(setpointValue);
   }
 
@@ -346,10 +376,10 @@ function updateChart(telemetryData) {
     telemetryChart.data.datasets.forEach((ds) => ds.data.shift());
   }
 
-  telemetryChart.update('none'); // 'none' = sem animação (melhor performance)
+  telemetryChart.update("none"); // 'none' = sem animação (melhor performance)
 
   // Atualiza status
-  const status = document.getElementById('chart-status');
+  const status = document.getElementById("chart-status");
   if (status) {
     status.textContent = `🔴 Gravando... (${chartData.length} pontos em memória)`;
   }
@@ -373,39 +403,47 @@ async function exportToCSV() {
 
     if (allData.length === 0) {
       if (window.showToast) {
-        window.showToast('Não há dados para exportar. Inicie a gravação primeiro.', 'warning');
+        window.showToast(
+          "Não há dados para exportar. Inicie a gravação primeiro.",
+          "warning"
+        );
       }
       return;
     }
 
     // Cabeçalho CSV
-    let csv = 'Timestamp,SP_Global,SP1,SP2,SP3,SP4,SP5,SP6,Y1,Y2,Y3,Y4,Y5,Y6\n';
+    let csv = "Timestamp,SP_Global,SP1,SP2,SP3,SP4,SP5,SP6,Y1,Y2,Y3,Y4,Y5,Y6\n";
 
     // Dados
     allData.forEach((row) => {
       const timestamp = new Date(row.timestamp).toISOString();
       const sp_global = row.sp_mm || 0;
-      const sp = row.SP ? row.SP.join(',') : '0,0,0,0,0,0';
-      const y = row.Y.join(',');
+      const sp = row.SP ? row.SP.join(",") : "0,0,0,0,0,0";
+      const y = row.Y.join(",");
       csv += `${timestamp},${sp_global},${sp},${y}\n`;
     });
 
     // Download
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.download = `telemetria_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+    link.download = `telemetria_${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}.csv`;
     link.click();
     URL.revokeObjectURL(url);
 
     if (window.showToast) {
-      window.showToast(`CSV exportado com sucesso! ${allData.length} registros salvos.`, 'success');
+      window.showToast(
+        `CSV exportado com sucesso! ${allData.length} registros salvos.`,
+        "success"
+      );
     }
   } catch (err) {
-    console.error('Erro ao exportar CSV:', err);
+    console.error("Erro ao exportar CSV:", err);
     if (window.showToast) {
-      window.showToast(`Erro ao exportar: ${err.message}`, 'error');
+      window.showToast(`Erro ao exportar: ${err.message}`, "error");
     }
   }
 }

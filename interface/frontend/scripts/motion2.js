@@ -1,6 +1,6 @@
 /*
  * CONTROLE POR ACELERÔMETRO MPU-6050 (VERSÃO LEVE - SEM 3D)
- * 
+ *
  * Variáveis globais importadas de common.js:
  * - API_BASE, WS_URL, serialConnected, ws, wsTimer
  */
@@ -83,7 +83,7 @@ async function recalibrateMPU() {
 
 function updateMPUDisplay(mpu) {
   if (!mpu) return;
-  
+
   // Clampar valores entre -10 e +10 (tanto para display quanto para barras)
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
   const formattedRoll = clamp(mpu.roll, -10, 10);
@@ -91,9 +91,15 @@ function updateMPUDisplay(mpu) {
   const formattedYaw = clamp(mpu.yaw, -10, 10);
 
   // Atualizar valores numéricos (mostra valores LIMITADOS para ±10°)
-  document.getElementById("mpu-roll").textContent = `${formattedRoll.toFixed(1)}°`;
-  document.getElementById("mpu-pitch").textContent = `${formattedPitch.toFixed(1)}°`;
-  document.getElementById("mpu-yaw").textContent = `${formattedYaw.toFixed(1)}°`;
+  document.getElementById("mpu-roll").textContent = `${formattedRoll.toFixed(
+    1
+  )}°`;
+  document.getElementById("mpu-pitch").textContent = `${formattedPitch.toFixed(
+    1
+  )}°`;
+  document.getElementById("mpu-yaw").textContent = `${formattedYaw.toFixed(
+    1
+  )}°`;
 
   // Atualizar barras de progresso (-10 a +10 graus = 0% a 100%)
   const rollPercent = ((formattedRoll + 10) / 20) * 100;
@@ -125,7 +131,7 @@ function updateQuaternionDisplay(quaternions) {
 // ========== Limitação de Ângulos ==========
 function limitAngles(roll, pitch, yaw) {
   const original = { roll, pitch, yaw };
-  
+
   // Limitar roll entre -10 e +10
   if (roll > 10) roll = 10;
   else if (roll < -10) roll = -10;
@@ -139,12 +145,24 @@ function limitAngles(roll, pitch, yaw) {
   else if (yaw < -10) yaw = -10;
 
   const limited = { roll, pitch, yaw };
-  
+
   // Log apenas se houver limitação
-  if (original.roll !== roll || original.pitch !== pitch || original.yaw !== yaw) {
-    console.log('⚠️ ÂNGULOS LIMITADOS:');
-    console.log(`   Original: R=${original.roll.toFixed(1)}° P=${original.pitch.toFixed(1)}° Y=${original.yaw.toFixed(1)}°`);
-    console.log(`   Limitado: R=${limited.roll.toFixed(1)}° P=${limited.pitch.toFixed(1)}° Y=${limited.yaw.toFixed(1)}°`);
+  if (
+    original.roll !== roll ||
+    original.pitch !== pitch ||
+    original.yaw !== yaw
+  ) {
+    console.log("⚠️ ÂNGULOS LIMITADOS:");
+    console.log(
+      `   Original: R=${original.roll.toFixed(1)}° P=${original.pitch.toFixed(
+        1
+      )}° Y=${original.yaw.toFixed(1)}°`
+    );
+    console.log(
+      `   Limitado: R=${limited.roll.toFixed(1)}° P=${limited.pitch.toFixed(
+        1
+      )}° Y=${limited.yaw.toFixed(1)}°`
+    );
   }
 
   return limited;
@@ -249,7 +267,11 @@ async function sendMPUControl(mpu) {
 
   try {
     // PRIMEIRO: Limitar os ângulos recebidos do MPU (segurança)
-    console.log(`🔢 Ângulos originais do MPU: R=${mpu.roll.toFixed(1)}° P=${mpu.pitch.toFixed(1)}° Y=${mpu.yaw.toFixed(1)}°`);
+    console.log(
+      `🔢 Ângulos originais do MPU: R=${mpu.roll.toFixed(
+        1
+      )}° P=${mpu.pitch.toFixed(1)}° Y=${mpu.yaw.toFixed(1)}°`
+    );
     const limitedMPU = limitAngles(mpu.roll, mpu.pitch, mpu.yaw);
 
     // SEGUNDO: Aplicar escala
@@ -258,7 +280,13 @@ async function sendMPUControl(mpu) {
       pitch: limitedMPU.pitch * scale,
       yaw: limitedMPU.yaw * scale,
     };
-    console.log(`📏 Após aplicar escala ${(scale * 100).toFixed(0)}%: R=${scaledAngles.roll.toFixed(1)}° P=${scaledAngles.pitch.toFixed(1)}° Y=${scaledAngles.yaw.toFixed(1)}°`);
+    console.log(
+      `📏 Após aplicar escala ${(scale * 100).toFixed(
+        0
+      )}%: R=${scaledAngles.roll.toFixed(1)}° P=${scaledAngles.pitch.toFixed(
+        1
+      )}° Y=${scaledAngles.yaw.toFixed(1)}°`
+    );
 
     // TERCEIRO: Limitar novamente após escala (caso escala > 1.0)
     const finalAngles = limitAngles(
@@ -306,9 +334,19 @@ async function sendMPUControl(mpu) {
 }
 
 // ========== WebSocket ==========
+let heartbeatTimer = null;
+let lastMessageTime = 0;
+
 function initTelemetryWS() {
+  // Limpar timers anteriores
+  if (wsTimer) clearTimeout(wsTimer);
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+
   if (ws) {
-    ws.close();
+    try {
+      ws.onclose = null; // Remover handler para evitar reconexão duplicada
+      ws.close();
+    } catch (_) {}
     ws = null;
   }
 
@@ -321,11 +359,29 @@ function initTelemetryWS() {
   }
 
   ws.onopen = () => {
-    console.log("WebSocket conectado");
+    console.log("✅ WebSocket conectado (motion2)");
+    if (wsTimer) clearTimeout(wsTimer);
+    lastMessageTime = Date.now();
+
+    // ✅ Heartbeat: verifica se está recebendo mensagens
+    heartbeatTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceLastMessage = now - lastMessageTime;
+
+      if (timeSinceLastMessage > 5000 && serialConnected) {
+        console.warn(
+          "⚠️ WebSocket sem mensagens há",
+          Math.round(timeSinceLastMessage / 1000),
+          "s - reconectando..."
+        );
+        initTelemetryWS();
+      }
+    }, 3000);
   };
 
   ws.onclose = () => {
-    console.log("WebSocket desconectado");
+    console.log("❌ WebSocket desconectado");
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
     scheduleReconnect();
   };
 
@@ -334,6 +390,8 @@ function initTelemetryWS() {
   };
 
   ws.onmessage = (evt) => {
+    lastMessageTime = Date.now();
+
     try {
       const msg = JSON.parse(evt.data);
 
@@ -341,11 +399,14 @@ function initTelemetryWS() {
         type: msg.type,
         hasMPU: !!msg.mpu,
         hasQuaternions: !!msg.quaternions,
-        format: msg.format
+        format: msg.format,
       });
 
       // Detectar mensagens com dados MPU ou BNO085
-      if ((msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") && msg.mpu) {
+      if (
+        (msg.type === "telemetry_mpu" || msg.type === "telemetry_bno085") &&
+        msg.mpu
+      ) {
         lastMPUData = msg.mpu;
 
         console.log("🎯 Dados de orientação:", {
@@ -353,7 +414,7 @@ function initTelemetryWS() {
           pitch: msg.mpu.pitch,
           yaw: msg.mpu.yaw,
           format: msg.format,
-          hasQuaternions: !!msg.quaternions
+          hasQuaternions: !!msg.quaternions,
         });
 
         // Atualizar display sempre (é rápido)
@@ -553,5 +614,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("scale-value").textContent = `${e.target.value}%`;
   });
 
-  showToast('Sistema Acelerômetro pronto', 'success');
+  // ✅ IMPORTANTE: Sobrescrever função global para usar a versão local desta página
+  window.initTelemetryWS = initTelemetryWS;
+  console.log("🔧 initTelemetryWS sobrescrito com versão local de motion2.js");
+
+  showToast("Sistema Acelerômetro pronto", "success");
 });
