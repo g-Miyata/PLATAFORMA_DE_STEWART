@@ -1063,5 +1063,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("scale-value").textContent = `${e.target.value}%`;
   });
 
-  showToast("🚀 Sistema MPU-6050 pronto", "success");
+  showToast('🚀 Sistema Acelerometro Pronto', 'success');
 });

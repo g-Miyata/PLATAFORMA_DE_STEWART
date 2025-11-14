@@ -61,15 +61,31 @@ async function loadSerialPorts() {
       let badgeIcon = '';
 
       if (port.is_esp32) {
-        // Badges padronizados para ESP32
-        if (port.confidence >= 60) {
-          badgeIcon = '✓'; // Check mark verde
-          option.style.fontWeight = '600';
-          option.style.color = '#10b981'; // verde
+        // Verifica se é ESP32-S3 (nome contém "S3")
+        const isS3 = displayName.includes('S3') || displayName.includes('s3');
+
+        if (isS3) {
+          // ESP32-S3 em VERDE (confiança >= 90)
+          if (port.confidence >= 90) {
+            badgeIcon = '✓'; // Check mark verde
+            option.style.fontWeight = '600';
+            option.style.color = '#10b981'; // verde
+          } else {
+            badgeIcon = '~'; // Tilde verde claro
+            option.style.fontWeight = '500';
+            option.style.color = '#34d399'; // verde claro
+          }
         } else {
-          badgeIcon = '~'; // Tilde amarelo
-          option.style.fontWeight = '500';
-          option.style.color = '#f59e0b'; // amarelo
+          // ESP32 comum em LARANJA
+          if (port.confidence >= 70) {
+            badgeIcon = '○'; // Círculo laranja
+            option.style.fontWeight = '600';
+            option.style.color = '#f97316'; // laranja
+          } else {
+            badgeIcon = '~'; // Tilde amarelo
+            option.style.fontWeight = '500';
+            option.style.color = '#f59e0b'; // amarelo
+          }
         }
 
         // Formato padronizado: [✓] COM5 • ESP32-S3 (USB Nativo)

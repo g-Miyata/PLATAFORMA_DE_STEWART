@@ -553,5 +553,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("scale-value").textContent = `${e.target.value}%`;
   });
 
-  showToast("🚀 Sistema MPU-6050 pronto (versão leve)", "success");
+  showToast('Sistema Acelerômetro pronto', 'success');
 });

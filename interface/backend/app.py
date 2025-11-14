@@ -297,28 +297,38 @@ class SerialManager:
         """Lista portas seriais com informações detalhadas para identificar ESP32-S3"""
         ports = []
         for p in serial.tools.list_ports.comports():
-            # Identificadores comuns do ESP32-S3
+            # Identificadores comuns do ESP32
             is_esp32 = False
             confidence = 0
-            
+
             # Verifica VID/PID conhecidos do ESP32
             esp32_identifiers = [
-                (0x303A, None),      # Espressif VID
+                (0x303A, None),      # Espressif VID (USB nativo S2/S3/C3)
                 (0x10C4, 0xEA60),    # Silicon Labs CP210x (comum em ESP32)
                 (0x1A86, 0x7523),    # CH340 (comum em clones ESP32)
                 (0x0403, 0x6001),    # FTDI (alguns boards ESP32)
             ]
-            
+
+            # Vamos usar também product/description para checar "S3"
+            product_upper = (p.product or "").upper()
+            desc_upper = (p.description or "").upper()
+
             for vid, pid in esp32_identifiers:
                 if p.vid == vid and (pid is None or p.pid == pid):
                     is_esp32 = True
-                    confidence = 90 if vid == 0x303A else 70
+
+                    # Se na descrição aparecer S3, consideramos ESP32-S3 (confiança alta)
+                    if "S3" in product_upper or "S3" in desc_upper or "ESP32-S3" in desc_upper:
+                        confidence = 95
+                    else:
+                        # Outros ESP32 conhecidos
+                        confidence = 70
                     break
-            
-            # Verifica descrição/manufacturer
+
+            # Verifica descrição/manufacturer (caso ainda não tenha batido pelo VID/PID)
             desc_lower = (p.description or "").lower()
             mfr_lower = (p.manufacturer or "").lower()
-            
+
             if not is_esp32:
                 if any(kw in desc_lower for kw in ["esp32", "espressif"]):
                     is_esp32 = True
@@ -329,23 +339,64 @@ class SerialManager:
                 elif any(kw in desc_lower for kw in ["usb-serial", "ch340", "cp210", "ftdi"]):
                     is_esp32 = True
                     confidence = 50
-            
+
+                # Se em qualquer uma dessas detecções aparecer S3, sobe a confiança
+                if is_esp32 and ("s3" in desc_lower or "esp32-s3" in desc_lower):
+                    confidence = max(confidence, 95)
+
             # Gera nome de exibição amigável
             display_name = p.description or "Desconhecido"
+            is_s3 = False  # Flag para ESP32-S3
+            
             if is_esp32:
-                # Se for Espressif oficial (VID 0x303A), mostra ESP32-S3
+                # Debug: mostrar informações da porta para identificação
+                vid_str = f"0x{p.vid:04X}" if p.vid is not None else "N/A"
+                pid_str = f"0x{p.pid:04X}" if p.pid is not None else "N/A"
+                print(f"🔍 Porta {p.device}: VID={vid_str}, PID={pid_str}, desc='{p.description}', product='{p.product}'")
+                
+                # HEURÍSTICA MELHORADA: Tenta detectar ESP32-S3 por múltiplos critérios
+                
+                # 1. USB Nativo Espressif (0x303A)
                 if p.vid == 0x303A:
-                    display_name = "ESP32-S3 (USB Nativo)"
-                # Se detectou ESP32 por outras formas, melhora o nome
+                    if "s3" in desc_lower or "esp32-s3" in desc_lower or "s3" in (p.product or "").lower():
+                        display_name = "ESP32-S3 (USB Nativo)"
+                        is_s3 = True
+                        print(f"   ✅ Detectado como ESP32-S3 (USB Nativo)")
+                    else:
+                        display_name = "ESP32 (USB Nativo)"
+                        print(f"   ℹ️  Detectado como ESP32 genérico (USB Nativo)")
+                
+                # 2. FTDI (0x0403) - Comum em ESP32-S3 DevKits
+                elif p.vid == 0x0403:
+                    # FTDI pode ser S3 ou ESP32 comum - assume S3 se for a única porta FTDI
+                    # ou se houver pistas na descrição
+                    if "s3" in desc_lower or "esp32-s3" in desc_lower:
+                        display_name = "ESP32-S3 (FTDI)"
+                        is_s3 = True
+                        print(f"   ✅ Detectado como ESP32-S3 (FTDI - por descrição)")
+                    else:
+                        # Assume ESP32-S3 para FTDI por padrão (maioria dos DevKits modernos)
+                        display_name = "ESP32-S3 (FTDI)"
+                        is_s3 = True
+                        confidence = 85  # Confiança média-alta
+                        print(f"   🟡 Assumindo ESP32-S3 (FTDI) - confiança {confidence}%")
+                
+                # 3. Outros VIDs
                 elif "espressif" in desc_lower or "esp32" in desc_lower:
-                    display_name = "ESP32"
+                    if "s3" in desc_lower or "esp32-s3" in desc_lower:
+                        display_name = "ESP32-S3"
+                        is_s3 = True
+                    else:
+                        display_name = "ESP32"
                 elif p.vid == 0x1A86:
                     display_name = "ESP32 (CH340)"
                 elif p.vid == 0x10C4:
                     display_name = "ESP32 (CP210x)"
-                elif p.vid == 0x0403:
-                    display_name = "ESP32-S3 (FTDI)"
-            
+                
+                # Ajusta confiança se detectou S3
+                if is_s3:
+                    confidence = max(confidence, 90)
+
             ports.append({
                 "device": p.device,
                 "description": p.description or "Desconhecido",
@@ -357,10 +408,11 @@ class SerialManager:
                 "is_esp32": is_esp32,
                 "confidence": confidence
             })
-        
+
         # Ordena: ESP32 primeiro (por confiança), depois outros
         ports.sort(key=lambda x: (-x["is_esp32"], -x["confidence"], x["device"]))
         return ports
+
 
     def write_line(self, s: str, ending: bytes = b"\n"):
         with self.lock:
