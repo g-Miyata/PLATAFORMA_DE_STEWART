@@ -631,13 +631,8 @@ function updateMotionGraph(
     }
 
     if (dataset.data.length > MAX_VISIBLE_POINTS) {
-      const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
-      const decimated = [];
-      for (let i = 0; i < dataset.data.length - 1; i += step) {
-        decimated.push(dataset.data[i]);
-      }
-      decimated.push(dataset.data[dataset.data.length - 1]);
-      dataset.data = decimated;
+      const removeCount = dataset.data.length - MAX_VISIBLE_POINTS;
+      dataset.data.splice(0, removeCount);
     }
   });
 
@@ -664,6 +659,124 @@ function updateMotionGraph(
   document.getElementById(
     "motion-chart-status"
   ).textContent = `🔴 Gravando... (${motionChartData.length} pontos em memória, janela de ${CHART_WINDOW_SECONDS}s)`;
+}
+
+// Atualiza apenas o gráfico de COMANDOS (CMD)
+function updateMotionGraphCmd(timestamp, routine, pose, commandedLengths) {
+  if (!chartRecording || !motionChartCmd) {
+    return;
+  }
+
+  const now = Date.now();
+
+  if (motionStartTimestamp === null) {
+    motionStartTimestamp = now;
+  }
+
+  const timeInSeconds = timestamp / 1000.0;
+
+  const dataPoint = {
+    timestamp: now,
+    routine: routine,
+    pose: pose,
+    commanded: commandedLengths,
+  };
+
+  motionChartData.push(dataPoint);
+
+  // Batch writes no IndexedDB
+  dbWriteBuffer.push(dataPoint);
+
+  if (dbWriteBuffer.length >= DB_BATCH_SIZE) {
+    flushDBWriteBuffer();
+  } else if (!dbWriteTimer) {
+    dbWriteTimer = setTimeout(flushDBWriteBuffer, DB_BATCH_INTERVAL);
+  }
+
+  // Atualizar apenas gráfico CMD
+  commandedLengths.forEach((length, i) => {
+    motionChartCmd.data.datasets[i].data.push({
+      x: timeInSeconds,
+      y: length,
+    });
+  });
+
+  if (motionChartData.length > maxDataPoints) {
+    motionChartData.shift();
+  }
+
+  // Janela deslizante para CMD
+  const windowStart = timeInSeconds - CHART_WINDOW_SECONDS;
+
+  motionChartCmd.data.datasets.forEach((dataset) => {
+    const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
+    if (cutIndex > 0) {
+      dataset.data = dataset.data.slice(cutIndex);
+    }
+
+    if (dataset.data.length > MAX_VISIBLE_POINTS) {
+      const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
+      const decimated = [];
+      for (let i = 0; i < dataset.data.length - 1; i += step) {
+        decimated.push(dataset.data[i]);
+      }
+      decimated.push(dataset.data[dataset.data.length - 1]);
+      dataset.data = decimated;
+    }
+  });
+
+  motionChartCmd.update("none");
+
+  document.getElementById(
+    "motion-chart-status"
+  ).textContent = `🔴 Gravando... (${motionChartData.length} pontos em memória, janela de ${CHART_WINDOW_SECONDS}s)`;
+}
+
+// Atualiza apenas o gráfico de valores REAIS
+function updateMotionGraphReal(actualLengths) {
+  if (!chartRecording || !motionChartReal) {
+    return;
+  }
+
+  const now = Date.now();
+
+  // Inicializa timestamp de início se for o primeiro ponto (igual actuators.js)
+  if (motionStartTimestamp === null) {
+    motionStartTimestamp = now;
+  }
+
+  // Calcula tempo relativo em relação ao primeiro ponto (igual actuators.js)
+  const timeInSeconds = (now - motionStartTimestamp) / 1000.0;
+
+  // Atualizar gráfico REAL
+  actualLengths.forEach((length, i) => {
+    motionChartReal.data.datasets[i].data.push({
+      x: timeInSeconds,
+      y: length,
+    });
+  });
+
+  // Janela deslizante para REAL
+  const windowStart = timeInSeconds - CHART_WINDOW_SECONDS;
+
+  motionChartReal.data.datasets.forEach((dataset) => {
+    const cutIndex = dataset.data.findIndex((d) => d.x >= windowStart);
+    if (cutIndex > 0) {
+      dataset.data = dataset.data.slice(cutIndex);
+    }
+
+    if (dataset.data.length > MAX_VISIBLE_POINTS) {
+      const step = Math.ceil(dataset.data.length / MAX_VISIBLE_POINTS);
+      const decimated = [];
+      for (let i = 0; i < dataset.data.length - 1; i += step) {
+        decimated.push(dataset.data[i]);
+      }
+      decimated.push(dataset.data[dataset.data.length - 1]);
+      dataset.data = decimated;
+    }
+  });
+
+  motionChartReal.update("none");
 }
 
 // ========== Motion Control Functions ==========
@@ -934,36 +1047,47 @@ function setupMotionWebSocket() {
               }
             }
 
-            // Capturar dados para o gráfico
-            if (msg.actuators_cmd) {
-              let actuators_real = msg.actuators_real || [];
-              const allZeros = actuators_real.every((v) => v === 0);
-
-              if (allZeros && window.lastActuatorsReal) {
-                actuators_real = window.lastActuatorsReal;
-              }
-
-              updateMotionGraph(
+            // Atualizar apenas gráfico de COMANDOS (CMD)
+            if (msg.actuators_cmd && chartRecording) {
+              updateMotionGraphCmd(
                 msg.elapsed_ms || 0,
                 msg.routine || "unknown",
                 msg.pose_cmd,
-                msg.actuators_cmd,
-                actuators_real
+                msg.actuators_cmd
               );
             }
           } else {
-            // Telemetria normal - captura valores reais
-            if (msg.actuators && msg.actuators.length >= 6) {
-              window.lastActuatorsReal = msg.actuators.map(
-                (a) => Number(a.length) || 0
-              );
-            } else if (
-              msg.actuator_lengths_abs &&
-              msg.actuator_lengths_abs.length >= 6
-            ) {
-              window.lastActuatorsReal = msg.actuator_lengths_abs.map(
-                (L) => Number(L) || 0
-              );
+            // Telemetria normal - atualizar gráfico REAL
+            if (chartRecording) {
+              let realLengths = null;
+
+              // Extrair comprimentos reais da telemetria
+              if (msg.actuators && msg.actuators.length >= 6) {
+                realLengths = msg.actuators.map((a) => Number(a.length) || 0);
+              } else if (
+                msg.actuator_lengths_abs &&
+                msg.actuator_lengths_abs.length >= 6
+              ) {
+                realLengths = msg.actuator_lengths_abs.map(
+                  (L) => Number(L) || 0
+                );
+              } else if (msg.Y1 !== undefined) {
+                // Formato Y1-Y6 (posições em mm) - precisa converter para comprimentos absolutos
+                const stroke_min = 500; // stroke_min da plataforma
+                realLengths = [
+                  stroke_min + (Number(msg.Y1) || 0),
+                  stroke_min + (Number(msg.Y2) || 0),
+                  stroke_min + (Number(msg.Y3) || 0),
+                  stroke_min + (Number(msg.Y4) || 0),
+                  stroke_min + (Number(msg.Y5) || 0),
+                  stroke_min + (Number(msg.Y6) || 0),
+                ];
+              }
+
+              if (realLengths) {
+                // Usa timestamp real (Date.now()) internamente, igual actuators.js
+                updateMotionGraphReal(realLengths);
+              }
             }
           }
         } catch (e) {

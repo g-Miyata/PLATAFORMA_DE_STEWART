@@ -628,12 +628,14 @@ class MotionRunner:
 
         # --- NOVO: limites dinâmicos derivados da HOME ---
         self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
-        self._home_bias_mm: float = 23.0  # altura inicial elevada (HOME e trajetórias)
+        self._home_z_mm: float = 520 # ✅ Altura Z absoluta para HOME
         self._z_safety_mm: float = 5.0    # margem de segurança contra batente
     
     def _home_pose(self) -> dict:
-        """Pose HOME padronizada: XY e ângulos nulos, Z = h0 + bias (altura inicial elevada)."""
-        return {"x": 0.0, "y": 0.0, "z": self.platform.h0 + self._home_bias_mm,
+        """
+        Pose HOME padronizada: XY e ângulos nulos, Z = altura configurada em _home_z_mm.
+        """
+        return {"x": 0.0, "y": 0.0, "z": self._home_z_mm,
                 "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
 
     def _calibrate_limits_from_home(self):
@@ -642,6 +644,8 @@ class MotionRunner:
         Define self._z_limits_mm = (z_min, z_max).
         """
         pose_home = self._home_pose()
+        print(f"📏 _calibrate_limits_from_home: pose_home = {pose_home}")
+        
         L0, valid, _ = self.platform.inverse_kinematics(**pose_home)
         if not valid:
             print("⚠️ HOME inválida na calibração; usando clamps padrão de _clamp_pose.")
@@ -649,17 +653,26 @@ class MotionRunner:
             return
 
         L0 = np.asarray(L0, dtype=float)
+        print(f"📏 Comprimentos L0 na HOME: {L0}")
+        print(f"📏 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
+        
         up_margin  = float(np.min(self.platform.stroke_max - L0))   # mm até batente superior
         down_margin = float(np.min(L0 - self.platform.stroke_min))  # mm até batente inferior
+        
+        print(f"📏 Margens brutas: up_margin={up_margin:.2f}mm, down_margin={down_margin:.2f}mm")
 
         # tira margem de segurança
         up_margin   = max(0.0, up_margin  - self._z_safety_mm)
         down_margin = max(0.0, down_margin - self._z_safety_mm)
+        
+        print(f"📏 Margens com segurança ({self._z_safety_mm}mm): up={up_margin:.2f}mm, down={down_margin:.2f}mm")
 
         z_home = pose_home["z"]
-        # z pode subir até up_margin e descer até down_margin, sempre respeitando clamps globais
-        z_min = max(self.platform.h0 - 20.0, z_home - down_margin)
-        z_max = min(self.platform.h0 + 64.0, z_home + up_margin)
+        # Calcular limites baseados nas margens reais, SEM clamps artificiais
+        z_min = z_home - down_margin
+        z_max = z_home + up_margin
+        
+        print(f"📏 Cálculo: z_home={z_home}, z_min={z_min:.2f}, z_max={z_max:.2f}")
 
         if z_min > z_max:
             print("⚠️ Limites Z degenerados na calibração; usando clamps padrão.")
@@ -670,13 +683,20 @@ class MotionRunner:
 
     def home_and_calibrate_limits(self, go_home_duration: float = 1.5):
         """Vai para HOME suavemente e recalibra limites com base nas folgas reais."""
+        print(f"🏠 === INICIANDO home_and_calibrate_limits (duration={go_home_duration}s) ===")
         print("🏠 Preflight: indo para HOME e calibrando limites...")
+        
+        print(f"🏠 Chamando _go_home_smooth({go_home_duration})...")
         self._go_home_smooth(duration=go_home_duration)
+        print(f"🏠 _go_home_smooth concluído, agora calibrando limites...")
+        
         self._calibrate_limits_from_home()
         print("✅ HOME e calibração concluídos - iniciando trajetória...")
+        print(f"✅ === FIM home_and_calibrate_limits ===")
     
     def start(self, req: MotionRequest):
         """Inicia uma rotina de movimento"""
+        print(f"🎬 [start] Iniciando rotina '{req.routine}'...")
         with self.lock:
             if self.status_dict["running"]:
                 raise RuntimeError("Rotina já está rodando. Pare primeiro.")
@@ -686,17 +706,20 @@ class MotionRunner:
                 "running": True,
                 "routine": req.routine,
                 "params": req.dict(),
-                "started_at": time.time(),  # ✅ Define imediatamente (HOME já foi feito no endpoint)
+                "started_at": time.time(),  # ✅ Define antes da thread (HOME será feito dentro dela)
                 "elapsed": 0.0
             }
             
+            print(f"🎬 [start] Criando thread...")
             self.thread = threading.Thread(
                 target=self._run_routine,
                 args=(req,),
                 daemon=True
             )
+            print(f"🎬 [start] Thread criada, iniciando...")
             self.thread.start()
-            print(f"🎬 Rotina '{req.routine}' iniciada - indo para HOME...")
+            print(f"🎬 [start] Thread.start() chamado - Thread ID: {self.thread.ident}")
+            print(f"🎬 Rotina '{req.routine}' iniciada em thread")
     
     def stop(self):
         """Para a rotina e retorna suavemente para home"""
@@ -729,15 +752,23 @@ class MotionRunner:
     
     def _run_routine(self, req: MotionRequest):
         """Thread principal que executa a rotina"""
+        print(f"🔵 [Thread ID: {threading.current_thread().ident}] _run_routine INICIADA")
         try:
             routine_name = req.routine
             duration = req.duration_s
             hz = req.hz
             dt = 1.0 / 60.0  # 60 Hz
 
-            # ✅ HOME agora é executado ANTES da thread iniciar (no endpoint /motion/start)
-            # Removida chamada duplicada de home_and_calibrate_limits() aqui
-            # started_at já foi definido no método start() antes de spawnar esta thread
+            # ✅ RESTAURADO: HOME executado DENTRO da thread (como no legado)
+            print("🏠 [Thread] Executando HOME e calibração de limites...")
+            try:
+                self.home_and_calibrate_limits(go_home_duration=1.2)
+                print("✅ [Thread] HOME e calibração concluídos - iniciando trajetória")
+            except Exception as e:
+                print(f"❌ [Thread] ERRO ao executar HOME: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
             
             # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
             ramp_time = min(2.0, duration * 0.2)
@@ -748,6 +779,7 @@ class MotionRunner:
             print(f"▶️  Iniciando rotina '{routine_name}' por {duration}s @ {hz}Hz")
             
             while t < duration and not self.stop_evt.is_set():
+                
                 # Calcular fator de ramp (ramp-in e ramp-out suaves com cosseno)
                 if t < ramp_time:
                     # Ramp-in: 0 -> 1 usando (1 - cos(π*t/ramp_time))/2
@@ -761,6 +793,10 @@ class MotionRunner:
                 
                 # Gerar pose baseada na rotina
                 pose = self._generate_pose(req, t, hz, ramp_factor)
+                
+                # DEBUG a cada segundo
+                if step % 60 == 0:
+                    print(f"🔍 t={t:.2f}s, ramp={ramp_factor:.3f}, pose: x={pose['x']:.2f}, y={pose['y']:.2f}, z={pose['z']:.2f}")
                 
                 # Limitar pose (com limites dinâmicos de Z, se disponíveis)
                 pose = self._clamp_pose(pose)
@@ -781,7 +817,11 @@ class MotionRunner:
                 stroke_range = self.platform.stroke_max - self.platform.stroke_min
                 course_mm = np.clip(course_mm, 0.0, stroke_range)
                 
-                # Enviar setpoints via serial (todos de uma vez)
+                # DEBUG a cada segundo
+                if step % 60 == 0:
+                    print(f"📤 course_mm: [{course_mm[0]:.1f}, {course_mm[1]:.1f}, {course_mm[2]:.1f}, {course_mm[3]:.1f}, {course_mm[4]:.1f}, {course_mm[5]:.1f}]")
+                
+                # Enviar setpoints via serial (batch como você pediu)
                 try:
                     cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
                     self.serial_mgr.write_line(cmd)
@@ -796,13 +836,6 @@ class MotionRunner:
                     actuators_real = [
                         latest_telem.get(f"Y{i+1}", 0.0) for i in range(6)
                     ]
-                    
-                    # DEBUG: Log primeira vez
-                    if not hasattr(self, '_motion_debug_logged'):
-                        print(f"🔍 DEBUG motion_tick:")
-                        print(f"   latest_telem keys: {list(latest_telem.keys())}")
-                        print(f"   actuators_real: {actuators_real}")
-                        self._motion_debug_logged = True
                     
                     # Converter L para lista Python
                     if hasattr(L, 'tolist'):
@@ -819,12 +852,6 @@ class MotionRunner:
                         "actuators_cmd": actuators_cmd,
                         "actuators_real": actuators_real
                     }
-                    
-                    if step == 0:  # Log apenas no primeiro tick
-                        print(f"📊 Enviando motion_tick:")
-                        print(f"   actuators_cmd={actuators_cmd}")
-                        print(f"   actuators_real={actuators_real}")
-                        print(f"   payload keys: {list(payload.keys())}")
                     
                     asyncio.run_coroutine_threadsafe(
                         ws_mgr.broadcast_json(payload),
@@ -852,7 +879,7 @@ class MotionRunner:
         """Gera a pose para um instante t baseado na rotina"""
         routine = req.routine
         h0 = self.platform.h0
-        z_base = h0 + self._home_bias_mm  # ✅ Altura base elevada (consistente com HOME)
+        z_base = self._home_z_mm  # ✅ Altura base do HOME
         
         if routine == "sine_axis":
             # Movimento senoidal em um eixo
@@ -944,7 +971,9 @@ class MotionRunner:
            OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
         """
         h0 = self.platform.h0
-        z_base = h0 + self._home_bias_mm  # ✅ Altura base elevada (consistente)
+        z_base = self._home_z_mm  # ✅ Altura base do HOME
+        
+        z_original = pose.get("z", z_base)
         
         pose["x"] = float(np.clip(pose["x"], -50.0, 50.0))
         pose["y"] = float(np.clip(pose["y"], -50.0, 50.0))
@@ -952,10 +981,14 @@ class MotionRunner:
         # Z: usar limites dinâmicos calculados a partir da HOME quando disponíveis
         if self._z_limits_mm is not None:
             z_min, z_max = self._z_limits_mm
-            pose["z"] = float(np.clip(pose.get("z", z_base), z_min, z_max))
+            pose["z"] = float(np.clip(z_original, z_min, z_max))
+            if abs(pose["z"] - z_original) > 0.1:  # Se clipou mais de 0.1mm
+                print(f"⚠️ Z clipado: {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_min:.2f}, {z_max:.2f}])")
         else:
-            # Fallback: permite oscilação em torno da altura base elevada
-            pose["z"] = float(np.clip(pose.get("z", z_base), z_base - 20.0, z_base + 20.0))
+            # Fallback: permite oscilação razoável em torno da altura base (±30mm)
+            pose["z"] = float(np.clip(z_original, z_base - 30.0, z_base + 30.0))
+            if abs(pose["z"] - z_original) > 0.1:
+                print(f"⚠️ Z clipado (fallback): {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_base-30:.2f}, {z_base+30:.2f}])")
 
         pose["roll"]  = float(np.clip(pose["roll"],  -10.0, 10.0))
         pose["pitch"] = float(np.clip(pose["pitch"], -10.0, 10.0))
@@ -970,10 +1003,27 @@ class MotionRunner:
 
         pose = self._home_pose()
         print(f"🏠 _go_home_smooth: pose HOME = {pose}")
+        print(f"🏠 _go_home_smooth: duração = {duration}s, steps = {steps}")
+        
+        # ✅ Calcular comprimentos dos atuadores para a pose HOME
+        L, valid, _ = self.platform.inverse_kinematics(**pose)
+        if not valid:
+            print(f"❌ ERRO: Pose HOME é INVÁLIDA pela cinemática!")
+            return
+        
+        print(f"🏠 Comprimentos calculados pela cinemática: {L}")
+        print(f"🏠 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
+        
+        course_mm = self.platform.lengths_to_stroke_mm(L)
+        print(f"🏠 Cursos calculados (lengths - stroke_min): {course_mm}")
         
         # Verificar se serial está conectada
         if not (self.serial_mgr.ser and self.serial_mgr.ser.is_open):
             print("⚠️ AVISO: Serial NÃO conectada - movimento HOME será simulado apenas")
+            print("❌ ABORTANDO _go_home_smooth - serial não conectada!")
+            return  # ✅ Retorna sem erro se serial não conectada (modo simulação)
+        
+        print(f"✅ Serial conectada - executando movimento HOME real")
         
         sent_commands = 0
         for i in range(steps):
@@ -989,12 +1039,19 @@ class MotionRunner:
             course_mm = np.clip(course_mm, 0.0, stroke_range)
             
             try:
-                # Enviar todos os 6 setpoints de uma vez
-                cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-                self.serial_mgr.write_line(cmd)
+                # ✅ Enviar comandos individuais (spmm1, spmm2, ...) como no legado
+                if i == 0:  # Log detalhado apenas no primeiro step
+                    print(f"📤 HOME - Enviando setpoints individuais:")
+                    print(f"   Comprimentos (L): {L}")
+                    print(f"   Cursos (L - stroke_min): {course_mm}")
+                
+                for j in range(6):
+                    cmd = f"spmm{j+1}={course_mm[j]:.3f}"
+                    self.serial_mgr.write_line(cmd)
+                    if i == 0:  # Log primeiro step
+                        print(f"   Pistão {j+1}: {cmd}")
+                    time.sleep(0.0015)  # Pequeno delay entre comandos
                 sent_commands += 1
-                if i == 0:  # Log apenas primeiro comando
-                    print(f"📤 Enviando comando HOME: {cmd}")
             except Exception as e:
                 if i == 0:  # Log apenas primeiro erro
                     print(f"❌ Erro ao enviar comando HOME: {e}")
@@ -1324,19 +1381,13 @@ def motion_start(req: MotionRequest):
         if not (serial_mgr.ser and serial_mgr.ser.is_open):
             raise RuntimeError("Serial não conectada. Conecte primeiro.")
         
-        # ✅ Ir para HOME e calibrar limites ANTES de iniciar a rotina (versão legada)
-        print("🏠 Indo para HOME e calibrando limites antes de iniciar rotina...")
-        try:
-            motion_runner.home_and_calibrate_limits(go_home_duration=1.2)
-            print("✅ HOME e calibração concluídos - iniciando rotina...")
-        except Exception as e:
-            print(f"❌ Erro ao executar HOME e calibração: {e}")
-            import traceback
-            traceback.print_exc()
-            raise RuntimeError(f"Falha ao ir para HOME: {e}")
+        print(f"🎬 === INICIANDO ROTINA '{req.routine}' ===")
+        print(f"🎬 Parâmetros: {req.dict()}")
         
-        # Iniciar rotina
+        # ✅ RESTAURADO: Iniciar rotina (HOME será executado DENTRO da thread)
+        print(f"🎬 Chamando motion_runner.start()...")
         motion_runner.start(req)
+        print(f"🎬 Thread iniciada - HOME será executado dentro dela")
         
         return {
             "message": f"Rotina '{req.routine}' iniciada",

@@ -86,9 +86,9 @@ function updateMPUDisplay(mpu) {
 
   // Clampar valores entre -10 e +10 (tanto para display quanto para barras)
   const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-  const formattedRoll = clamp(mpu.roll, -10, 10);
-  const formattedPitch = clamp(mpu.pitch, -10, 10);
-  const formattedYaw = clamp(mpu.yaw, -10, 10);
+  const formattedRoll = clamp(mpu.roll, -5, 5);
+  const formattedPitch = clamp(mpu.pitch, -5, 5);
+  const formattedYaw = clamp(mpu.yaw, -5, 5);
 
   // Atualizar valores numéricos (mostra valores LIMITADOS para ±10°)
   document.getElementById("mpu-roll").textContent = `${formattedRoll.toFixed(
@@ -101,10 +101,10 @@ function updateMPUDisplay(mpu) {
     1
   )}°`;
 
-  // Atualizar barras de progresso (-10 a +10 graus = 0% a 100%)
-  const rollPercent = ((formattedRoll + 10) / 20) * 100;
-  const pitchPercent = ((formattedPitch + 10) / 20) * 100;
-  const yawPercent = ((formattedYaw + 10) / 20) * 100;
+  // Atualizar barras de progresso (-5 a +5 graus = 0% a 100%)
+  const rollPercent = ((formattedRoll + 5) / 10) * 100;
+  const pitchPercent = ((formattedPitch + 5) / 10) * 100;
+  const yawPercent = ((formattedYaw + 5) / 10) * 100;
 
   document.getElementById("mpu-roll-bar").style.width = `${rollPercent}%`;
   document.getElementById("mpu-pitch-bar").style.width = `${pitchPercent}%`;
@@ -132,18 +132,17 @@ function updateQuaternionDisplay(quaternions) {
 function limitAngles(roll, pitch, yaw) {
   const original = { roll, pitch, yaw };
 
-  // Limitar roll entre -10 e +10
-  if (roll > 10) roll = 10;
-  else if (roll < -10) roll = -10;
+  // Limitar roll entre -5 e +5
+  if (roll > 5) roll = 5;
+  else if (roll < -5) roll = -5;
 
-  // Limitar pitch entre -10 e +10
-  if (pitch > 10) pitch = 10;
-  else if (pitch < -10) pitch = -10;
+  // Limitar pitch entre -5 e +5
+  if (pitch > 5) pitch = 5;
+  else if (pitch < -5) pitch = -5;
 
-  // Limitar yaw entre -10° e +10°
-  if (yaw > 10) yaw = 10;
-  else if (yaw < -10) yaw = -10;
-
+  // Limitar yaw entre -5° e +5°
+  if (yaw > 5) yaw = 5;
+  else if (yaw < -5) yaw = -5;
   const limited = { roll, pitch, yaw };
 
   // Log apenas se houver limitação
