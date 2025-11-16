@@ -1045,7 +1045,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Amplitude (mm)',
           name: 'amp',
-          value: 10,
+          value: 30,
           min: 10,
           max: 40,
           step: 0.5,
@@ -1053,7 +1053,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Frequência (Hz)',
           name: 'hz',
-          value: 0.5,
+          value: 0.6,
           min: 0.1,
           max: 1.5,
           step: 0.05,
@@ -1061,7 +1061,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Duração (s)',
           name: 'duration_s',
-          value: 45,
+          value: 20,
           min: 5,
           max: 300,
           step: 5,
@@ -1076,7 +1076,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Raio X (mm)',
           name: 'ax',
-          value: 20,
+          value: 30,
           min: 10,
           max: 40,
           step: 1,
@@ -1085,7 +1085,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Raio Y (mm)',
           name: 'ay',
-          value: 20,
+          value: 30,
           min: 10,
           max: 40,
           step: 1,
@@ -1094,7 +1094,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Frequência (Hz)',
           name: 'hz',
-          value: 0.75,
+          value: 0.6,
           min: 0.2,
           max: 1.5,
           step: 0.05,
@@ -1102,7 +1102,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Duração (s)',
           name: 'duration_s',
-          value: 60,
+          value: 20,
           min: 5,
           max: 300,
           step: 5,
@@ -1117,7 +1117,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Amplitude Z (mm)',
           name: 'amp',
-          value: 20,
+          value: 30,
           min: 10,
           max: 25,
           step: 0.5,
@@ -1133,7 +1133,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Frequência (Hz)',
           name: 'hz',
-          value: 0.8,
+          value: 0.5,
           min: 0.3,
           max: 0.8,
           step: 0.05,
@@ -1172,7 +1172,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Duração (s)',
           name: 'duration_s',
-          value: 30,
+          value: 20,
           min: 5,
           max: 300,
           step: 5,
@@ -1203,7 +1203,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Duração (s)',
           name: 'duration_s',
-          value: 30,
+          value: 20,
           min: 5,
           max: 300,
           step: 5,
@@ -1218,7 +1218,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Raio X',
           name: 'ax',
-          value: 10,
+          value: 20,
           min: 10,
           max: 40,
           step: 1,
@@ -1227,7 +1227,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Raio Y',
           name: 'ay',
-          value: 10,
+          value: 20,
           min: 10,
           max: 40,
           step: 1,
@@ -1236,7 +1236,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Amp Z (mm)',
           name: 'z_amp_mm',
-          value: 10,
+          value: 20,
           min: 10,
           max: 40,
           step: 0.5,
@@ -1245,7 +1245,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Ciclos Z',
           name: 'z_cycles',
-          value: 1,
+          value: 0.5,
           min: 0.2,
           max: 1,
           step: 0.5,
@@ -1263,7 +1263,7 @@ function createPresetHTML(presetKey, config) {
         {
           label: 'Duração (s)',
           name: 'duration_s',
-          value: 60,
+          value: 20,
           min: 5,
           max: 300,
           step: 5,
