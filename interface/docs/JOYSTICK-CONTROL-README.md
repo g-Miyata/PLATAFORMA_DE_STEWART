@@ -243,17 +243,6 @@ UPDATE_RATE_MS: 50,   // 20Hz (mais rápido = 30ms, mais lento = 100ms)
 DEADZONE: 0.1,        // 10% (aumentar para 0.15 se houver drift)
 ```
 
-### Adicionar Controle de Z
-
-Em `joystick-control.js`, no método `_axesToPose`:
-
-```javascript
-// Usar triggers para Z
-const lt = gamepad.buttons[6]?.value || 0;
-const rt = gamepad.buttons[7]?.value || 0;
-const z = this.config.Z_BASE + (rt - lt) * 20; // ±20mm
-```
-
 ## 🐛 Troubleshooting
 
 ### Gamepad não detectado
