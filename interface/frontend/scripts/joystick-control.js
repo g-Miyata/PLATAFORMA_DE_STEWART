@@ -14,6 +14,7 @@ const JOYSTICK_CONFIG = {
   MAX_TRANS_MM: 30.0, // Limite de translação ±30mm
   MAX_ANGLE_DEG: 8.0, // Limite de rotação ±8°
   Z_BASE: 500, // Z base elevado (h0=432 + 68mm = 500mm)
+  Z_RANGE_MM: 0, // Ajuste extra de Z via gatilhos (0 = desabilitado)
 };
 
 // Mapeamento de eixos do gamepad padrão (Xbox/PlayStation)
@@ -28,11 +29,15 @@ const AXIS_MAPPING = {
 // ========== Estado do Joystick ==========
 class JoystickController {
   constructor(config) {
-    this.config = config;
+    this.config = {
+      ...config,
+      Z_BASE: typeof config.Z_BASE === 'number' ? config.Z_BASE : JOYSTICK_CONFIG.Z_BASE,
+      Z_RANGE_MM: typeof config.Z_RANGE_MM === 'number' ? config.Z_RANGE_MM : JOYSTICK_CONFIG.Z_RANGE_MM,
+    };
     this.enabled = false;
     this.gamepadIndex = null;
     this.lastAxes = [0, 0, 0, 0];
-    this.lastPose = { x: 0, y: 0, z: config.Z_BASE, roll: 0, pitch: 0, yaw: 0 };
+    this.lastPose = { x: 0, y: 0, z: this.config.Z_BASE, roll: 0, pitch: 0, yaw: 0 };
     this.animationFrameId = null;
     this.updateTimerId = null;
 
@@ -99,19 +104,42 @@ class JoystickController {
     return [this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LX] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LY] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RX] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RY] || 0)];
   }
 
-  _axesToPose(axes) {
+  _axesToPose(axes, triggers = { lt: 0, rt: 0 }) {
     const [lx, ly, rx, ry] = axes;
 
     // Mapear para valores físicos
     const x = lx * this.config.MAX_TRANS_MM;
     const y = -ly * this.config.MAX_TRANS_MM; // Inverter Y (frente = negativo)
-    const z = this.config.Z_BASE; // Z fixo por enquanto
+    const z = this.config.Z_BASE + (triggers.rt - triggers.lt) * this.config.Z_RANGE_MM;
 
     const roll = -ry * this.config.MAX_ANGLE_DEG; // Inverter roll
     const pitch = rx * this.config.MAX_ANGLE_DEG;
     const yaw = 0; // Yaw = 0 por enquanto
 
     return { x, y, z, roll, pitch, yaw };
+  }
+  _readTriggers(gamepad) {
+    if (!gamepad || !gamepad.buttons) {
+      return { lt: 0, rt: 0 };
+    }
+
+    const readValue = (index) => {
+      const button = gamepad.buttons[index];
+      if (!button) return 0;
+      if (typeof button.value === 'number') {
+        // Alguns drivers retornam -1..1 para gatilhos, converte para 0..1.
+        if (button.value < 0) {
+          return (button.value + 1) / 2;
+        }
+        return button.value;
+      }
+      return button.pressed ? 1 : 0;
+    };
+
+    return {
+      lt: readValue(6),
+      rt: readValue(7),
+    };
   }
 
   // ========== Loop de Atualização ==========
@@ -122,11 +150,12 @@ class JoystickController {
     const gamepad = this._getGamepad();
 
     if (gamepad) {
-      // Ler eixos
+      // Ler eixos e gatilhos
       const axes = this._readAxes(gamepad);
+      const triggers = this._readTriggers(gamepad);
 
       // Converter para pose
-      const pose = this._axesToPose(axes);
+      const pose = this._axesToPose(axes, triggers);
 
       // Atualizar estado
       this.lastAxes = axes;
@@ -159,7 +188,8 @@ class JoystickController {
 
     // Ler eixos e converter para pose
     const axes = this._readAxes(gamepad);
-    const pose = this._axesToPose(axes);
+    const triggers = this._readTriggers(gamepad);
+    const pose = this._axesToPose(axes, triggers);
 
     // Enviar para backend
     try {
@@ -168,8 +198,10 @@ class JoystickController {
         ly: axes[1],
         rx: axes[2],
         ry: axes[3],
+        lt: triggers.lt,
+        rt: triggers.rt,
         apply: this.applyToHardware,
-        z_base: this.config.Z_BASE,
+        z_base: pose.z,
       };
 
       const response = await fetch(`${this.apiBaseUrl}/joystick/pose`, {
@@ -311,8 +343,14 @@ export function initJoystickControl(options = {}) {
   const config = {
     ...JOYSTICK_CONFIG,
     apiBaseUrl: options.apiBaseUrl || "http://localhost:8001",
-    Z_BASE: options.zBase || null,
   };
+
+  if (typeof options.zBase === 'number') {
+    config.Z_BASE = options.zBase;
+  }
+  if (typeof options.zRange === 'number') {
+    config.Z_RANGE_MM = options.zRange;
+  }
 
   const controller = new JoystickController(config);
 
