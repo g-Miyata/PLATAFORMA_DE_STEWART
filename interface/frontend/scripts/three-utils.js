@@ -26,8 +26,6 @@ if (!window.__threeScenes) {
  * @returns {Object} Referência à cena criada
  */
 function init3D(containerId) {
-  console.log(`🎬 Inicializando 3D para ${containerId}`);
-
   const container = document.getElementById(containerId);
   if (!container) {
     console.error(`❌ Container ${containerId} não encontrado`);
@@ -40,8 +38,6 @@ function init3D(containerId) {
   const width = container.offsetWidth || 600;
   const height = container.offsetHeight || 420;
 
-  console.log(`📐 Dimensões: ${width}x${height}`);
-
   // Configurar câmera
   const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 2000);
   camera.position.set(500, 500, 500);
@@ -53,8 +49,6 @@ function init3D(containerId) {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
-  console.log('✅ Renderer criado e anexado ao DOM');
-
   // Configurar controles de órbita
   let controls = null;
   if (typeof THREE.OrbitControls !== 'undefined') {
@@ -62,7 +56,6 @@ function init3D(containerId) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.target.set(0, 200, 0);
-    console.log('✅ OrbitControls inicializado');
   } else {
     console.warn('⚠️ OrbitControls não disponível');
   }
@@ -108,7 +101,6 @@ function init3D(containerId) {
   }
   animate();
 
-  console.log(`✅ Cena 3D ${containerId} inicializada`);
   return window.__threeScenes[containerId];
 }
 

@@ -73,7 +73,6 @@ setInterval(updateConnectionStatus, 2000);
 // ========== Carregar Valores do Cache ==========
 async function loadPIDGains() {
   try {
-    console.log('Carregando ganhos PID do cache...');
     const response = await fetch(`${API_BASE}/pid/gains`);
     if (!response.ok) {
       console.error('Erro na resposta:', response.status);
@@ -81,7 +80,6 @@ async function loadPIDGains() {
     }
 
     const gains = await response.json();
-    console.log('Ganhos recebidos:', gains);
 
     // Preenche os campos individuais de cada pistão
     for (let piston = 1; piston <= 6; piston++) {
@@ -98,8 +96,6 @@ async function loadPIDGains() {
       document.getElementById('ki-all').value = gains[1].ki;
       document.getElementById('kd-all').value = gains[1].kd;
     }
-
-    console.log('Ganhos PID carregados com sucesso!');
   } catch (error) {
     console.error('Erro ao carregar ganhos PID:', error);
   }
@@ -107,7 +103,6 @@ async function loadPIDGains() {
 
 async function loadPIDSettings() {
   try {
-    console.log('Carregando configurações PID do cache...');
     const response = await fetch(`${API_BASE}/pid/settings`);
     if (!response.ok) {
       console.error('Erro na resposta:', response.status);
@@ -115,7 +110,6 @@ async function loadPIDSettings() {
     }
 
     const settings = await response.json();
-    console.log('Configurações recebidas:', settings);
 
     if (settings.dbmm !== undefined) {
       document.getElementById('dbmm').value = settings.dbmm;
@@ -123,8 +117,6 @@ async function loadPIDSettings() {
     if (settings.minpwm !== undefined) {
       document.getElementById('minpwm').value = settings.minpwm;
     }
-
-    console.log('Configurações PID carregadas com sucesso!');
   } catch (error) {
     console.error('Erro ao carregar configurações PID:', error);
   }

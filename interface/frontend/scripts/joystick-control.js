@@ -42,7 +42,7 @@ class JoystickController {
     this.onError = null;
 
     // Configuração da API
-    this.apiBaseUrl = config.apiBaseUrl || "http://localhost:8001";
+    this.apiBaseUrl = config.apiBaseUrl || 'http://localhost:8001';
 
     // Flag de aplicação
     this.applyToHardware = false;
@@ -54,32 +54,24 @@ class JoystickController {
     this._onGamepadDisconnected = this._onGamepadDisconnected.bind(this);
 
     // Registrar eventos de gamepad
-    window.addEventListener("gamepadconnected", this._onGamepadConnected);
-    window.addEventListener("gamepaddisconnected", this._onGamepadDisconnected);
-
-    console.log("🎮 JoystickController inicializado");
+    window.addEventListener('gamepadconnected', this._onGamepadConnected);
+    window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected);
   }
 
   // ========== Gerenciamento de Gamepad ==========
 
   _onGamepadConnected(e) {
-    console.log(
-      `🎮 Gamepad conectado: ${e.gamepad.id} (índice ${e.gamepad.index})`
-    );
-
     // Se nenhum gamepad ativo, usar este
     if (this.gamepadIndex === null) {
       this.gamepadIndex = e.gamepad.index;
-      this._showToast(`Gamepad conectado: ${e.gamepad.id}`, "success");
+      this._showToast(`Gamepad conectado: ${e.gamepad.id}`, 'success');
     }
   }
 
   _onGamepadDisconnected(e) {
-    console.log(`🎮 Gamepad desconectado: índice ${e.gamepad.index}`);
-
     if (this.gamepadIndex === e.gamepad.index) {
       this.gamepadIndex = null;
-      this._showToast("Gamepad desconectado", "warning");
+      this._showToast('Gamepad desconectado', 'warning');
 
       // Desabilitar se estava ativo
       if (this.enabled) {
@@ -104,12 +96,7 @@ class JoystickController {
   _readAxes(gamepad) {
     if (!gamepad || !gamepad.axes) return [0, 0, 0, 0];
 
-    return [
-      this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LX] || 0),
-      this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LY] || 0),
-      this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RX] || 0),
-      this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RY] || 0),
-    ];
+    return [this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LX] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.LY] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RX] || 0), this._applyDeadzone(gamepad.axes[AXIS_MAPPING.RY] || 0)];
   }
 
   _axesToPose(axes) {
@@ -166,7 +153,7 @@ class JoystickController {
     const gamepad = this._getGamepad();
 
     if (!gamepad) {
-      console.warn("⚠️ Nenhum gamepad disponível");
+      console.warn('⚠️ Nenhum gamepad disponível');
       return;
     }
 
@@ -185,36 +172,28 @@ class JoystickController {
         z_base: this.config.Z_BASE,
       };
 
-      // 🐛 DEBUG: Log do payload
-      console.log(`📤 Enviando para /joystick/pose:`, payload);
-
       const response = await fetch(`${this.apiBaseUrl}/joystick/pose`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
-      // 🐛 DEBUG: Log da resposta
-      console.log(`📥 Resposta de /joystick/pose:`, data);
-
       if (!response.ok) {
-        throw new Error(data.detail || "Erro ao processar pose");
+        throw new Error(data.detail || 'Erro ao processar pose');
       }
 
       // Se pose inválida, notificar
       if (!data.valid) {
-        console.warn("⚠️ Pose inválida:", data.message);
+        console.warn('⚠️ Pose inválida:', data.message);
         if (this.onError) {
           this.onError(data.message);
         }
       } else if (data.applied) {
-        // ✅ Comando aplicado com sucesso
-        console.log("✅ Comando aplicado no hardware");
       }
     } catch (error) {
-      console.error("❌ Erro ao enviar pose:", error);
+      console.error('❌ Erro ao enviar pose:', error);
       if (this.onError) {
         this.onError(error.message);
       }
@@ -237,24 +216,19 @@ class JoystickController {
       const gamepad = this._getGamepad();
 
       if (!gamepad) {
-        console.warn("⚠️ Nenhum gamepad conectado");
-        this._showToast("Nenhum gamepad conectado", "warning");
+        console.warn('⚠️ Nenhum gamepad conectado');
+        this._showToast('Nenhum gamepad conectado', 'warning');
         this.enabled = false;
         return false;
       }
 
-      console.log("🎮 Controle por joystick ATIVADO");
-      this._showToast("Controle por joystick ativado", "success");
+      this._showToast('Controle por joystick ativado', 'success');
 
       // Iniciar loops
       this._loop();
-      this.updateTimerId = setInterval(
-        this._update,
-        this.config.UPDATE_RATE_MS
-      );
+      this.updateTimerId = setInterval(this._update, this.config.UPDATE_RATE_MS);
     } else {
-      console.log("🎮 Controle por joystick DESATIVADO");
-      this._showToast("Controle por joystick desativado", "info");
+      this._showToast('Controle por joystick desativado', 'info');
 
       // Parar loops
       if (this.animationFrameId) {
@@ -277,14 +251,11 @@ class JoystickController {
    */
   setApplyToHardware(apply) {
     this.applyToHardware = apply;
-    console.log(
-      `🔧 Aplicação no hardware: ${apply ? "ATIVADA ✅" : "DESATIVADA ❌"}`
-    );
 
     if (apply) {
-      this._showToast("⚠️ Comandos serão aplicados no hardware!", "warning");
+      this._showToast('⚠️ Comandos serão aplicados no hardware!', 'warning');
     } else {
-      this._showToast("Apenas preview (hardware desativado)", "info");
+      this._showToast('Apenas preview (hardware desativado)', 'info');
     }
   }
 
@@ -308,19 +279,15 @@ class JoystickController {
    */
   destroy() {
     this.setEnabled(false);
-    window.removeEventListener("gamepadconnected", this._onGamepadConnected);
-    window.removeEventListener(
-      "gamepaddisconnected",
-      this._onGamepadDisconnected
-    );
-    console.log("🎮 JoystickController destruído");
+    window.removeEventListener('gamepadconnected', this._onGamepadConnected);
+    window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
   }
 
   // ========== Helpers ==========
 
-  _showToast(message, type = "info") {
+  _showToast(message, type = 'info') {
     // Usar showToast do common.js se disponível
-    if (typeof showToast === "function") {
+    if (typeof showToast === 'function') {
       showToast(message, type);
     } else {
       console.log(`[${type.toUpperCase()}] ${message}`);

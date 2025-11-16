@@ -12,9 +12,7 @@ const API_BASE = "http://localhost:8001";
 let joystickController = null;
 
 // ========== Inicialização ==========
-document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🎮 Inicializando página de controle por joystick (Leve)...");
-
+document.addEventListener('DOMContentLoaded', async () => {
   // Carregar portas seriais
   await loadSerialPorts();
 
@@ -29,8 +27,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Polling de status da conexão serial
   setInterval(updateConnectionStatus, 2000);
-
-  console.log("✅ Página inicializada com sucesso");
 });
 
 // ========== Atualização de Medidas dos Pistões ==========
@@ -46,8 +42,8 @@ function updatePistonMeasures(actuators) {
       const isValid = a.valid !== undefined ? a.valid : true;
 
       el.textContent = `${length.toFixed(1)} mm`;
-      card.style.borderColor = isValid ? "#10b981" : "#ef4444";
-      el.style.color = isValid ? "#10b981" : "#ef4444";
+      card.style.borderColor = isValid ? '#10b981' : '#ef4444';
+      el.style.color = isValid ? '#10b981' : '#ef4444';
     }
   });
 }
@@ -56,13 +52,13 @@ async function calculateAndUpdatePistons(pose) {
   try {
     // Calcular cinemática inversa via API
     const response = await fetch(`${API_BASE}/calculate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pose),
     });
 
     if (!response.ok) {
-      console.warn("⚠️ Erro ao calcular cinemática");
+      console.warn('⚠️ Erro ao calcular cinemática');
       return;
     }
 
@@ -73,14 +69,12 @@ async function calculateAndUpdatePistons(pose) {
       updatePistonMeasures(data.actuators);
     }
   } catch (error) {
-    console.error("❌ Erro ao calcular cinemática:", error);
+    console.error('❌ Erro ao calcular cinemática:', error);
   }
 }
 
 // ========== Joystick ==========
 function initJoystick() {
-  console.log("🎮 Inicializando controle por joystick...");
-
   joystickController = initJoystickControl({
     apiBaseUrl: API_BASE,
     zBase: 500, // Z elevado: h0=432 + 68mm = 500mm (segurança)
@@ -96,32 +90,30 @@ function initJoystick() {
 
     // Callback de erro
     onError: (message) => {
-      console.error("❌ Erro no joystick:", message);
+      console.error('❌ Erro no joystick:', message);
     },
   });
 
   // Verificar gamepads conectados
   checkGamepads();
-
-  console.log("✅ Controle por joystick inicializado");
 }
 
 function updatePoseUI(pose) {
   // Atualizar valores
-  document.getElementById("x-value").textContent = pose.x.toFixed(2);
-  document.getElementById("y-value").textContent = pose.y.toFixed(2);
-  document.getElementById("z-value").textContent = (pose.z || 500).toFixed(2);
-  document.getElementById("roll-value").textContent = pose.roll.toFixed(2);
-  document.getElementById("pitch-value").textContent = pose.pitch.toFixed(2);
-  document.getElementById("yaw-value").textContent = pose.yaw.toFixed(2);
+  document.getElementById('x-value').textContent = pose.x.toFixed(2);
+  document.getElementById('y-value').textContent = pose.y.toFixed(2);
+  document.getElementById('z-value').textContent = (pose.z || 500).toFixed(2);
+  document.getElementById('roll-value').textContent = pose.roll.toFixed(2);
+  document.getElementById('pitch-value').textContent = pose.pitch.toFixed(2);
+  document.getElementById('yaw-value').textContent = pose.yaw.toFixed(2);
 
   // Atualizar sliders
-  document.getElementById("x-slider").value = pose.x;
-  document.getElementById("y-slider").value = pose.y;
-  document.getElementById("z-slider").value = pose.z || 500;
-  document.getElementById("roll-slider").value = pose.roll;
-  document.getElementById("pitch-slider").value = pose.pitch;
-  document.getElementById("yaw-slider").value = pose.yaw;
+  document.getElementById('x-slider').value = pose.x;
+  document.getElementById('y-slider').value = pose.y;
+  document.getElementById('z-slider').value = pose.z || 500;
+  document.getElementById('roll-slider').value = pose.roll;
+  document.getElementById('pitch-slider').value = pose.pitch;
+  document.getElementById('yaw-slider').value = pose.yaw;
 }
 
 function checkGamepads() {
@@ -141,16 +133,16 @@ function checkGamepads() {
   }
 }
 
-function updateJoystickStatus(connected, name = "") {
-  const statusEl = document.getElementById("joystick-status");
-  const statusTextEl = document.getElementById("joystick-status-text");
+function updateJoystickStatus(connected, name = '') {
+  const statusEl = document.getElementById('joystick-status');
+  const statusTextEl = document.getElementById('joystick-status-text');
 
   if (connected) {
-    statusEl.className = "joystick-indicator active";
+    statusEl.className = 'joystick-indicator active';
     statusTextEl.textContent = `Conectado: ${name}`;
   } else {
-    statusEl.className = "joystick-indicator inactive";
-    statusTextEl.textContent = "Nenhum gamepad detectado";
+    statusEl.className = 'joystick-indicator inactive';
+    statusTextEl.textContent = 'Nenhum gamepad detectado';
   }
 }
 
@@ -185,13 +177,11 @@ function registerEventListeners() {
 
   // Eventos de gamepad (conectar/desconectar)
   window.addEventListener('gamepadconnected', (e) => {
-    console.log('🎮 Gamepad conectado:', e.gamepad.id);
     updateJoystickStatus(true, e.gamepad.id);
     showToast(`Gamepad conectado: ${e.gamepad.id}`, 'success');
   });
 
   window.addEventListener('gamepaddisconnected', (e) => {
-    console.log('🎮 Gamepad desconectado:', e.gamepad.id);
     updateJoystickStatus(false);
     showToast('Gamepad desconectado', 'warning');
 
@@ -205,13 +195,17 @@ function registerEventListeners() {
     }
   });
 
-  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
   initCommonSerialControls();
 }
 
 // ========== Cleanup ==========
-window.addEventListener("beforeunload", () => {
+window.addEventListener('beforeunload', () => {
   if (joystickController) {
     joystickController.destroy();
   }
+  // Desmarca checkboxes ao sair ou navegar para outra página
+  var joystick = document.getElementById('joystick-mode');
+  var hardware = document.getElementById('apply-to-hardware');
+  if (joystick) joystick.checked = false;
+  if (hardware) hardware.checked = false;
 });

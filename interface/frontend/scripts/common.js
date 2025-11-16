@@ -45,18 +45,13 @@ async function loadSerialPorts() {
 
     select.innerHTML = '<option value="">Selecione a porta...</option>';
 
-    // Debug: verificar estrutura dos dados
-    console.log('📋 Portas recebidas:', data.ports);
-
     data.ports.forEach((port) => {
       const option = document.createElement('option');
       option.value = port.device;
 
-      // Garantir que temos display_name (fallback para description)
       const displayName = port.display_name || port.description || 'Dispositivo desconhecido';
       const deviceName = port.device || '???';
 
-      // Formata o texto da opção com indicadores visuais PADRONIZADOS
       let label = '';
       let badgeIcon = '';
 
@@ -115,7 +110,6 @@ async function loadSerialPorts() {
       if (status.connected && status.port) {
         // Porta conectada - selecionar no dropdown
         select.value = status.port;
-        console.log(`✅ Porta ativa selecionada: ${status.port}`);
       } else {
         // Sem conexão ativa - auto-selecionar ESP32 de alta confiança se houver apenas um
         const highConfidencePorts = data.ports.filter((p) => p.is_esp32 && p.confidence >= 80);
@@ -275,12 +269,10 @@ function initTelemetryWS() {
   }
 
   ws.onopen = () => {
-    console.log('✅ WebSocket conectado');
     if (wsTimer) clearTimeout(wsTimer);
   };
 
   ws.onclose = () => {
-    console.log('❌ WebSocket desconectado');
     scheduleReconnect();
   };
 

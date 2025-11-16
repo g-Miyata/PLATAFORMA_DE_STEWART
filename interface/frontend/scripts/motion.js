@@ -1,5 +1,5 @@
 /*
- * CONTROLE POR ACELERÔMETRO MPU-6050
+ * CONTROLE POR ACELERÔMETRO
  */
 
 const API_BASE = "http://localhost:8001";

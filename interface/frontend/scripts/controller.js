@@ -14,8 +14,6 @@ let sceneRef = null;
 
 // ========== Inicialização ==========
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('🎮 Inicializando página de controle por joystick...');
-
   // Carregar navegação usando nav-menu.js
   if (typeof insertNavMenu === 'function') {
     insertNavMenu('nav-container', 'controller.html');
@@ -38,14 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Polling de status da conexão serial
   setInterval(updateConnectionStatus, 2000);
-
-  console.log('✅ Página inicializada com sucesso');
 });
 
 // ========== Preview 3D ==========
 function initPreview3D() {
-  console.log('🎬 Inicializando preview 3D...');
-
   // Inicializar cena 3D usando three-utils.js
   sceneRef = init3D('preview-3d');
 
@@ -55,10 +49,7 @@ function initPreview3D() {
     return;
   }
 
-  // Desenhar plataforma na posição inicial (home elevada)
   updatePreview({ x: 0, y: 0, z: 500, roll: 0, pitch: 0, yaw: 0 });
-
-  console.log('✅ Preview 3D inicializado');
 }
 
 async function updatePreview(pose) {
@@ -88,8 +79,6 @@ async function updatePreview(pose) {
 
 // ========== Joystick ==========
 function initJoystick() {
-  console.log('🎮 Inicializando controle por joystick...');
-
   joystickController = initJoystickControl({
     apiBaseUrl: API_BASE,
     zBase: 500, // Z elevado: h0=432 + 68mm = 500mm (segurança)
@@ -111,8 +100,6 @@ function initJoystick() {
 
   // Verificar gamepads conectados
   checkGamepads();
-
-  console.log('✅ Controle por joystick inicializado');
 }
 
 function updatePoseUI(pose) {
@@ -194,13 +181,11 @@ function registerEventListeners() {
 
   // Eventos de gamepad (conectar/desconectar)
   window.addEventListener('gamepadconnected', (e) => {
-    console.log('🎮 Gamepad conectado:', e.gamepad.id);
     updateJoystickStatus(true, e.gamepad.id);
     showToast(`Gamepad conectado: ${e.gamepad.id}`, 'success');
   });
 
   window.addEventListener('gamepaddisconnected', (e) => {
-    console.log('🎮 Gamepad desconectado:', e.gamepad.id);
     updateJoystickStatus(false);
     showToast('Gamepad desconectado', 'warning');
 
@@ -214,7 +199,6 @@ function registerEventListeners() {
     }
   });
 
-  // Inicializa controles seriais comuns (event listeners + CSS da fonte)
   initCommonSerialControls();
 }
 

@@ -1,7 +1,11 @@
+/**
+ * index.js - Script da página inicial, define os cards exibidos no carrossel
+ * Plataforma de Stewart - IFSP
+ */
 const interfaces = [
   {
-    title: 'Controle de Atuadores',
-    icon: 'videogame_asset',
+    title: 'Controle de Atuadores PID',
+    icon: 'functions',
     url: 'actuators.html',
     description: 'Interface completa para controle dos 6 pistões com ajuste preciso de setpoints e monitoramento em tempo real.',
     iconColor: 'text-green-400',
@@ -15,7 +19,7 @@ const interfaces = [
   },
   {
     title: 'Cinemática Inversa',
-    icon: 'straighten',
+    icon: 'precision_manufacturing',
     url: 'kinematics.html',
     description: 'Controle avançado por pose 3D usando coordenadas espaciais e ângulos de Euler para movimentos precisos.',
     iconColor: 'text-blue-400',

@@ -71,8 +71,6 @@ function createAutoReconnectWS(url, options = {}) {
       ws = null;
     }
 
-    console.log(`🔌 Conectando WebSocket: ${url}`);
-
     try {
       ws = new WebSocket(url);
     } catch (e) {
@@ -85,7 +83,6 @@ function createAutoReconnectWS(url, options = {}) {
     ws.onmessage = createThrottledWSHandler(onMessage, throttle);
 
     ws.onopen = () => {
-      console.log('✅ WebSocket conectado');
       isConnected = true;
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
@@ -95,7 +92,6 @@ function createAutoReconnectWS(url, options = {}) {
     };
 
     ws.onclose = () => {
-      console.log('🔌 WebSocket desconectado');
       isConnected = false;
       onClose();
       scheduleReconnect();
@@ -111,7 +107,6 @@ function createAutoReconnectWS(url, options = {}) {
 
   function scheduleReconnect() {
     if (!shouldReconnect) {
-      console.log('⏸ Auto-reconnect desabilitado');
       return;
     }
 
@@ -119,7 +114,6 @@ function createAutoReconnectWS(url, options = {}) {
       clearTimeout(reconnectTimer);
     }
 
-    console.log(`⏰ Reagendando reconexão em ${reconnectDelay}ms...`);
     reconnectTimer = setTimeout(() => {
       connect();
     }, reconnectDelay);
@@ -136,7 +130,6 @@ function createAutoReconnectWS(url, options = {}) {
       ws = null;
     }
     isConnected = false;
-    console.log('🛑 WebSocket desconectado manualmente');
   }
 
   function send(data) {
@@ -203,7 +196,7 @@ function startFPSMonitor(enabled = true) {
 
     if (now - lastFPSCheck >= 1000) {
       const fps = Math.round((frameCount * 1000) / (now - lastFPSCheck));
-      console.log(`📊 FPS: ${fps}`);
+
       frameCount = 0;
       lastFPSCheck = now;
     }
@@ -221,7 +214,6 @@ function startFPSMonitor(enabled = true) {
       cancelAnimationFrame(animationId);
       animationId = null;
     }
-    console.log('⏹ Monitor FPS parado');
   };
 }
 

@@ -147,25 +147,59 @@ class StewartPlatform:
         ])
 
     def inverse_kinematics(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0):
+        # Define altura padrão se 'z' não for passado
         if z is None:
             z = self.h0
+        # -------------------------------
+        # ℙ (𝑝) → Vetor de posição do centro da plataforma móvel
+        # Este é o termo "p" da equação:  s_i = p + R b_i - a_i
+        # -------------------------------
         T = np.array([x, y, z])
+        # -------------------------------
+        # ℛ (R) → Matriz de rotação da plataforma (orientação)
+        # Constrói a matriz R da equação usando ângulos ZYX (yaw → pitch → roll)
+        # -------------------------------
         Rm = R.from_euler('ZYX', [yaw, pitch, roll], degrees=True).as_matrix()
+        # -------------------------------
+        # 𝑅 b_i  → Aplica rotação aos pontos da plataforma móvel
+        # self.P0 são os b_i (pontos da plataforma móvel no referencial local)
+        #
+        # P = p + R b_i   → parte da fórmula s_i = p + R b_i - a_i
+        #
+        # Resultado: coordenadas dos 6 pontos móveis no referencial da base
+        # -------------------------------
         P = (self.P0 @ Rm.T) + T
+        # -------------------------------
+        #  s_i = P_i - a_i
+        #
+        # self.B são os a_i (pontos de fixação na base)
+        # Logo:
+        #       Lvec[i] = (p + R b_i) - a_i
+        #
+        # Lvec é exatamente o vetor do atuador i → s_i
+        # -------------------------------
         Lvec = P - self.B
+        # -------------------------------
+        #  ||s_i||  → comprimento do atuador
+        # Norma Euclidiana do vetor s_i
+        # -------------------------------
         L = np.linalg.norm(Lvec, axis=1)
+        # Verifica se todos os comprimentos respeitam os limites mecânicos
         valid = np.all((L >= self.stroke_min) & (L <= self.stroke_max))
-        
         # 🐛 DEBUG: Log detalhado da validação
-        print(f"\n🔍 VALIDAÇÃO - Pose: x={x}, y={y}, z={z}, roll={roll}, pitch={pitch}, yaw={yaw}")
-        print(f"   Limites: {self.stroke_min}mm <= L <= {self.stroke_max}mm")
-        for i in range(6):
-            is_valid = self.stroke_min <= L[i] <= self.stroke_max
-            status = "✅" if is_valid else "❌"
-            print(f"   Pistão {i+1}: L={L[i]:.2f}mm {status}")
-        print(f"   RESULTADO GLOBAL: {'✅ VÁLIDO' if valid else '❌ INVÁLIDO'}")
+        # print(f"\n🔍 VALIDAÇÃO - Pose: x={x}, y={y}, z={z}, roll={roll}, pitch={pitch}, yaw={yaw}")
+        # print(f"   Limites: {self.stroke_min}mm <= L <= {self.stroke_max}mm")
+        # for i in range(6):
+        #     is_valid = self.stroke_min <= L[i] <= self.stroke_max
+        #     status = '✅' if is_valid else '❌'
+        #     print(f"   Pistão {i+1}: L={L[i]:.2f}mm {status}")
+        # print(f"   RESULTADO GLOBAL: {'✅ VÁLIDO' if valid else '❌ INVÁLIDO'}")
         
+        # L → comprimentos
+        # valid → pose possível ou não
+        # P → pontos móveis (p + R b_i)
         return L, bool(valid), P
+
 
     def stroke_percentages(self, lengths: np.ndarray):
         rng = self.stroke_max - self.stroke_min
@@ -177,46 +211,117 @@ class StewartPlatform:
 
     # ---------- Forward "approx" (estima pose a partir de L) ----------
     def estimate_pose_from_lengths(
-        self,
-        lengths_abs: np.ndarray,
-        x0: Optional[np.ndarray] = None
-    ):
+            self,
+            lengths_abs: np.ndarray,
+            x0: Optional[np.ndarray] = None
+        ):
         """
-        Resolve minimos quadrados: || ||P(T,R)-B|| - L || -> 0
-        Vars: x=[x,y,z, roll,pitch,yaw] (graus para euler, internamente converte)
-        Retorna (pose_dict, P_transformed) ou (None, None) se falhar.
+        Estima a POSE da plataforma (cinemática direta numérica) a partir dos comprimentos
+        ABSOLUTOS dos 6 atuadores.
+
+        Resolve problema de mínimos quadrados:
+            min ||  ||P(T,R) - B||  -  L_medidos  ||
+
+        Onde:
+        - T = [x, y, z]  → translação do centro da plataforma
+        - R = R(roll, pitch, yaw) → matriz de rotação 3x3
+        - P(T,R) = p + R * P0_i  → pontos da plataforma móvel no referencial da base
+        - B = pontos de fixação na base
+        - L = comprimentos dos atuadores = || P_i - B_i ||
+
+        Vars de otimização:
+            x = [x, y, z, roll, pitch, yaw]
+        (ângulos em GRAUS para facilitar interface; internamente convertidos p/ matriz R)
         """
+
+        # Se não for passado chute inicial, começa da pose "neutra":
+        # - x = 0, y = 0
+        # - z = h0 (altura nominal)
+        # - roll = pitch = yaw = 0
         if x0 is None:
             x0 = np.array([0.0, 0.0, self.h0, 0.0, 0.0, 0.0], dtype=float)
 
+        # ---------------------------
+        # Função de resíduos para o least_squares
+        # ---------------------------
         def residuals(x):
+            # Desempacota o vetor de variáveis
             xx, yy, zz, roll, pitch, yaw = x
+
+            # Vetor de translação T = [x, y, z]
             T = np.array([xx, yy, zz])
+
+            # Matriz de rotação Rm a partir dos ângulos de Euler (ordem ZYX)
+            # OBS: aqui os ângulos estão em graus (degrees=True)
             Rm = R.from_euler('ZYX', [yaw, pitch, roll], degrees=True).as_matrix()
+
+            # Aplica rotação + translação nos pontos da plataforma móvel (self.P0):
+            # P_i = T + Rm * P0_i
             P = (self.P0 @ Rm.T) + T
+
+            # Vetores dos atuadores: s_i = P_i - B_i
             Lvec = P - self.B
+
+            # Comprimentos previstos pela pose atual: Lhat_i = ||s_i||
             Lhat = np.linalg.norm(Lvec, axis=1)
+
+            # Resíduos = (comprimento_previsto - comprimento_medido)
+            # O least_squares tenta zerar esse vetor
             return Lhat - lengths_abs
 
         try:
+            # ---------------------------
+            # Chamada do solver de mínimos quadrados
+            # ---------------------------
             res = least_squares(
-                residuals, x0,
-                bounds=([-100, -100, 300, -30, -30, -30],
-                        [ 100,  100, 600,  30,  30,  30]),
-                ftol=1e-6, xtol=1e-6, gtol=1e-6, max_nfev=200
+                residuals,   # função de resíduos
+                x0,          # chute inicial
+                bounds=(
+                    [-100, -100, 300, -30, -30, -30],  # limites inferiores  [x,y,z,roll,pitch,yaw]
+                    [ 100,  100, 600,  30,  30,  30]   # limites superiores
+                ),
+                ftol=1e-6,   # tolerância no valor da função
+                xtol=1e-6,   # tolerância nas variáveis
+                gtol=1e-6,   # tolerância no gradiente
+                max_nfev=200 # máximo de avaliações da função
             )
+
+            # Se o otimizador não convergir, aborta e retorna None
             if not res.success:
                 print(f"   ⚠️ least_squares não convergiu: {res.message}")
                 return None, None
+
+            # Solução encontrada: x* = [x, y, z, roll, pitch, yaw]
             x = res.x
-            pose = dict(x=float(x[0]), y=float(x[1]), z=float(x[2]),
-                        roll=float(x[3]), pitch=float(x[4]), yaw=float(x[5]))
-            # recomputa P
+
+            # Monta dicionário amigável com a pose estimada
+            pose = dict(
+                x=float(x[0]),
+                y=float(x[1]),
+                z=float(x[2]),
+                roll=float(x[3]),
+                pitch=float(x[4]),
+                yaw=float(x[5])
+            )
+
+            # ---------------------------
+            # Recalcula P para a solução ótima (útil p/ mandar pro frontend)
+            # ---------------------------
             T = np.array([x[0], x[1], x[2]])
+
+            # Aqui mantém a mesma convenção: Euler ZYX (yaw, pitch, roll)
             Rm = R.from_euler('ZYX', [x[5], x[4], x[3]], degrees=True).as_matrix()
+
+            # Pontos da plataforma móvel no referencial da base com a pose estimada
             P = (self.P0 @ Rm.T) + T
+
+            # Retorna:
+            # - pose: dicionário com x,y,z,roll,pitch,yaw
+            # - P: array 6x3 com coordenadas 3D dos pontos móveis
             return pose, P
+
         except Exception as e:
+            # Qualquer erro inesperado na otimização é tratado aqui
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
@@ -239,13 +344,13 @@ class WSManager:
                 self.active.remove(ws)
 
     async def broadcast_json(self, obj: dict):
-        print(f"📤 Broadcast para {len(self.active)} clientes: {obj.get('type', 'unknown')}")
+        # print(f"📤 Broadcast para {len(self.active)} clientes: {obj.get('type', 'unknown')}")
         rm = []
         async with self.lock:
             for ws in self.active:
                 try:
                     await ws.send_json(obj)
-                    print(f"   ✅ Enviado para cliente")
+                    # print(f"   ✅ Enviado para cliente")
                 except Exception as e:
                     print(f"   ❌ Erro ao enviar: {e}")
                     rm.append(ws)
@@ -309,7 +414,7 @@ class SerialManager:
                 (0x0403, 0x6001),    # FTDI (alguns boards ESP32)
             ]
 
-            # Vamos usar também product/description para checar "S3"
+            # product/description para checar "S3"
             product_upper = (p.product or "").upper()
             desc_upper = (p.description or "").upper()
 
@@ -354,7 +459,6 @@ class SerialManager:
                 pid_str = f"0x{p.pid:04X}" if p.pid is not None else "N/A"
                 print(f"🔍 Porta {p.device}: VID={vid_str}, PID={pid_str}, desc='{p.description}', product='{p.product}'")
                 
-                # HEURÍSTICA MELHORADA: Tenta detectar ESP32-S3 por múltiplos critérios
                 
                 # 1. USB Nativo Espressif (0x303A)
                 if p.vid == 0x303A:
@@ -451,7 +555,7 @@ class SerialManager:
         now = time.time()
         
         # 🐛 DEBUG: Log de TODAS as linhas recebidas
-        print(f"📥 RX: {text}")
+        #print(f"📥 RX: {text}")
 
         if not text:
             return
@@ -492,7 +596,7 @@ class SerialManager:
             mpu_data = None
             quaternions = None
             
-            print(f"   🔍 DEBUG: len(parts)={len(parts)}, has_mpu={has_mpu}, has_quaternions={has_quaternions}")
+            #print(f"   🔍 DEBUG: len(parts)={len(parts)}, has_mpu={has_mpu}, has_quaternions={has_quaternions}")
             
             if has_mpu:
                 try:
@@ -508,9 +612,8 @@ class SerialManager:
                         qy = float(parts[19].replace(",", "."))
                         qz = float(parts[20].replace(",", "."))
                         quaternions = {"w": qw, "x": qx, "y": qy, "z": qz}
-                        print(f"   🎯 BNO085: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}° | Q=[{qw:.4f}, {qx:.4f}, {qy:.4f}, {qz:.4f}]")
-                    else:
-                        print(f"   🎯 MPU-6050: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}°")
+                        #print(f"   🎯 BNO085: Roll={roll:.2f}°, Pitch={pitch:.2f}°, Yaw={yaw:.2f}° | Q=[{qw:.4f}, {qx:.4f}, {qy:.4f}, {qz:.4f}]")
+
                         
                 except Exception as e:
                     print(f"   ⚠️ Erro ao parsear orientação: {e}")
@@ -519,7 +622,7 @@ class SerialManager:
                     has_mpu = False
                     has_quaternions = False
 
-            print(f"   ✅ Telemetria: SP={sp:.2f}mm, Y={[f'{y:.1f}' for y in Y]}, PWM={PWM}")
+            #print(f"   ✅ Telemetria: SP={sp:.2f}mm, Y={[f'{y:.1f}' for y in Y]}, PWM={PWM}")
 
             # Determinar formato para identificação
             if has_quaternions:
@@ -573,10 +676,6 @@ class SerialManager:
                 "base_points": platform.B.tolist(),
             }
             
-            # Log detalhado para debug (só mostra a cada 30 mensagens para não poluir)
-            import random
-            if random.random() < 0.033:  # ~3% das mensagens
-                print(f"📡 Broadcasting telemetry: type={msg_type}, Y={Y[:2]}..., has_pose={pose_live is not None}, has_points={P_live is not None}")
             
             if self.loop:
                 asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(payload), self.loop)
@@ -626,9 +725,9 @@ class MotionRunner:
         }
         self.lock = threading.Lock()
 
-        # --- NOVO: limites dinâmicos derivados da HOME ---
+        # --- limites dinâmicos derivados da HOME ---
         self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
-        self._home_z_mm: float = 520 # ✅ Altura Z absoluta para HOME
+        self._home_z_mm: float = 520 # Altura Z absoluta para HOME
         self._z_safety_mm: float = 5.0    # margem de segurança contra batente
     
     def _home_pose(self) -> dict:
@@ -644,59 +743,51 @@ class MotionRunner:
         Define self._z_limits_mm = (z_min, z_max).
         """
         pose_home = self._home_pose()
-        print(f"📏 _calibrate_limits_from_home: pose_home = {pose_home}")
+        # print(f"📏 _calibrate_limits_from_home: pose_home = {pose_home}")
         
         L0, valid, _ = self.platform.inverse_kinematics(**pose_home)
         if not valid:
-            print("⚠️ HOME inválida na calibração; usando clamps padrão de _clamp_pose.")
+            # print("⚠️ HOME inválida na calibração; usando clamps padrão de _clamp_pose.")
             self._z_limits_mm = None
             return
 
         L0 = np.asarray(L0, dtype=float)
-        print(f"📏 Comprimentos L0 na HOME: {L0}")
-        print(f"📏 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
+        # print(f"📏 Comprimentos L0 na HOME: {L0}")
+        # print(f"📏 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
         
         up_margin  = float(np.min(self.platform.stroke_max - L0))   # mm até batente superior
         down_margin = float(np.min(L0 - self.platform.stroke_min))  # mm até batente inferior
         
-        print(f"📏 Margens brutas: up_margin={up_margin:.2f}mm, down_margin={down_margin:.2f}mm")
+        # print(f"📏 Margens brutas: up_margin={up_margin:.2f}mm, down_margin={down_margin:.2f}mm")
 
         # tira margem de segurança
         up_margin   = max(0.0, up_margin  - self._z_safety_mm)
         down_margin = max(0.0, down_margin - self._z_safety_mm)
         
-        print(f"📏 Margens com segurança ({self._z_safety_mm}mm): up={up_margin:.2f}mm, down={down_margin:.2f}mm")
+        # print(f"📏 Margens com segurança ({self._z_safety_mm}mm): up={up_margin:.2f}mm, down={down_margin:.2f}mm")
 
         z_home = pose_home["z"]
         # Calcular limites baseados nas margens reais, SEM clamps artificiais
         z_min = z_home - down_margin
         z_max = z_home + up_margin
         
-        print(f"📏 Cálculo: z_home={z_home}, z_min={z_min:.2f}, z_max={z_max:.2f}")
+        #print(f"📏 Cálculo: z_home={z_home}, z_min={z_min:.2f}, z_max={z_max:.2f}")
 
         if z_min > z_max:
-            print("⚠️ Limites Z degenerados na calibração; usando clamps padrão.")
+            #print("⚠️ Limites Z degenerados na calibração; usando clamps padrão.")
             self._z_limits_mm = None
         else:
             self._z_limits_mm = (z_min, z_max)
-            print(f"✅ Limites Z calibrados da HOME: [{z_min:.2f}, {z_max:.2f}] mm")
+            #print(f"✅ Limites Z calibrados da HOME: [{z_min:.2f}, {z_max:.2f}] mm")
 
     def home_and_calibrate_limits(self, go_home_duration: float = 1.5):
         """Vai para HOME suavemente e recalibra limites com base nas folgas reais."""
-        print(f"🏠 === INICIANDO home_and_calibrate_limits (duration={go_home_duration}s) ===")
-        print("🏠 Preflight: indo para HOME e calibrando limites...")
-        
-        print(f"🏠 Chamando _go_home_smooth({go_home_duration})...")
         self._go_home_smooth(duration=go_home_duration)
-        print(f"🏠 _go_home_smooth concluído, agora calibrando limites...")
-        
         self._calibrate_limits_from_home()
-        print("✅ HOME e calibração concluídos - iniciando trajetória...")
-        print(f"✅ === FIM home_and_calibrate_limits ===")
     
     def start(self, req: MotionRequest):
         """Inicia uma rotina de movimento"""
-        print(f"🎬 [start] Iniciando rotina '{req.routine}'...")
+
         with self.lock:
             if self.status_dict["running"]:
                 raise RuntimeError("Rotina já está rodando. Pare primeiro.")
@@ -710,16 +801,14 @@ class MotionRunner:
                 "elapsed": 0.0
             }
             
-            print(f"🎬 [start] Criando thread...")
             self.thread = threading.Thread(
                 target=self._run_routine,
                 args=(req,),
                 daemon=True
             )
-            print(f"🎬 [start] Thread criada, iniciando...")
+
             self.thread.start()
-            print(f"🎬 [start] Thread.start() chamado - Thread ID: {self.thread.ident}")
-            print(f"🎬 Rotina '{req.routine}' iniciada em thread")
+
     
     def stop(self):
         """Para a rotina e retorna suavemente para home"""
@@ -727,7 +816,6 @@ class MotionRunner:
             if not self.status_dict["running"]:
                 return
             
-            print(f"⏹️  Parando rotina...")
             self.stop_evt.set()
         
         if self.thread:
@@ -737,7 +825,7 @@ class MotionRunner:
             self.status_dict["running"] = False
         
         # Retornar suavemente para home (0,0,h0+bias,0,0,0)
-        print(f"🏠 Retornando para home...")
+        # print(f"🏠 Retornando para home...")
         try:
             self._go_home_smooth(duration=1.5)
         except Exception as e:
@@ -752,25 +840,20 @@ class MotionRunner:
     
     def _run_routine(self, req: MotionRequest):
         """Thread principal que executa a rotina"""
-        print(f"🔵 [Thread ID: {threading.current_thread().ident}] _run_routine INICIADA")
         try:
             routine_name = req.routine
             duration = req.duration_s
             hz = req.hz
             dt = 1.0 / 60.0  # 60 Hz
 
-            # ✅ RESTAURADO: HOME executado DENTRO da thread (como no legado)
-            print("🏠 [Thread] Executando HOME e calibração de limites...")
             try:
                 self.home_and_calibrate_limits(go_home_duration=1.2)
-                print("✅ [Thread] HOME e calibração concluídos - iniciando trajetória")
             except Exception as e:
                 print(f"❌ [Thread] ERRO ao executar HOME: {e}")
                 import traceback
                 traceback.print_exc()
                 raise
-            
-            # Calcular tempo de ramp (2s ou 20% da duração, o que for menor)
+
             ramp_time = min(2.0, duration * 0.2)
             
             t = 0.0
@@ -795,8 +878,8 @@ class MotionRunner:
                 pose = self._generate_pose(req, t, hz, ramp_factor)
                 
                 # DEBUG a cada segundo
-                if step % 60 == 0:
-                    print(f"🔍 t={t:.2f}s, ramp={ramp_factor:.3f}, pose: x={pose['x']:.2f}, y={pose['y']:.2f}, z={pose['z']:.2f}")
+                #if step % 60 == 0:
+                   # print(f"🔍 t={t:.2f}s, ramp={ramp_factor:.3f}, pose: x={pose['x']:.2f}, y={pose['y']:.2f}, z={pose['z']:.2f}")
                 
                 # Limitar pose (com limites dinâmicos de Z, se disponíveis)
                 pose = self._clamp_pose(pose)
@@ -817,11 +900,8 @@ class MotionRunner:
                 stroke_range = self.platform.stroke_max - self.platform.stroke_min
                 course_mm = np.clip(course_mm, 0.0, stroke_range)
                 
-                # DEBUG a cada segundo
-                if step % 60 == 0:
-                    print(f"📤 course_mm: [{course_mm[0]:.1f}, {course_mm[1]:.1f}, {course_mm[2]:.1f}, {course_mm[3]:.1f}, {course_mm[4]:.1f}, {course_mm[5]:.1f}]")
                 
-                # Enviar setpoints via serial (batch como você pediu)
+                # Enviar setpoints via serial 
                 try:
                     cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
                     self.serial_mgr.write_line(cmd)
@@ -858,7 +938,6 @@ class MotionRunner:
                         self.serial_mgr.loop
                     )
                 except Exception as e:
-                    print(f"⚠️ Erro ao enviar motion_tick: {e}")
                     import traceback
                     traceback.print_exc()
                 
@@ -866,8 +945,7 @@ class MotionRunner:
                 t += dt
                 step += 1
                 time.sleep(dt)
-            
-            print(f"✅ Rotina '{routine_name}' finalizada ({step} passos)")
+        
             
         except Exception as e:
             print(f"❌ Erro na rotina: {e}")
@@ -879,7 +957,7 @@ class MotionRunner:
         """Gera a pose para um instante t baseado na rotina"""
         routine = req.routine
         h0 = self.platform.h0
-        z_base = self._home_z_mm  # ✅ Altura base do HOME
+        z_base = self._home_z_mm  # Altura base do HOME
         
         if routine == "sine_axis":
             # Movimento senoidal em um eixo
@@ -897,7 +975,7 @@ class MotionRunner:
             # Defaults de offset
             if offset is None:
                 if axis == "z":
-                    offset = z_base  # ✅ Usa altura base elevada
+                    offset = z_base  # Usa altura base elevada
                 else:
                     offset = 0.0
             
@@ -970,8 +1048,7 @@ class MotionRunner:
         """Limita a pose para valores seguros.
            OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
         """
-        h0 = self.platform.h0
-        z_base = self._home_z_mm  # ✅ Altura base do HOME
+        z_base = self._home_z_mm  # Altura base do HOME
         
         z_original = pose.get("z", z_base)
         
@@ -1000,24 +1077,16 @@ class MotionRunner:
         """Retorna suavemente para a pose home (0,0,h0+bias,0,0,0)"""
         dt = 1.0 / 60.0  # 60 Hz
         steps = int(max(1, duration / dt))
-
         pose = self._home_pose()
-        print(f"🏠 _go_home_smooth: pose HOME = {pose}")
-        print(f"🏠 _go_home_smooth: duração = {duration}s, steps = {steps}")
-        
-        # ✅ Calcular comprimentos dos atuadores para a pose HOME
+
         L, valid, _ = self.platform.inverse_kinematics(**pose)
         if not valid:
             print(f"❌ ERRO: Pose HOME é INVÁLIDA pela cinemática!")
             return
         
-        print(f"🏠 Comprimentos calculados pela cinemática: {L}")
-        print(f"🏠 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
-        
         course_mm = self.platform.lengths_to_stroke_mm(L)
         print(f"🏠 Cursos calculados (lengths - stroke_min): {course_mm}")
-        
-        # Verificar se serial está conectada
+
         if not (self.serial_mgr.ser and self.serial_mgr.ser.is_open):
             print("⚠️ AVISO: Serial NÃO conectada - movimento HOME será simulado apenas")
             print("❌ ABORTANDO _go_home_smooth - serial não conectada!")
@@ -1039,7 +1108,7 @@ class MotionRunner:
             course_mm = np.clip(course_mm, 0.0, stroke_range)
             
             try:
-                # ✅ Enviar comandos individuais (spmm1, spmm2, ...) como no legado
+                # Enviar comandos individuais (spmm1, spmm2, ...) como no legado
                 if i == 0:  # Log detalhado apenas no primeiro step
                     print(f"📤 HOME - Enviando setpoints individuais:")
                     print(f"   Comprimentos (L): {L}")
@@ -1377,17 +1446,11 @@ def motion_start(req: MotionRequest):
                 else:
                     req.amp = 2.0  # graus
         
-        # ✅ Verificar se serial está conectada ANTES de qualquer operação
+        # Verificar se serial está conectada ANTES de qualquer operação
         if not (serial_mgr.ser and serial_mgr.ser.is_open):
             raise RuntimeError("Serial não conectada. Conecte primeiro.")
-        
-        print(f"🎬 === INICIANDO ROTINA '{req.routine}' ===")
-        print(f"🎬 Parâmetros: {req.dict()}")
-        
-        # ✅ RESTAURADO: Iniciar rotina (HOME será executado DENTRO da thread)
-        print(f"🎬 Chamando motion_runner.start()...")
+
         motion_runner.start(req)
-        print(f"🎬 Thread iniciada - HOME será executado dentro dela")
         
         return {
             "message": f"Rotina '{req.routine}' iniciada",
@@ -1447,8 +1510,8 @@ def calculate_position(pose: PoseInput):
     perc = platform.stroke_percentages(L)
     
     # 🐛 DEBUG: Verificar validação individual
-    print(f"\n📊 ENDPOINT /calculate:")
-    print(f"   valid_global = {valid}")
+    #print(f"\n📊 ENDPOINT /calculate:")
+    #print(f"   valid_global = {valid}")
     
     acts = [ActuatorData(id=i+1, length=float(L[i]),
                          percentage=float(perc[i]),
@@ -1456,8 +1519,8 @@ def calculate_position(pose: PoseInput):
             for i in range(6)]
     
     # 🐛 DEBUG: Mostrar o que será retornado
-    for act in acts:
-        print(f"   Atuador {act.id}: L={act.length:.2f}mm, valid={act.valid}")
+    #for act in acts:
+        #print(f"   Atuador {act.id}: L={act.length:.2f}mm, valid={act.valid}")
     
     return PlatformResponse(
         pose=PoseInput(x=pose.x, y=pose.y, z=z_value,
@@ -1470,7 +1533,7 @@ def calculate_position(pose: PoseInput):
 
 @app.post("/apply_pose")
 def apply_pose(req: ApplyPoseRequest):
-    print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
+   # print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
     z_value = req.z if req.z is not None else platform.h0
     L, valid, _ = platform.inverse_kinematics(
         x=req.x, y=req.y, z=z_value,
@@ -1480,15 +1543,15 @@ def apply_pose(req: ApplyPoseRequest):
         print("❌ Pose inválida")
         return {"applied": False, "valid": False, "message": "Pose inválida."}
     course_mm = platform.lengths_to_stroke_mm(L)
-    print(f"✅ Cursos calculados (mm): {course_mm}")
+    #print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
         # Enviar todos os 6 setpoints de uma vez
         cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-        print(f"📤 Enviando comando: {cmd}")
+       # print(f"📤 Enviando comando: {cmd}")
         serial_mgr.write_line(cmd)
-        print("✅ Comando enviado com sucesso")
+        #print("✅ Comando enviado com sucesso")
     except Exception as e:
-        print(f"❌ Erro ao enviar comando: {e}")
+        #print(f"❌ Erro ao enviar comando: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
 
@@ -1509,10 +1572,10 @@ def mpu_control(req: MPUControlRequest):
     Calcula cinemática inversa e envia setpoints para os atuadores.
     """
     # 🐛 DEBUG: Log do request recebido
-    print(f"\n🎯 /mpu/control recebido:")
-    print(f"   roll={req.roll:.2f}°, pitch={req.pitch:.2f}°, yaw={req.yaw:.2f}°")
-    print(f"   x={req.x:.2f}mm, y={req.y:.2f}mm, z={req.z}mm")
-    print(f"   scale={req.scale}")
+    #print(f"\n🎯 /mpu/control recebido:")
+   # print(f"   roll={req.roll:.2f}°, pitch={req.pitch:.2f}°, yaw={req.yaw:.2f}°")
+    #print(f"   x={req.x:.2f}mm, y={req.y:.2f}mm, z={req.z}mm")
+    #print(f"   scale={req.scale}")
     
     # Aplica escala aos ângulos (para suavizar movimento se necessário)
     roll_scaled = req.roll * req.scale
@@ -1541,12 +1604,12 @@ def mpu_control(req: MPUControlRequest):
     
     # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-        print(f"📤 Enviando comando MPU: {cmd}")
+        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},#{course_mm[4]:.3f},{course_mm[5]:.3f}"
+        #print(f"📤 Enviando comando MPU: {cmd}")
         serial_mgr.write_line(cmd)
-        print(f"✅ Comando MPU enviado com sucesso")
+        #print(f"✅ Comando MPU enviado com sucesso")
     except Exception as e:
-        print(f"❌ Erro ao enviar comando MPU: {e}")
+        #print(f"❌ Erro ao enviar comando MPU: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     
     return {
@@ -1588,10 +1651,7 @@ def joystick_pose(req: JoystickPoseRequest):
     - base_points: Pontos da base
     - platform_points: Pontos da plataforma
     """
-    # 🐛 DEBUG: Log do request recebido
-    print(f"\n🎮 /joystick/pose recebido:")
-    print(f"   lx={req.lx:.3f}, ly={req.ly:.3f}, rx={req.rx:.3f}, ry={req.ry:.3f}")
-    print(f"   apply={req.apply}, z_base={req.z_base}")
+
     
     # Constantes de mapeamento (limites físicos da plataforma)
     MAX_TRANS_MM = 30.0   # ±30mm em X e Y
@@ -1616,7 +1676,7 @@ def joystick_pose(req: JoystickPoseRequest):
     yaw = 0.0
     # Exemplo futuro: yaw = (rt - lt) * MAX_ANGLE_DEG se ambos forem fornecidos
     
-    print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
+    #print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
     
     # Calcular cinemática inversa
     L, valid, P = platform.inverse_kinematics(
@@ -1626,7 +1686,7 @@ def joystick_pose(req: JoystickPoseRequest):
     
     # Se inválido, retornar imediatamente
     if not valid:
-        print("❌ Pose de joystick inválida")
+        #print("❌ Pose de joystick inválida")
         return {
             "valid": False,
             "applied": False,
@@ -1642,12 +1702,12 @@ def joystick_pose(req: JoystickPoseRequest):
     if req.apply:
         try:
             cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-            print(f"📤 Enviando comando joystick: {cmd}")
+            #print(f"📤 Enviando comando joystick: {cmd}")
             serial_mgr.write_line(cmd)
             applied = True
-            print("✅ Comando joystick enviado com sucesso")
+            #print("✅ Comando joystick enviado com sucesso")
         except Exception as e:
-            print(f"❌ Erro ao enviar comando joystick: {e}")
+            #print(f"❌ Erro ao enviar comando joystick: {e}")
             raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     
     # Retornar resposta completa

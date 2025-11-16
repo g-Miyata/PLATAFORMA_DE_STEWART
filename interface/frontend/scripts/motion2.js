@@ -1,11 +1,11 @@
 /*
- * CONTROLE POR ACELERÔMETRO MPU-6050 (VERSÃO LEVE - SEM 3D)
+ * CONTROLE POR ACELERÔMETRO MPU-6050 ou BNO085(VERSÃO LEVE - SEM 3D)
  *
  * Variáveis globais importadas de common.js:
  * - API_BASE, WS_URL, serialConnected, ws, wsTimer
  */
 
-// Altura padrão para modo MPU (530 para posição neutra)
+// Altura padrão para modo (530 para posição neutra)
 const DEFAULT_Z_HEIGHT = 530;
 
 // OTIMIZAÇÃO: Variáveis globais para throttle
@@ -30,7 +30,6 @@ let currentPlatformData = null;
 
 // ========== Atualização de Medidas dos Pistões ==========
 function updatePistonMeasures(actuators) {
-  console.log("📏 Atualizando medidas:", actuators);
   (actuators || []).forEach((a, index) => {
     const el = document.getElementById(`preview-piston-${index + 1}`);
     const card = el?.parentElement;
@@ -38,9 +37,6 @@ function updatePistonMeasures(actuators) {
       const length = a.length ?? a.length_abs ?? 0;
       const isValid = a.valid !== undefined ? a.valid : true;
 
-      console.log(
-        `  P${index + 1}: length=${length.toFixed(1)}mm, valid=${isValid}`
-      );
 
       el.textContent = `${length.toFixed(1)} mm`;
       card.style.borderColor = isValid ? "#10b981" : "#ef4444";
@@ -73,7 +69,6 @@ async function recalibrateMPU() {
     }
 
     const result = await resp.json();
-    console.log("✅ Comando de recalibração enviado:", result);
     showToast('✅ Comando "recalibra" enviado ao ESP32!', "success");
   } catch (e) {
     console.error("❌ Erro ao recalibrar MPU:", e);
@@ -151,17 +146,7 @@ function limitAngles(roll, pitch, yaw) {
     original.pitch !== pitch ||
     original.yaw !== yaw
   ) {
-    console.log("⚠️ ÂNGULOS LIMITADOS:");
-    console.log(
-      `   Original: R=${original.roll.toFixed(1)}° P=${original.pitch.toFixed(
-        1
-      )}° Y=${original.yaw.toFixed(1)}°`
-    );
-    console.log(
-      `   Limitado: R=${limited.roll.toFixed(1)}° P=${limited.pitch.toFixed(
-        1
-      )}° Y=${limited.yaw.toFixed(1)}°`
-    );
+
   }
 
   return limited;
@@ -230,14 +215,7 @@ async function calculateKinematicsFromMPU(mpu) {
 }
 
 async function sendMPUControl(mpu) {
-  console.log(
-    "🔧 sendMPUControl chamado - controlEnabled:",
-    controlEnabled,
-    "mpu:",
-    mpu,
-    "serialConnected:",
-    serialConnected
-  );
+
 
   if (!controlEnabled || !mpu) {
     console.warn(
@@ -259,18 +237,13 @@ async function sendMPUControl(mpu) {
 
   const now = performance.now();
   if (now - lastControlUpdate < CONTROL_UPDATE_INTERVAL) {
-    console.log("⏱️ Throttle ativo - aguardando intervalo");
     return;
   }
   lastControlUpdate = now;
 
   try {
     // PRIMEIRO: Limitar os ângulos recebidos do MPU (segurança)
-    console.log(
-      `🔢 Ângulos originais do MPU: R=${mpu.roll.toFixed(
-        1
-      )}° P=${mpu.pitch.toFixed(1)}° Y=${mpu.yaw.toFixed(1)}°`
-    );
+
     const limitedMPU = limitAngles(mpu.roll, mpu.pitch, mpu.yaw);
 
     // SEGUNDO: Aplicar escala
@@ -279,13 +252,7 @@ async function sendMPUControl(mpu) {
       pitch: limitedMPU.pitch * scale,
       yaw: limitedMPU.yaw * scale,
     };
-    console.log(
-      `📏 Após aplicar escala ${(scale * 100).toFixed(
-        0
-      )}%: R=${scaledAngles.roll.toFixed(1)}° P=${scaledAngles.pitch.toFixed(
-        1
-      )}° Y=${scaledAngles.yaw.toFixed(1)}°`
-    );
+
 
     // TERCEIRO: Limitar novamente após escala (caso escala > 1.0)
     const finalAngles = limitAngles(
@@ -295,7 +262,6 @@ async function sendMPUControl(mpu) {
     );
 
     // 🐛 DEBUG: Log do que está sendo enviado
-    console.log(`📤 Enviando para /mpu/control:`, finalAngles);
 
     const res = await fetch(`${API_BASE}/mpu/control`, {
       method: "POST",
@@ -315,7 +281,6 @@ async function sendMPUControl(mpu) {
       const data = await res.json();
 
       // 🐛 DEBUG: Log da resposta
-      console.log(`📥 Resposta de /mpu/control:`, data);
 
       if (data.applied && data.lengths_abs) {
         // Atualizar medidas com os dados retornados
@@ -358,7 +323,6 @@ function initTelemetryWS() {
   }
 
   ws.onopen = () => {
-    console.log("✅ WebSocket conectado (motion2)");
     if (wsTimer) clearTimeout(wsTimer);
     lastMessageTime = Date.now();
 
@@ -379,7 +343,6 @@ function initTelemetryWS() {
   };
 
   ws.onclose = () => {
-    console.log("❌ WebSocket desconectado");
     if (heartbeatTimer) clearInterval(heartbeatTimer);
     scheduleReconnect();
   };
@@ -394,12 +357,7 @@ function initTelemetryWS() {
     try {
       const msg = JSON.parse(evt.data);
 
-      console.log("📨 WebSocket recebeu:", {
-        type: msg.type,
-        hasMPU: !!msg.mpu,
-        hasQuaternions: !!msg.quaternions,
-        format: msg.format,
-      });
+
 
       // Detectar mensagens com dados MPU ou BNO085
       if (
@@ -408,23 +366,15 @@ function initTelemetryWS() {
       ) {
         lastMPUData = msg.mpu;
 
-        console.log("🎯 Dados de orientação:", {
-          roll: msg.mpu.roll,
-          pitch: msg.mpu.pitch,
-          yaw: msg.mpu.yaw,
-          format: msg.format,
-          hasQuaternions: !!msg.quaternions,
-        });
+
 
         // Atualizar display sempre (é rápido)
         updateMPUDisplay(msg.mpu);
 
         // Atualizar quaternions se disponíveis (BNO085)
         if (msg.quaternions) {
-          console.log("🔄 Quaternions:", msg.quaternions);
           updateQuaternionDisplay(msg.quaternions);
         } else {
-          console.log("⚪ Sem quaternions - ocultando seção");
           updateQuaternionDisplay(null); // Oculta seção
         }
 
@@ -433,14 +383,11 @@ function initTelemetryWS() {
 
         // Se controle ativo, enviar comandos para ESP32
         if (controlEnabled) {
-          console.log("🚀 Controle ATIVO - enviando comando para hardware");
           sendMPUControl(msg.mpu);
         } else {
-          console.log("⏸️ Controle INATIVO - apenas preview");
         }
         return;
       } else {
-        console.log("⚠️ Mensagem não é telemetria de orientação:", msg.type);
       }
     } catch (e) {
       console.error("Erro ao processar mensagem WebSocket:", e);
@@ -525,9 +472,7 @@ async function checkExistingConnection() {
       } catch (e) {
         console.error("❌ Erro ao enviar posição inicial:", e);
       }
-    } else {
-      console.log("❌ Backend não está conectado");
-    }
+    } 
   } catch (err) {
     console.error("⚠️ Erro ao verificar status:", err);
   }
@@ -535,7 +480,6 @@ async function checkExistingConnection() {
 
 // ========== Event Listeners ==========
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("🚀 Iniciando aplicação MPU-6050 (versão leve)...");
 
   // Verificar backend
   try {
@@ -553,16 +497,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     );
   }
 
-  // Carregar portas
-  console.log("🔌 Carregando portas seriais...");
+
   await loadSerialPorts();
 
   // Verificar se já existe conexão (e aplicar posição inicial se conectado)
-  console.log("🔍 Verificando conexão existente...");
   await checkExistingConnection();
 
   // Calcular visualização inicial (não aplica no hardware, só preview)
-  console.log("📐 Calculando visualização inicial neutra (Z=530mm)...");
   const initialData = await calculateKinematicsFromMPU({
     roll: 0,
     pitch: 0,
@@ -596,14 +537,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.warn("⚠️ Tentativa de ativar controle sem conexão serial");
       } else {
         showToast(
-          "✅ Controle MPU ativado - comandos serão aplicados no hardware",
+          "✅ Controle por Acelerômetro ativado - comandos serão aplicados no hardware",
           "success"
         );
-        console.log("✅ Controle MPU ativado");
       }
     } else {
-      showToast("Controle MPU desativado", "info");
-      console.log("❌ Controle MPU desativado");
+      showToast("Controle por Acelerômetro desativado", "info");
     }
   });
 
@@ -613,9 +552,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("scale-value").textContent = `${e.target.value}%`;
   });
 
-  // ✅ IMPORTANTE: Sobrescrever função global para usar a versão local desta página
+  // Sobrescrever função global para usar a versão local desta página
   window.initTelemetryWS = initTelemetryWS;
-  console.log("🔧 initTelemetryWS sobrescrito com versão local de motion2.js");
+
 
   showToast("Sistema Acelerômetro pronto", "success");
+});
+// Desativa o checkbox de controle ativo ao sair ou navegar
+window.addEventListener('beforeunload', function() {
+  var controlCheckbox = document.getElementById('control-enabled');
+  if (controlCheckbox) controlCheckbox.checked = false;
 });
