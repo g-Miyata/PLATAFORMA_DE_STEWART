@@ -1,4 +1,24 @@
-# Plataforma de Stewart – Documentação Geral
+[JAVASCRIPT__BADGE]: https://img.shields.io/badge/JavaScript-000?style=for-the-badge&logo=javascript
+[CSS3__BADGE]: https://img.shields.io/badge/CSS3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white
+[FastAPI__BADGE]: https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi
+[TailwindCSS__BADGE]: https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white
+[HTML5__BADGE]: https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white
+
+<div align="center">
+
+<img src="../frontend/assets/ifsp-logo.svg" alt="logo ifsp" width="280px">
+
+<hr/>
+
+<h1 align="center" style="font-weight: bold;">PLATAFORMA DE STEWART</h1>
+
+![HTML5][HTML5__BADGE]
+![CSS3][CSS3__BADGE]
+![TAILWIND][TailwindCSS__BADGE]
+![JAVASCRIPT][JAVASCRIPT__BADGE]
+![FASTAPI][FastAPI__BADGE]
+
+</div>
 
 ## Visão Geral
 
