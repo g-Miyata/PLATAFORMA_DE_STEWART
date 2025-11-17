@@ -161,6 +161,55 @@ function createActuator(startPos, endPos, actuator) {
   return g;
 }
 
+function createAxisArrow(color, direction, axisLength = 150, axisRadius = 5) {
+  const group = new THREE.Group();
+
+  const bodyGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8);
+  const material = new THREE.MeshPhongMaterial({ color });
+  const body = new THREE.Mesh(bodyGeometry, material);
+
+  const coneGeometry = new THREE.ConeGeometry(axisRadius * 2, axisRadius * 6, 8);
+  const cone = new THREE.Mesh(coneGeometry, material);
+
+  if (direction === 'x') {
+    body.rotation.z = -Math.PI / 2;
+    body.position.x = axisLength / 2;
+    cone.rotation.z = -Math.PI / 2;
+    cone.position.x = axisLength + axisRadius * 3;
+  } else if (direction === 'y') {
+    body.position.y = axisLength / 2;
+    cone.position.y = axisLength + axisRadius * 3;
+  } else if (direction === 'z') {
+    body.rotation.x = Math.PI / 2;
+    body.position.z = axisLength / 2;
+    cone.rotation.x = Math.PI / 2;
+    cone.position.z = axisLength + axisRadius * 3;
+  }
+
+  group.add(body);
+  group.add(cone);
+  return group;
+}
+
+function createAxisLabel(text, color, position) {
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  canvas.width = 256;
+  canvas.height = 128;
+
+  context.font = 'bold 150px Arial';
+  context.fillStyle = color;
+  context.textAlign = 'center';
+  context.fillText(text, canvas.width / 2, 96);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const material = new THREE.SpriteMaterial({ map: texture });
+  const sprite = new THREE.Sprite(material);
+  sprite.position.copy(position);
+  sprite.scale.set(60, 30, 30);
+  return sprite;
+}
+
 // ========== Renderização da Plataforma ==========
 
 /**
@@ -254,6 +303,21 @@ function draw3DPlatform(containerId, data) {
 
   ps.forEach((p) => platformGroup.add(createPlatformPoint(p)));
 
+  const axisLength = 150;
+  const axisRadius = 5;
+  const axesElevation = 50;
+  const axesGroup = new THREE.Group();
+  axesGroup.add(createAxisArrow(0xff0000, 'x', axisLength, axisRadius));
+  axesGroup.add(createAxisArrow(0x00ff00, 'y', axisLength, axisRadius));
+  axesGroup.add(createAxisArrow(0x0000ff, 'z', axisLength, axisRadius));
+  axesGroup.position.set(cx, cy + axesElevation, cz);
+  platformGroup.add(axesGroup);
+
+  const labelOffset = axisLength + 40;
+  platformGroup.add(createAxisLabel('X', '#ff0000', new THREE.Vector3(cx + labelOffset, cy + axesElevation, cz)));
+  platformGroup.add(createAxisLabel('Z', '#00ff00', new THREE.Vector3(cx, cy + axesElevation + labelOffset, cz)));
+  platformGroup.add(createAxisLabel('Y', '#0000ff', new THREE.Vector3(cx, cy + axesElevation, cz + labelOffset)));
+
   for (let i = 0; i < bs.length; i++) {
     const actuator = data.actuators && data.actuators[i] ? data.actuators[i] : { valid: true, length: 0 };
     const act = createActuator(bs[i], ps[i], actuator);
@@ -311,3 +375,5 @@ window.createActuator = createActuator;
 window.draw3DPlatform = draw3DPlatform;
 window.resetCamera = resetCamera;
 window.updatePistonMeasures = updatePistonMeasures;
+window.createAxisArrow = createAxisArrow;
+window.createAxisLabel = createAxisLabel;
