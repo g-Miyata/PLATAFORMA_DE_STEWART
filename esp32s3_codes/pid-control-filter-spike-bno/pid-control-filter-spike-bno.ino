@@ -117,7 +117,7 @@ float U0_adv[6] = {11,17,10.5,14,14.5,12.5};     // SUBIR
 float U0_ret[6] = {8,12,9.4,14.5,11.4,11.4};     // DESCER
 
 // ===== OFFSET DE CALIBRAÇÃO (compensação de erro sistemático) =====
-float offset_mm[6] = {2.0, 2.0, 2.0, 2.0, 2.0, 2.0};  // offset em mm (+2mm para compensar)
+float offset_mm[6] = {0, 0, 0, 0, 0, 0};  // offset em mm (+2mm para compensar)
 
 // ================== CALIBRAÇÃO (V0 / V100) ==================
 float V0[6]     = {0.25,0.25,0.25,0.25,0.25,0.25};
