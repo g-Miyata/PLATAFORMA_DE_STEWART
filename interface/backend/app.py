@@ -1604,7 +1604,7 @@ def mpu_control(req: MPUControlRequest):
     
     # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},#{course_mm[4]:.3f},{course_mm[5]:.3f}"
+        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
         #print(f"📤 Enviando comando MPU: {cmd}")
         serial_mgr.write_line(cmd)
         #print(f"✅ Comando MPU enviado com sucesso")
