@@ -42,6 +42,13 @@ async def startup_event():
 BAUD = 115200
 CSV_DELIM = ';'
 
+FLIGHT_SIMULATION_STATE = {
+    "enabled": False,
+    "safe_z": 540.0,
+    "started_at": None,
+    "last_preview": None,
+}
+
 # -------------------- Modelos --------------------
 class PoseInput(BaseModel):
     x: float = 0
@@ -793,21 +800,21 @@ class MotionRunner:
                 raise RuntimeError("Rotina já está rodando. Pare primeiro.")
             
             self.stop_evt.clear()
-            self.status_dict = {
-                "running": True,
-                "routine": req.routine,
-                "params": req.dict(),
-                "started_at": time.time(),  # ✅ Define antes da thread (HOME será feito dentro dela)
-                "elapsed": 0.0
-            }
+        self.status_dict = {
+            "running": True,
+            "routine": req.routine,
+            "params": model_to_dict(req),
+            "started_at": time.time(),  # ✅ Define antes da thread (HOME será feito dentro dela)
+            "elapsed": 0.0
+        }
             
-            self.thread = threading.Thread(
+        self.thread = threading.Thread(
                 target=self._run_routine,
                 args=(req,),
                 daemon=True
             )
 
-            self.thread.start()
+        self.thread.start()
 
     
     def stop(self):
@@ -1455,7 +1462,7 @@ def motion_start(req: MotionRequest):
         return {
             "message": f"Rotina '{req.routine}' iniciada",
             "routine": req.routine,
-            "params": req.dict()
+            "params": model_to_dict(req)
         }
     
     except RuntimeError as e:
@@ -1499,6 +1506,47 @@ def set_config(cfg: PlatformConfig):
     global platform
     platform = StewartPlatform(cfg.h0, cfg.stroke_min, cfg.stroke_max)
     return {"message": "Configuração atualizada"}
+
+
+def model_to_dict(model):
+    """Compat helper for Pydantic v1/v2."""
+    if hasattr(model, "model_dump"):
+        return model.model_dump()
+    return model.dict()
+
+
+def build_platform_response(pose: PoseInput) -> PlatformResponse:
+    """Calcula cinemática inversa e empacota a resposta padrão."""
+    z_value = pose.z if pose.z is not None else platform.h0
+    L, valid, P = platform.inverse_kinematics(
+        x=pose.x, y=pose.y, z=z_value,
+        roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw,
+    )
+    perc = platform.stroke_percentages(L)
+    actuators = [
+        ActuatorData(
+            id=i + 1,
+            length=float(L[i]),
+            percentage=float(perc[i]),
+            valid=platform.stroke_min <= L[i] <= platform.stroke_max,
+        )
+        for i in range(6)
+    ]
+    return PlatformResponse(
+        pose=PoseInput(
+            x=pose.x,
+            y=pose.y,
+            z=z_value,
+            roll=pose.roll,
+            pitch=pose.pitch,
+            yaw=pose.yaw,
+        ),
+        actuators=actuators,
+        valid=bool(valid),
+        base_points=platform.B.tolist(),
+        platform_points=P.tolist(),
+    )
+
 
 @app.post("/calculate", response_model=PlatformResponse)
 def calculate_position(pose: PoseInput):
@@ -1623,6 +1671,52 @@ def mpu_control(req: MPUControlRequest):
         "lengths_abs": L.tolist(),
         "base_points": platform.base_points.tolist(),
         "platform_points": platform_points
+    }
+
+@app.post("/flight-simulation/start")
+def flight_simulation_start():
+    FLIGHT_SIMULATION_STATE["enabled"] = True
+    FLIGHT_SIMULATION_STATE["started_at"] = time.time()
+    return {
+        "enabled": True,
+        "safe_z": FLIGHT_SIMULATION_STATE["safe_z"],
+        "started_at": FLIGHT_SIMULATION_STATE["started_at"],
+    }
+
+@app.post("/flight-simulation/stop")
+def flight_simulation_stop():
+    FLIGHT_SIMULATION_STATE["enabled"] = False
+    return {
+        "enabled": False,
+        "safe_z": FLIGHT_SIMULATION_STATE["safe_z"],
+        "started_at": FLIGHT_SIMULATION_STATE["started_at"],
+    }
+
+@app.post("/flight-simulation/preview")
+def flight_simulation_preview_store(data: PlatformResponse):
+    payload = model_to_dict(data)
+    payload["timestamp"] = time.time()
+    FLIGHT_SIMULATION_STATE["last_preview"] = payload
+    return {"stored": True, "timestamp": payload["timestamp"]}
+
+@app.get("/flight-simulation/preview")
+def flight_simulation_preview_get():
+    preview = FLIGHT_SIMULATION_STATE.get("last_preview")
+    if preview is None:
+        raise HTTPException(status_code=404, detail="No preview pose available")
+    return preview
+
+@app.get("/flight-simulation/status")
+def flight_simulation_status():
+    return {
+        "enabled": FLIGHT_SIMULATION_STATE["enabled"],
+        "safe_z": FLIGHT_SIMULATION_STATE["safe_z"],
+        "started_at": FLIGHT_SIMULATION_STATE["started_at"],
+        "last_preview_ts": (
+            FLIGHT_SIMULATION_STATE["last_preview"]["timestamp"]
+            if FLIGHT_SIMULATION_STATE["last_preview"]
+            else None
+        ),
     }
 
 # -------------------- Joystick Control --------------------
@@ -1775,6 +1869,11 @@ def root():
             "POST /motion/start",
             "POST /motion/stop",
             "GET  /motion/status",
+            "POST /flight-simulation/start",
+            "POST /flight-simulation/stop",
+            "POST /flight-simulation/preview",
+            "GET  /flight-simulation/preview",
+            "GET  /flight-simulation/status",
         ]
     }
 
