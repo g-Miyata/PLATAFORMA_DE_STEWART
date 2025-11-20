@@ -15,3 +15,5 @@ pyserial==3.5
 # ==== Utilitários ====
 python-dotenv==1.0.1
 typing-extensions>=4.8,<5
+httpx
+flightgear-python
