@@ -175,7 +175,9 @@ python -m http.server 8080
 - **Painel de Atuadores / PID**  
   [ACTUATORS-README.md](ACTUATORS-README.md) – telemetria, setpoints, comandos manuais, export CSV, integração com `/pid/*`.
 - **Painel de Configurações**  
-  [SETTINGS-README.md](SETTINGS-README.md) – explica como ler/aplicar `kp/ki/kd`, deadband, PWM mínimo via `/pid/gains` e `/pid/settings`.
+  [SETTINGS-README.md](SETTINGS-README.md) - explica como ler/aplicar `kp/ki/kd`, deadband, PWM mínimo via `/pid/gains` e `/pid/settings`.
+- **Integração FlightGear**  
+  [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md) - ponte Telnet->FastAPI que lê roll/pitch do simulador, valida com `/calculate`, publica pré-visualização e envia poses seguras via `/apply_pose`.
 - **Firmware ESP32-S3**
   - [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md) – loop PID principal no ESP32-S3.
   - [BNO085-README.md](BNO085-README.md) – transmissor ESP-NOW baseado no sensor SparkFun BNO08x (Euler + quaternions).
