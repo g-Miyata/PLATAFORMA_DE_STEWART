@@ -28,7 +28,7 @@ RECONNECT_DELAY = float(os.getenv("FG_RECONNECT_DELAY", "2.0"))
 
 SAFE_Z = float(os.getenv("FG_SAFE_Z", "540.0"))
 SAFE_YAW = float(os.getenv("FG_SAFE_YAW", "0.0"))
-ANGLE_LIMIT = float(os.getenv("FG_ANGLE_LIMIT", "15.0"))
+ANGLE_LIMIT = float(os.getenv("FG_ANGLE_LIMIT", "12.0"))
 
 
 logging.basicConfig(
