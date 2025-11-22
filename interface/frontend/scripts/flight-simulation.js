@@ -1,10 +1,10 @@
-const API_BASE_URL = window.API_BASE || 'http://localhost:8001';
-const WS_URL = window.WS_URL || 'ws://localhost:8001/ws/telemetry';
+const API_BASE_URL = window.API_BASE || "http://localhost:8001";
+const WS_URL = window.WS_URL || "ws://localhost:8001/ws/telemetry";
 
 const SAFE_POSE = {
   x: 0,
   y: 0,
-  z: 500,
+  z: 540,
   roll: 0,
   pitch: 0,
   yaw: 0,
@@ -12,25 +12,29 @@ const SAFE_POSE = {
 const PREVIEW_URL = `${API_BASE_URL}/flight-simulation/preview`;
 const PREVIEW_INTERVAL_MS = 250;
 
+const PREFER_PREVIEW_SOURCE = true;
+
 const statusElements = {
-  safeButton: document.getElementById('btn-safe-pose'),
-  startButton: document.getElementById('btn-start-follow'),
-  stopButton: document.getElementById('btn-stop-follow'),
-  indicator: document.getElementById('follow-indicator'),
-  telemetryChip: document.getElementById('telemetry-status'),
-  safeZValue: document.getElementById('safe-z-value'),
-  updatedAt: document.getElementById('status-updated-at'),
+  safeButton: document.getElementById("btn-safe-pose"),
+  startButton: document.getElementById("btn-start-follow"),
+  stopButton: document.getElementById("btn-stop-follow"),
+  indicator: document.getElementById("follow-indicator"),
+  telemetryChip: document.getElementById("telemetry-status"),
+  safeZValue: document.getElementById("safe-z-value"),
+  updatedAt: document.getElementById("status-updated-at"),
 };
 
 const poseElements = {
-  roll: document.getElementById('pose-roll'),
-  pitch: document.getElementById('pose-pitch'),
-  yaw: document.getElementById('pose-yaw'),
-  x: document.getElementById('pose-x'),
-  y: document.getElementById('pose-y'),
-  z: document.getElementById('pose-z'),
+  roll: document.getElementById("pose-roll"),
+  pitch: document.getElementById("pose-pitch"),
+  yaw: document.getElementById("pose-yaw"),
+  x: document.getElementById("pose-x"),
+  y: document.getElementById("pose-y"),
+  z: document.getElementById("pose-z"),
 };
-const pistonElements = Array.from({ length: 6 }, (_, idx) => document.getElementById(`piston-${idx + 1}`));
+const pistonElements = Array.from({ length: 6 }, (_, idx) =>
+  document.getElementById(`piston-${idx + 1}`)
+);
 
 let telemetrySocket = null;
 let telemetryReconnectTimer = null;
@@ -38,9 +42,9 @@ let safePoseApplied = false;
 let followingEnabled = false;
 let previewTimer = null;
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof insertNavMenu === 'function') {
-    insertNavMenu('nav-container', 'flight-simulation.html');
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof insertNavMenu === "function") {
+    insertNavMenu("nav-container", "flight-simulation.html");
   }
 
   initScene();
@@ -53,21 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initScene() {
-  init3D('flight-sim-3d');
+  init3D("flight-sim-3d");
   updatePoseCards(SAFE_POSE);
   renderPosePreview(SAFE_POSE);
 }
 
 function registerListeners() {
-  statusElements.safeButton?.addEventListener('click', sendSafePose);
-  statusElements.startButton?.addEventListener('click', startFollowing);
-  statusElements.stopButton?.addEventListener('click', stopFollowing);
+  statusElements.safeButton?.addEventListener("click", sendSafePose);
+  statusElements.startButton?.addEventListener("click", startFollowing);
+  statusElements.stopButton?.addEventListener("click", stopFollowing);
 
-  document.getElementById('btn-reset-camera')?.addEventListener('click', () => {
-    resetCamera('flight-sim-3d');
+  document.getElementById("btn-reset-camera")?.addEventListener("click", () => {
+    resetCamera("flight-sim-3d");
   });
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     if (previewTimer) clearInterval(previewTimer);
   });
 }
@@ -76,8 +80,8 @@ async function sendSafePose() {
   disableTemporarily(statusElements.safeButton);
   try {
     const response = await fetch(`${API_BASE_URL}/apply_pose`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(SAFE_POSE),
     });
 
@@ -86,50 +90,54 @@ async function sendSafePose() {
     }
     const data = await response.json();
     if (!data.valid) {
-      throw new Error('Pose inválida recebida do backend');
+      throw new Error("Pose inválida recebida do backend");
     }
 
     safePoseApplied = true;
-    showToast('Posição segura aplicada.', 'success');
+    showToast("Posição segura aplicada.", "success");
     statusElements.startButton.disabled = false;
   } catch (error) {
-    console.error('Erro ao aplicar pose segura:', error);
-    showToast('Falha ao aplicar posição segura.', 'error');
+    console.error("Erro ao aplicar pose segura:", error);
+    showToast("Falha ao aplicar posição segura.", "error");
   }
 }
 
 async function startFollowing() {
   if (!safePoseApplied) {
-    showToast('Envie a posição segura antes de iniciar.', 'warning');
+    showToast("Envie a posição segura antes de iniciar.", "warning");
     return;
   }
 
   disableTemporarily(statusElements.startButton);
   try {
-    const response = await fetch(`${API_BASE_URL}/flight-simulation/start`, { method: 'POST' });
+    const response = await fetch(`${API_BASE_URL}/flight-simulation/start`, {
+      method: "POST",
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     setFollowingState(true);
-    showToast('Bridge autorizado a aplicar poses.', 'success');
+    showToast("Bridge autorizado a aplicar poses.", "success");
   } catch (error) {
-    console.error('Erro ao iniciar simulação:', error);
-    showToast('Não foi possível iniciar a simulação.', 'error');
+    console.error("Erro ao iniciar simulação:", error);
+    showToast("Não foi possível iniciar a simulação.", "error");
   }
 }
 
 async function stopFollowing() {
   disableTemporarily(statusElements.stopButton);
   try {
-    const response = await fetch(`${API_BASE_URL}/flight-simulation/stop`, { method: 'POST' });
+    const response = await fetch(`${API_BASE_URL}/flight-simulation/stop`, {
+      method: "POST",
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     setFollowingState(false);
-    showToast('Bridge bloqueado.', 'info');
+    showToast("Bridge bloqueado.", "info");
   } catch (error) {
-    console.error('Erro ao parar simulação:', error);
-    showToast('Não foi possível parar a simulação.', 'error');
+    console.error("Erro ao parar simulação:", error);
+    showToast("Não foi possível parar a simulação.", "error");
   }
 }
 
@@ -137,8 +145,12 @@ function setFollowingState(enabled) {
   followingEnabled = enabled;
   statusElements.startButton.disabled = enabled || !safePoseApplied;
   statusElements.stopButton.disabled = !enabled;
-  statusElements.indicator.textContent = enabled ? 'Seguindo setpoints' : 'Aguardando autorização';
-  statusElements.indicator.className = enabled ? 'text-lg font-semibold text-emerald-300' : 'text-lg font-semibold text-red-300';
+  statusElements.indicator.textContent = enabled
+    ? "Seguindo setpoints"
+    : "Aguardando autorização";
+  statusElements.indicator.className = enabled
+    ? "text-lg font-semibold text-emerald-300"
+    : "text-lg font-semibold text-red-300";
 }
 
 function disableTemporarily(button) {
@@ -153,17 +165,19 @@ async function refreshSimulationStatus() {
   try {
     const response = await fetch(`${API_BASE_URL}/flight-simulation/status`);
     if (!response.ok) {
-      throw new Error('HTTP error');
+      throw new Error("HTTP error");
     }
     const data = await response.json();
-    statusElements.safeZValue.textContent = Number(data.safe_z ?? SAFE_POSE.z).toFixed(0);
+    statusElements.safeZValue.textContent = Number(
+      data.safe_z ?? SAFE_POSE.z
+    ).toFixed(0);
     statusElements.updatedAt.textContent = new Date().toLocaleTimeString();
     setFollowingState(Boolean(data.enabled));
     if (data.enabled) {
       safePoseApplied = true;
     }
   } catch (error) {
-    console.warn('Não foi possível atualizar status da simulação:', error);
+    console.warn("Não foi possível atualizar status da simulação:", error);
   }
 }
 
@@ -200,7 +214,7 @@ function connectTelemetry() {
       const normalized = normalizeTelemetry(payload);
       handleTelemetry(normalized);
     } catch (error) {
-      console.error('Erro ao processar telemetria:', error);
+      console.error("Erro ao processar telemetria:", error);
     }
   };
 }
@@ -215,23 +229,47 @@ function scheduleTelemetryReconnect() {
 function updateTelemetryChip(connected) {
   if (!statusElements.telemetryChip) return;
   if (connected) {
-    statusElements.telemetryChip.className = 'status-chip bg-emerald-600 text-white';
+    statusElements.telemetryChip.className =
+      "status-chip bg-emerald-600 text-white";
     statusElements.telemetryChip.innerHTML = `<span class="material-icons text-base">wifi</span>Telemetria ativa`;
   } else {
-    statusElements.telemetryChip.className = 'status-chip bg-gray-700 text-gray-200';
+    statusElements.telemetryChip.className =
+      "status-chip bg-gray-700 text-gray-200";
     statusElements.telemetryChip.innerHTML = `<span class="material-icons text-base">wifi_off</span>Sem telemetria`;
   }
 }
 
 function handleTelemetry(data) {
-  if (!data || data.type === 'raw') return;
+  if (!data || data.type === "raw") return;
 
+  if (PREFER_PREVIEW_SOURCE) {
+    if (data.type === "motion_tick") {
+      if (data.pose_cmd) {
+        updatePoseCards(data.pose_cmd);
+      }
+      if (
+        Array.isArray(data.actuators_cmd) &&
+        data.actuators_cmd.length === 6
+      ) {
+        const actuators = data.actuators_cmd.map((len) => ({
+          length: Number(len),
+          valid: true,
+        }));
+        updatePistonCards(actuators);
+      }
+    }
+
+    // Caso contrário, ignoramos telemetria recebida via WebSocket para preview
+    return;
+  }
+
+  // Fallback: comportamento original — usa WS para atualizar preview/3D
   if (data.pose_live) {
     updatePoseCards(data.pose_live);
   }
 
   if (data.actuator_lengths_abs && data.actuator_lengths_abs.length === 6) {
-    applyLiveTelemetry('flight-sim-3d', data, (_, renderData) => {
+    applyLiveTelemetry("flight-sim-3d", data, (_, renderData) => {
       if (renderData && renderData.actuators) {
         updatePistonCards(renderData.actuators);
       }
@@ -264,16 +302,16 @@ function updatePistonCards(actuators) {
   actuators.forEach((act, idx) => {
     const target = pistonElements[idx];
     if (!target) return;
-    if (act && typeof act.length === 'number') {
+    if (act && typeof act.length === "number") {
       target.textContent = `${act.length.toFixed(1)} mm`;
     } else {
-      target.textContent = '--';
+      target.textContent = "--";
     }
-    target.classList.remove('text-emerald-300', 'text-red-400');
+    target.classList.remove("text-emerald-300", "text-red-400");
     if (act && act.valid === false) {
-      target.classList.add('text-red-400');
+      target.classList.add("text-red-400");
     } else {
-      target.classList.add('text-emerald-300');
+      target.classList.add("text-emerald-300");
     }
   });
 }
@@ -285,7 +323,7 @@ function startPreviewPolling() {
 
 async function fetchPreviewPose() {
   try {
-    const response = await fetch(PREVIEW_URL, { cache: 'no-store' });
+    const response = await fetch(PREVIEW_URL, { cache: "no-store" });
     if (!response.ok) {
       if (response.status === 404) {
         return;
@@ -306,20 +344,20 @@ async function fetchPreviewPose() {
       statusElements.updatedAt.textContent = date.toLocaleTimeString();
     }
 
-    draw3DPlatform('flight-sim-3d', preview);
+    draw3DPlatform("flight-sim-3d", preview);
     if (preview.actuators) {
       updatePistonCards(preview.actuators);
     }
   } catch (error) {
-    console.warn('Não foi possível obter preview do flight sim:', error);
+    console.warn("Não foi possível obter preview do flight sim:", error);
   }
 }
 
 async function renderPosePreview(pose) {
   try {
     const response = await fetch(`${API_BASE_URL}/calculate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(pose),
     });
 
@@ -328,7 +366,7 @@ async function renderPosePreview(pose) {
     }
 
     const data = await response.json();
-    draw3DPlatform('flight-sim-3d', data);
+    draw3DPlatform("flight-sim-3d", data);
     if (data.pose) {
       updatePoseCards(data.pose);
     }
@@ -336,6 +374,6 @@ async function renderPosePreview(pose) {
       updatePistonCards(data.actuators);
     }
   } catch (error) {
-    console.error('Erro ao renderizar pose inicial:', error);
+    console.error("Erro ao renderizar pose inicial:", error);
   }
 }
