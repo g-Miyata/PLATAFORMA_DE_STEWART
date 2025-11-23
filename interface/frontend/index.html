@@ -12,22 +12,33 @@
     <!-- Swiper CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
     <link rel="stylesheet" href="./styles/index.css" />
-
-
   </head>
   <body class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 min-h-screen">
     <div class="container mx-auto px-4 py-4 max-w-7xl">
       <!-- Header -->
       <div class="text-center mb-4">
-        <h1 class="text-3xl font-bold mb-2">
-          <span class="gradient-text">Plataforma de Stewart</span>
-        </h1>
-        <div class="flex justify-center items-center gap-2 mb-2">
+        <div class="flex flex-col md:flex-row items-center justify-center gap-6 mb-5 header-meta">
           <div class="flex flex-col gap-1 items-center">
-            <img src="./assets/ifsp-logo.svg" alt="logo IFSP" width="220" />
-            
+            <img src="./assets/ifsp-logo.svg" alt="logo IFSP" width="200" />
+          </div>
+          <div class="text-center md:text-left opacity-60">
+            <p class="text-sm text-gray-300">
+              Autor:
+              <span class="font-semibold text-white">Guiherme Miyata Meirelles</span>
+            </p>
+            <p class="text-sm text-gray-300">
+              Orientador:
+              <span class="font-semibold text-white">Anderson Kenji Hirata</span>
+            </p>
+            <p class="text-sm text-gray-300">
+              Coorientador:
+              <span class="font-semibold text-white">Carlos Eduardo Oliveira da Silva</span>
+            </p>
           </div>
         </div>
+        <h1 class="text-4xl font-bold mb-2">
+          <span class="gradient-text">Plataforma de Stewart</span>
+        </h1>
       </div>
 
       <!-- Carrossel de Interfaces com Swiper -->
@@ -96,12 +107,21 @@
             <div class="text-xs text-gray-300 group-hover:text-white font-semibold transition-colors">Configurações</div>
           </a>
         </div>
+        <div class="mt-4 flex justify-center">
+          <a href="flight-simulation.html" class="flight-cta inline-flex items-center gap-3 text-white font-semibold px-6 py-3 rounded-2xl shadow-xl transform hover:-translate-y-0.5 transition-all">
+            <span class="material-icons" style="font-size: 1.6rem">flight_takeoff</span>
+            <div class="flex flex-col leading-tight">
+              <span class="text-base">Simulação de Voo</span>
+              <small class="text-xs text-white/80">Demonstração e testes em tempo real</small>
+            </div>
+          </a>
+        </div>
       </div>
 
       <!-- Info Bar -->
-      <div class="mt-6 bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-xl p-4 border border-gray-700/50 backdrop-blur-sm">
+      <div class="mt-6 info-card">
         <div class="flex items-start gap-3">
-          <div class="text-3xl flex-shrink-0">
+          <div class="text-3xl shrink-0">
             <span class="material-icons text-blue-400" style="font-size: 2rem">info</span>
           </div>
           <div class="flex-1">
@@ -147,6 +167,55 @@
         </div>
       </div>
 
+      <div class="mt-6 info-card">
+        <div class="flex items-start gap-3">
+          <div class="text-3xl shrink-0">
+            <span class="material-icons text-red-400" style="font-size: 2rem">info</span>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-white font-bold text-lg mb-2">Guia para Simulação de Voo <span class="text-sm text-teal-400">(Considerando que já está com o ESP32-S3 conectado)</span></h3>
+            <div class="grid md:grid-cols-2 gap-2">
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-green-400 text-base">check_circle</span>
+                  <span class="text-white font-semibold text-xs">1. Backend</span>
+                </div>
+                <p class="text-gray-300 text-xs">
+                  Execute
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">python fg-bridge.py</code>
+                  no diretório simulation
+                </p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-blue-400 text-base">usb</span>
+                  <span class="text-white font-semibold text-xs">2. Simulador</span>
+                </div>
+                <p class="text-gray-300 text-xs">Inicie o FlightGear e configure a comunicação com <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">--telnet=socket,bi,60,localhost,5050,tcp</code></p>
+                
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-purple-400 text-base">launch</span>
+                  <span class="text-white font-semibold text-xs">3. Interface</span>
+                </div>
+                <p class="text-gray-300 text-xs">Escolha a interface de Simulação de Voo</p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-orange-400 text-base">play_arrow</span>
+                  <span class="text-white font-semibold text-xs">4. Conectar</span>
+                </div>
+                <p class="text-gray-300 text-xs">Siga as Instruções da Interface e inicie o simulador</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Footer -->
       <div class="text-center mt-6 text-gray-400">
         <div class="flex items-center justify-center gap-3 flex-wrap mb-2">
@@ -173,7 +242,5 @@
     <!-- Swiper JS -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="./scripts/index.js"></script>
-
-    
   </body>
 </html>

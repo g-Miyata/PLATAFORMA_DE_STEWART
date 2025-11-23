@@ -87,6 +87,20 @@ const interfaces = [
       { icon: 'save', text: 'Persistência automática' },
     ],
   },
+  {
+    title: 'Simulação de Voo',
+    icon: 'flight_takeoff',
+    url: 'simulation.html',
+    description: 'Simule o comportamento do sistema em um ambiente virtual para testes e ajustes seguros.',
+    iconColor: 'text-red-400',
+    bgGradient: 'from-red-600/20 to-red-800/20',
+    accentColor: '#dc2626',
+    features: [
+      { icon: 'connect_without_contact', text: 'Conecte-se ao FlightGear' },
+      { icon: 'tune', text: 'Faça um voo ou reproduza um fgtape' },
+      { icon: 'visibility', text: 'Visualize a plataforma seguindo o voo' },
+    ],
+  },
 ];
 
 function createSlideContent(interface) {
