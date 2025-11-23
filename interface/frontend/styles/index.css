@@ -144,3 +144,23 @@ html {
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
+.header-meta p { margin: 0; }
+
+.flight-cta {
+  background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+.flight-cta:hover {
+  box-shadow: 0 18px 40px rgba(239, 68, 68, 0.25);
+}
+
+.grid.grid-cols-2 { gap: 0.6rem; }
+
+.info-card {
+  background: linear-gradient(180deg, rgba(17,24,39,0.85), rgba(15,23,34,0.9));
+  border: 1px solid rgba(71,85,105,0.22);
+  padding: 1rem;
+  border-radius: 0.75rem;
+}
