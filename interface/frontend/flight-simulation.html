@@ -57,7 +57,7 @@
           FlightGear &rarr; Stewart
         </p>
         <h1 class="text-3xl sm:text-4xl font-bold mb-3">Simulação de Voo</h1>
-        <p class="text-gray-300 text-lg">Mova o avião no FlightGear e acompanhe a plataforma reproduzindo o setpoint em tempo real. Antes de iniciar, garanta que a altura esteja segura (z = 500&nbsp;mm) e autorize o seguimento.</p>
+        <p class="text-gray-300 text-lg">Mova o avião no FlightGear e acompanhe a plataforma reproduzindo o setpoint em tempo real. Antes de iniciar, garanta que a altura esteja segura (z = 540&nbsp;mm) e autorize o seguimento.</p>
       </header>
 
       <div id="nav-container"></div>
@@ -107,17 +107,17 @@
           </h2>
           <ul class="space-y-2 text-gray-300 leading-relaxed">
             <li>
-              1. Inicie o FlightGear com a opção Telnet/WebSocket apontando para
-              <code>ws://localhost:9001</code>
+              1. Inicie o Backend do FlightGear
+              <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">python fg-bridge.py</code>
               .
             </li>
             <li>
-              2. Envie JSON no formato
-              <code>{"roll": 5.2, "pitch": -1.4}</code>
-              (graus).
+              2. Inicie o FlightGear com a opção Telnet/WebSocket apontando para
+              <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">--telnet=socket,bi,60,localhost,5050,tcp</code>
+              .
             </li>
-            <li>3. Este serviço limita automaticamente os ângulos a ±20° e força z = 500 mm.</li>
-            <li>4. Só após o botão “Iniciar seguimento” a pose é aplicada no backend (FastAPI).</li>
+            <li>3. Este serviço limita automaticamente os ângulos a ±12° e força z = 540 mm.</li>
+            <li>4. Só após o botão “Iniciar seguimento” a pose é aplicada no backend app.py (FastAPI).</li>
           </ul>
           <p class="text-sm text-gray-400 mt-4">
             Bridge ativo em
