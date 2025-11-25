@@ -23,7 +23,7 @@ PREVIEW_URL = f"{API_BASE_URL}/flight-simulation/preview"
 
 FG_TELNET_HOST = os.getenv("FG_TELNET_HOST", "localhost")
 FG_TELNET_PORT = int(os.getenv("FG_TELNET_PORT", "5050"))
-POLL_INTERVAL = float(os.getenv("FG_POLL_INTERVAL", "0.1"))
+POLL_INTERVAL = float(os.getenv("FG_POLL_INTERVAL", "0.033"))
 RECONNECT_DELAY = float(os.getenv("FG_RECONNECT_DELAY", "2.0"))
 
 SAFE_Z = float(os.getenv("FG_SAFE_Z", "540.0"))
