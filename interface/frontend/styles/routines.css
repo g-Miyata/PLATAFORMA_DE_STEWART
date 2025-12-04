@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+body {
+  font-family: 'Inter', sans-serif;
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+.pulse-dot {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Motion Routines Styles */
+.motion-preset-card {
+  background: #1f2937;
+  padding: 20px;
+  border-radius: 10px;
+  border: 2px solid #374151;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+.motion-preset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: #4b5563;
+}
+.motion-preset-card.active {
+  border-color: #10b981;
+  background: linear-gradient(135deg, #1f2937 0%, #065f46 100%);
+}
+.motion-param-input {
+  background: #374151;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #f3f4f6;
+  width: 100%;
+  font-size: 0.875em;
+}
+.motion-param-input:focus {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+.motion-status-running {
+  background: #10b981;
+  animation: pulse-motion 2s infinite;
+}
+.motion-status-stopped {
+  background: #6b7280;
+}
+@keyframes pulse-motion {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

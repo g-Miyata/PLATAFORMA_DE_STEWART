@@ -1,0 +1,67 @@
+Refatore o código de controle da plataforma de Stewart utilizando FastAPI e WebSocket de telemetria para separar a lógica em diferentes arquivos e pastas, de acordo com a responsabilidade de cada parte do sistema. O código original possui funcionalidades para controlar a plataforma, realizar a cinemática inversa, gerenciar a comunicação serial, e fornecer uma interface WebSocket para telemetria. Eu quero que o código seja modularizado da seguinte forma:
+
+Modelos (Pydantic Models):
+
+Crie um arquivo separado para os modelos Pydantic utilizados na API.
+
+Arquivo: models/pose_models.py, models/actuator_models.py.
+
+Controladores (Controllers):
+
+Separe as lógicas de controle em arquivos específicos para o movimento da plataforma (MotionController), controle PID (PIDController) e comunicação serial (SerialController).
+
+Arquivos: controllers/motion_controller.py, controllers/pid_controller.py, controllers/serial_controller.py.
+
+Serviços (Services):
+
+Crie serviços para gerenciar a comunicação serial (SerialManager) e o WebSocket (WebSocketManager).
+
+Arquivos: services/serial_manager.py, services/websocket_manager.py.
+
+Utilitários (Utils):
+
+Extraia funções de utilidade como a cinemática inversa para um arquivo separado.
+
+Arquivos: utils/kinematics.py, utils/telemetry.py.
+
+Arquivo principal (main.py):
+
+O arquivo main.py deve importar e utilizar os controladores e serviços de maneira clara.
+
+Configuração (config.py):
+
+Crie um arquivo de configuração para definir variáveis como o título da API, portas, e outros parâmetros configuráveis.
+
+Testes:
+
+Implemente testes unitários para cada controlador e serviço usando pytest.
+
+Arquivo de teste: tests/test_motion_controller.py, tests/test_serial_manager.py.
+
+Crie a estrutura de diretórios conforme abaixo:
+
+/project_root
+├── /app
+│   ├── /models
+│   │   └── pose_models.py
+│   │   └── actuator_models.py
+│   ├── /controllers
+│   │   └── motion_controller.py
+│   │   └── pid_controller.py
+│   │   └── serial_controller.py
+│   ├── /services
+│   │   └── serial_manager.py
+│   │   └── websocket_manager.py
+│   ├── /utils
+│   │   └── kinematics.py
+│   │   └── telemetry.py
+│   ├── main.py
+│   ├── config.py
+├── /tests
+│   ├── /test_serial_manager.py
+│   ├── /test_motion_controller.py
+│   └── /test_pid_controller.py
+└── requirements.txt
+
+
+Implemente essa refatoração mantendo as funcionalidades existentes do sistema.

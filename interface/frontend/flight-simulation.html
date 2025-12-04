@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Plataforma de Stewart - Flight Simulation</title>
+    <link rel="icon" type="image/svg+xml" href="./assets/ifsp.svg" />
+    <link rel="stylesheet" href="./styles/kinematics.css" />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      #flight-sim-3d {
+        width: 100%;
+        height: 420px;
+        background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+        border-radius: 16px;
+      }
+      .status-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        padding: 0.35rem 0.9rem;
+      }
+      .piston-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+      }
+      .piston-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 14px;
+        padding: 1rem;
+      }
+      .piston-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #cbd5f5;
+        margin-bottom: 0.25rem;
+      }
+      .piston-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900 text-white min-h-screen">
+    <div class="max-w-6xl mx-auto px-4 py-8">
+      <header class="mb-8">
+        <p
+          class="text-sm text-green-400 font-medium uppercase mb-2 flex items-center gap-2"
+        >
+          <span class="material-icons text-base">flight_takeoff</span>
+          FlightGear &rarr; Stewart
+        </p>
+        <h1 class="text-3xl sm:text-4xl font-bold mb-3">Simulação de Voo</h1>
+        <p class="text-gray-300 text-lg">
+          Mova o avião no FlightGear e acompanhe a plataforma reproduzindo o
+          setpoint em tempo real. Antes de iniciar, garanta que a altura esteja
+          segura (z = 540&nbsp;mm) e autorize o seguimento.
+        </p>
+      </header>
+
+      <div id="nav-container"></div>
+
+      <!-- Status da Conexão -->
+      <div
+        id="connection-status"
+        class="bg-gray-800 rounded-2xl shadow-sm p-4 mb-6 border border-gray-700"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div
+              id="status-indicator"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></div>
+            <span id="status-text" class="font-medium text-gray-300"
+              >Desconectado</span
+            >
+          </div>
+          <span id="status-port" class="text-sm text-gray-400">--</span>
+        </div>
+      </div>
+
+      <!-- Conexão Serial -->
+      <div
+        class="bg-gray-800 rounded-2xl shadow-sm p-6 mb-6 border border-gray-700"
+      >
+        <h2
+          class="text-xl font-semibold text-white mb-4 flex items-center gap-2"
+        >
+          <span class="material-icons text-green-400">cable</span>
+          <span>Conexão Serial</span>
+        </h2>
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >Porta Serial</label
+            >
+            <select
+              id="serial-port-select"
+              class="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            >
+              <option value="">Selecione a porta...</option>
+            </select>
+          </div>
+          <button
+            id="btn-refresh-ports"
+            class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+          >
+            <span class="material-icons text-md">refresh</span>
+            <span>Atualizar</span>
+          </button>
+          <button
+            id="btn-open-serial"
+            class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+          >
+            <span class="material-icons text-sm">power</span>
+            <span>Conectar</span>
+          </button>
+          <button
+            id="btn-close-serial"
+            class="hidden px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+          >
+            <span class="material-icons text-md">power_off</span>
+            <span>Desconectar</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2 mb-6">
+        <section
+          class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm"
+        >
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <p class="text-sm text-gray-400">Status da simulação</p>
+                <p
+                  id="follow-indicator"
+                  class="text-lg font-semibold text-red-300"
+                >
+                  Aguardando autorização
+                </p>
+              </div>
+              <span
+                id="telemetry-status"
+                class="status-chip bg-gray-700 text-gray-200"
+              >
+                <span class="material-icons text-base">wifi_off</span>
+                Sem telemetria
+              </span>
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3">
+              <button
+                id="btn-safe-pose"
+                class="w-full bg-slate-700 hover:bg-slate-600 transition rounded-xl py-3 font-semibold flex items-center justify-center gap-2"
+              >
+                <span class="material-icons text-lg text-green-300"
+                  >shield</span
+                >
+                Ir para z seguro (
+                <span id="safe-z-value">540</span>
+                mm)
+              </button>
+              <button
+                id="btn-start-follow"
+                class="w-full bg-emerald-600 hover:bg-emerald-500 transition rounded-xl py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span class="material-icons text-lg">play_arrow</span>
+                Iniciar seguimento
+              </button>
+              <button
+                id="btn-stop-follow"
+                class="w-full bg-red-600 hover:bg-red-500 transition rounded-xl py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed col-span-full"
+                disabled
+              >
+                <span class="material-icons text-lg">stop</span>
+                Parar seguimento
+              </button>
+            </div>
+
+            <div class="bg-gray-900/50 border border-gray-700 rounded-xl p-4">
+              <p class="text-sm text-gray-400 mb-1">Última atualização</p>
+              <p id="status-updated-at" class="text-lg font-semibold">--</p>
+            </div>
+          </div>
+        </section>
+
+        <section
+          class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm"
+        >
+          <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span class="material-icons text-yellow-400">info</span>
+            Como conectar o FlightGear
+          </h2>
+          <ul class="space-y-2 text-gray-300 leading-relaxed">
+            <li>
+              1. Inicie o Backend do FlightGear
+              <code
+                class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs"
+                >python fg-bridge.py</code
+              >
+              .
+            </li>
+            <li>
+              2. Inicie o FlightGear com a opção Telnet/WebSocket apontando para
+              <code
+                class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs"
+                >--telnet=socket,bi,60,localhost,5050,tcp</code
+              >
+              .
+            </li>
+            <li>
+              3. Este serviço limita automaticamente os ângulos a ±12° e força z
+              = 540 mm.
+            </li>
+            <li>
+              4. Só após o botão “Iniciar seguimento” a pose é aplicada no
+              backend app.py (FastAPI).
+            </li>
+          </ul>
+          <p class="text-sm text-gray-400 mt-4">
+            Bridge ativo em
+            <strong>ws://localhost:9001</strong>
+            .
+          </p>
+        </section>
+      </div>
+
+      <section
+        class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm mb-6"
+      >
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h2 class="text-xl font-semibold flex items-center gap-2">
+            <span class="material-icons text-green-400">view_in_ar</span>
+            Plataforma 3D
+          </h2>
+          <button
+            id="btn-reset-camera"
+            class="text-sm text-emerald-300 hover:text-emerald-200 flex items-center gap-1"
+          >
+            <span class="material-icons text-base">refresh</span>
+            Resetar câmera
+          </button>
+        </div>
+        <div id="flight-sim-3d" class="mb-4"></div>
+        <p class="text-sm text-gray-400">
+          O modelo usa os últimos comprimentos recebidos via telemetria para
+          reproduzir a postura da plataforma.
+        </p>
+      </section>
+
+      <section
+        class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm mb-6"
+      >
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <span class="material-icons text-cyan-400">straighten</span>
+          Comprimentos dos Pistões
+        </h2>
+        <div class="piston-grid">
+          <div class="piston-card">
+            <p class="piston-label">Pistão 1</p>
+            <p id="piston-1" class="piston-value text-emerald-300">--</p>
+          </div>
+          <div class="piston-card">
+            <p class="piston-label">Pistão 2</p>
+            <p id="piston-2" class="piston-value text-emerald-300">--</p>
+          </div>
+          <div class="piston-card">
+            <p class="piston-label">Pistão 3</p>
+            <p id="piston-3" class="piston-value text-emerald-300">--</p>
+          </div>
+          <div class="piston-card">
+            <p class="piston-label">Pistão 4</p>
+            <p id="piston-4" class="piston-value text-emerald-300">--</p>
+          </div>
+          <div class="piston-card">
+            <p class="piston-label">Pistão 5</p>
+            <p id="piston-5" class="piston-value text-emerald-300">--</p>
+          </div>
+          <div class="piston-card">
+            <p class="piston-label">Pistão 6</p>
+            <p id="piston-6" class="piston-value text-emerald-300">--</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">
+          Valores em mm. Cartões ficam vermelhos quando o backend sinaliza um
+          atuador fora da faixa segura.
+        </p>
+      </section>
+
+      <section
+        class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm mb-6"
+      >
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <span class="material-icons text-sky-400">sensors</span>
+          Telemetria ao vivo
+        </h2>
+        <div class="grid gap-4 md:grid-cols-3">
+          <div class="bg-gray-900/40 rounded-xl p-4">
+            <p class="text-sm text-gray-400 mb-1">Roll (°)</p>
+            <p id="pose-roll" class="text-2xl font-bold">0.00</p>
+          </div>
+          <div class="bg-gray-900/40 rounded-xl p-4">
+            <p class="text-sm text-gray-400 mb-1">Pitch (°)</p>
+            <p id="pose-pitch" class="text-2xl font-bold">0.00</p>
+          </div>
+          <div class="bg-gray-900/40 rounded-xl p-4">
+            <p class="text-sm text-gray-400 mb-1">Yaw (°)</p>
+            <p id="pose-yaw" class="text-2xl font-bold">0.00</p>
+          </div>
+          <div class="bg-gray-900/40 rounded-xl p-4 hidden">
+            <p class="text-sm text-gray-400 mb-1">X (mm)</p>
+            <p id="pose-x" class="text-2xl font-bold">0.00</p>
+          </div>
+          <div class="bg-gray-900/40 rounded-xl p-4 hidden">
+            <p class="text-sm text-gray-400 mb-1">Y (mm)</p>
+            <p id="pose-y" class="text-2xl font-bold">0.00</p>
+          </div>
+          <div class="bg-gray-900/40 rounded-xl p-4 hidden">
+            <p class="text-sm text-gray-400 mb-1">Z (mm)</p>
+            <p id="pose-z" class="text-2xl font-bold">540.00</p>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-sm"
+      >
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <span class="material-icons text-orange-400">playlist_add_check</span>
+          Procedimento seguro
+        </h2>
+        <ol class="list-decimal list-inside space-y-2 text-gray-300">
+          <li>Conecte a placa ESP32-S3 e confirme a telemetria.</li>
+          <li>
+            Use “Ir para z seguro” para posicionar a plataforma em 540&nbsp;mm.
+          </li>
+          <li>Clique em “Iniciar seguimento” para liberar o bridge.</li>
+          <li>No FlightGear, envie roll/pitch via WebSocket para testar.</li>
+          <li>Finalize clicando em “Parar seguimento”.</li>
+        </ol>
+      </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script src="./scripts/common.js"></script>
+    <script src="./scripts/three-utils.js"></script>
+    <script src="./scripts/telemetry-utils.js"></script>
+    <script src="./nav-menu.js"></script>
+    <script>
+      // Insere navegação e inicializa controles seriais na página
+      document.addEventListener("DOMContentLoaded", () => {
+        insertNavMenu("nav-container", "flight-simulation.html");
+        if (typeof initCommonSerialControls === "function") {
+          initCommonSerialControls();
+        }
+        if (typeof loadMaterialIcons === "function") {
+          loadMaterialIcons();
+        }
+      });
+    </script>
+    <script type="module" src="./scripts/flight-simulation.js"></script>
+  </body>
+</html>

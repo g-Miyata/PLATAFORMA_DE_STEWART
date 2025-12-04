@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teste API Portas Serial</title>
+    <style>
+      body {
+        font-family: 'Consolas', monospace;
+        padding: 20px;
+        background: #1e293b;
+        color: #fff;
+      }
+      pre {
+        background: #0f172a;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+      button {
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 10px 0;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔌 Teste API - Listagem de Portas Serial</h1>
+    <button onclick="testAPI()">🔄 Recarregar Portas</button>
+    <pre id="output">Clique no botão para testar...</pre>
+
+    <script>
+      async function testAPI() {
+        const output = document.getElementById('output');
+        output.textContent = '⏳ Carregando...';
+
+        try {
+          const response = await fetch('http://localhost:8001/serial/ports');
+          const data = await response.json();
+
+          output.textContent = JSON.stringify(data, null, 2);
+
+          console.log('📋 Resposta da API:', data);
+          console.log('📋 Número de portas:', data.ports?.length || 0);
+
+          if (data.ports && data.ports.length > 0) {
+            console.log('📋 Primeira porta:', data.ports[0]);
+            console.log('📋 Campos:', Object.keys(data.ports[0]));
+          }
+        } catch (error) {
+          output.textContent = `❌ Erro: ${error.message}`;
+          console.error('❌ Erro:', error);
+        }
+      }
+
+      // Testa automaticamente ao carregar
+      window.addEventListener('load', testAPI);
+    </script>
+  </body>
+</html>
