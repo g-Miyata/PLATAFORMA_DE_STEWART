@@ -6,7 +6,7 @@
 
 <div align="center">
 
-<img src="../frontend/assets/ifsp-logo.svg" alt="logo ifsp" width="280px">
+<img src="./interface/frontend/assets/ifsp-logo-md.png" alt="logo ifsp" width="280px">
 
 <hr/>
 
