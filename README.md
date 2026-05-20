@@ -67,11 +67,11 @@ flowchart TB
 
 #### Versão do Python
 
-Este projeto requer o **Python 3.12 ou superior**.
+Este projeto requer o **Python 3.12.x**.
 
 Versão recomendada:
 
-- Python **3.12.17** ou superior
+- Python **3.12.17**
 
 Baixe o Python pelo site oficial:
 
@@ -171,6 +171,8 @@ pyserial==3.5
 # ==== Utilitários ====
 python-dotenv==1.0.1
 typing-extensions>=4.8,<5
+httpx==0.28.1
+flightgear-python==2.0.3
 ```
 
 ---
@@ -211,7 +213,7 @@ Essa pasta contém o ambiente virtual Python usado pelo backend.
    ```
 3. Execute o servidor:
    ```bash
-   uvicorn app:app --reload --host 0.0.0.0 --port 8001
+    uvicorn app:app --reload --host 127.0.0.1 --port 8001
    ```
 4. Confirme que a API responde em `http://localhost:8001/docs`.
 

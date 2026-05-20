@@ -39,7 +39,7 @@ if not errorlevel 1 (
 
 echo Python nao encontrado.
 echo.
-echo Instale o Python 3.12 ou superior antes de executar este projeto.
+echo Instale o Python 3.12.x antes de executar este projeto.
 echo Link oficial:
 echo https://www.python.org/downloads/
 echo.
@@ -53,6 +53,17 @@ exit /b 1
 
 :python_found
 echo Python encontrado usando comando: %PYTHON_BOOTSTRAP%
+
+%PYTHON_BOOTSTRAP% -c "import sys; raise SystemExit(0 if (3, 12) <= sys.version_info[:2] < (3, 13) else 1)" >nul 2>nul
+if errorlevel 1 (
+	echo Versao de Python nao suportada.
+	echo.
+	echo Este projeto suporta apenas Python 3.12.x.
+	echo Verifique com: %PYTHON_BOOTSTRAP% --version
+	echo.
+	pause
+	exit /b 1
+)
 
 if not exist "%PYTHON_EXE%" (
 	echo Criando ambiente virtual em %VENV_DIR%...

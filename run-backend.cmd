@@ -27,6 +27,6 @@ cd /d "%BACKEND_DIR%" || (
 )
 
 echo Iniciando FastAPI em http://localhost:8001/docs
-"%PYTHON_EXE%" -m uvicorn app:app --reload --host 0.0.0.0 --port 8001
+"%PYTHON_EXE%" -m uvicorn app:app --reload --host 127.0.0.1 --port 8001
 
 pause
