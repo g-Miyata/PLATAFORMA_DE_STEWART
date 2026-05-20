@@ -67,19 +67,93 @@ flowchart TB
 
 #### Versão do Python
 
+Este projeto requer o **Python 3.12.x**.
+
+Versão recomendada:
+
 - Python **3.12.17**
 
-#### Dependências Python
+Baixe o Python pelo site oficial:
 
-As bibliotecas do backend estão em `interface/backend/requirements.txt`. Instale-as com:
+https://www.python.org/downloads/windows/
+
+Durante a instalação no Windows, marque a opção:
+
+```text
+Add python.exe to PATH
+```
+
+Essa opção permite que o comando `python` seja reconhecido no terminal.
+
+Para verificar se o Python foi instalado corretamente, execute:
+
+```bash
+python --version
+```
+
+ou:
+
+```bash
+py --version
+```
+
+---
+
+## Executando o projeto
+
+Na raiz do projeto, execute:
+
+### PowerShell
+
+```powershell
+.\start.bat
+```
+
+### CMD
+
+```cmd
+start.bat
+```
+
+O script irá automaticamente:
+
+1. Verificar se o Python está instalado;
+2. Criar um ambiente virtual em `interface/backend/.venv`;
+3. Instalar as dependências do backend;
+4. Iniciar a API FastAPI na porta `8001`;
+5. Abrir o frontend no navegador.
+
+Caso o frontend não seja aberto automaticamente, abra manualmente o arquivo:
+
+- PLATAFORMA_DE_STEWART\interface\frontend\index.html
+
+
+A documentação da API estará disponível em:
+
+- http://localhost:8001/docs
+
+
+---
+
+## Dependências Python
+
+As bibliotecas do backend estão em:
+
+```text
+interface/backend/requirements.txt
+```
+
+Não é necessário instalar manualmente as dependências, pois o arquivo `start.bat` faz isso automaticamente.
+
+Caso queira instalar manualmente, acesse a pasta do backend e execute:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Conteúdo atual:
+Conteúdo atual do `requirements.txt`:
 
-```
+```txt
 # ==== API e servidor Web  ====
 fastapi==0.104.1
 starlette==0.27.0
@@ -97,7 +171,21 @@ pyserial==3.5
 # ==== Utilitários ====
 python-dotenv==1.0.1
 typing-extensions>=4.8,<5
+httpx==0.28.1
+flightgear-python==2.0.3
 ```
+
+---
+
+## Observação sobre o ambiente virtual
+
+O projeto cria automaticamente a pasta:
+
+```text
+interface/backend/.venv
+```
+
+Essa pasta contém o ambiente virtual Python usado pelo backend.
 
 #### Ambiente ESP32-S3/ESP32
 
@@ -125,7 +213,7 @@ typing-extensions>=4.8,<5
    ```
 3. Execute o servidor:
    ```bash
-   uvicorn app:app --reload --host 0.0.0.0 --port 8001
+    uvicorn app:app --reload --host 127.0.0.1 --port 8001
    ```
 4. Confirme que a API responde em `http://localhost:8001/docs`.
 

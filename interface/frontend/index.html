@@ -118,14 +118,76 @@
         </div>
       </div>
 
-      <!-- Info Bar -->
+      <!-- Guia Rápido de Inicialização Automática -->
+      <div class="mt-6 info-card">
+        <div class="flex items-start gap-3">
+          <div class="text-3xl shrink-0">
+            <span class="material-icons text-blue-400" style="font-size: 2rem">info</span>
+          </div>
+
+          <div class="flex-1">
+            <h3 class="text-white font-bold text-lg mb-2">Guia Rápido de Inicialização</h3>
+
+            <div class="grid md:grid-cols-2 gap-2">
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-green-400 text-base">check_circle</span>
+                  <span class="text-white font-semibold text-xs">1. Inicialização do Projeto</span>
+                </div>
+
+                <p class="text-gray-300 text-xs">Na raiz do projeto, execute:</p>
+
+                <p class="text-gray-300 text-xs mt-1">
+                  PowerShell:
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">.\start.bat</code>
+                </p>
+
+                <p class="text-gray-300 text-xs mt-1">
+                  CMD:
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">start.bat</code>
+                </p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-blue-400 text-base">usb</span>
+                  <span class="text-white font-semibold text-xs">2. Hardware</span>
+                </div>
+                <p class="text-gray-300 text-xs">Conecte o ESP32-S3 via USB ao computador</p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-purple-400 text-base">launch</span>
+                  <span class="text-white font-semibold text-xs">3. Interface</span>
+                </div>
+                <p class="text-gray-300 text-xs">O frontend será aberto automaticamente no navegador.</p>
+                <p class="text-gray-400 text-xs mt-1">
+                  Caso não abra, acesse manualmente:
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">interface\frontend\index.html</code>
+                </p>
+              </div>
+
+              <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span class="material-icons text-orange-400 text-base">play_arrow</span>
+                  <span class="text-white font-semibold text-xs">4. Conectar</span>
+                </div>
+                <p class="text-gray-300 text-xs">Conecte à porta serial e comece o controle</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guia Rápido de Inicialização Manual -->
       <div class="mt-6 info-card">
         <div class="flex items-start gap-3">
           <div class="text-3xl shrink-0">
             <span class="material-icons text-blue-400" style="font-size: 2rem">info</span>
           </div>
           <div class="flex-1">
-            <h3 class="text-white font-bold text-lg mb-2">Guia Rápido de Inicialização</h3>
+            <h3 class="text-white font-bold text-lg mb-2">Guia Rápido de Inicialização Manual</h3>
             <div class="grid md:grid-cols-2 gap-2">
               <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
                 <div class="flex items-center gap-1.5 mb-1">
@@ -167,13 +229,18 @@
         </div>
       </div>
 
+      <!-- Guia para Simulação de Voo -->
+
       <div class="mt-6 info-card">
         <div class="flex items-start gap-3">
           <div class="text-3xl shrink-0">
             <span class="material-icons text-red-400" style="font-size: 2rem">info</span>
           </div>
           <div class="flex-1">
-            <h3 class="text-white font-bold text-lg mb-2">Guia para Simulação de Voo <span class="text-sm text-teal-400">(Considerando que já está com o ESP32-S3 conectado)</span></h3>
+            <h3 class="text-white font-bold text-lg mb-2">
+              Guia para Simulação de Voo
+              <span class="text-sm text-teal-400">(Considerando que já está com o ESP32-S3 conectado)</span>
+            </h3>
             <div class="grid md:grid-cols-2 gap-2">
               <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
                 <div class="flex items-center gap-1.5 mb-1">
@@ -192,8 +259,10 @@
                   <span class="material-icons text-blue-400 text-base">usb</span>
                   <span class="text-white font-semibold text-xs">2. Simulador</span>
                 </div>
-                <p class="text-gray-300 text-xs">Inicie o FlightGear e configure a comunicação com <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">--telnet=socket,bi,60,localhost,5050,tcp</code></p>
-                
+                <p class="text-gray-300 text-xs">
+                  Inicie o FlightGear e configure a comunicação com
+                  <code class="bg-gray-900 px-1.5 py-0.5 rounded text-green-400 font-mono text-xs">--telnet=socket,bi,60,localhost,5050,tcp</code>
+                </p>
               </div>
 
               <div class="bg-gray-900/50 rounded-lg p-2 border border-gray-700/30">
