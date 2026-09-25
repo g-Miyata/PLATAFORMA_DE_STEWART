@@ -7,3 +7,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+# Frontend React (interface/web). O build (dist/) é versionado de propósito:
+# quem só usa a bancada roda o start.bat sem precisar de Node.js.
+interface/web/node_modules/
+interface/web/test-results/
+interface/web/playwright-report/
+
+# Configuração local de preview do Claude Code (caminhos desta máquina)
+.claude/launch.json
+
+# Autosave do MATLAB e arquivos temporários do Office
+*.asv
+~$*
