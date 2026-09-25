@@ -1,10 +1,21 @@
 # server_serial_steweart.py
 # FastAPI + Serial + WebSocket de telemetria com reconstrução de pose (LSQ)
 
+import sys
 import threading
 import time
 import json
 import asyncio
+
+# Os logs usam emoji; sem isto o backend cai ao iniciar quando a saída não é um
+# console (pipe, arquivo de log, serviço), pois o Windows usa cp1252 nesse caso.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 from math import sin, cos, tau
 
@@ -16,28 +27,55 @@ import serial.tools.list_ports
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+from simulated_device import SIM_PORT_NAME, SimulatedSerial
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
-API_VERSION = "1.1.0"
-CORS_ORIGINS = ["*"]
+API_VERSION = "1.2.0"
 
-app = FastAPI(title=API_TITLE, version=API_VERSION)
+# Origens liberadas: o próprio backend (que serve o frontend), o dev server do
+# Vite e o http.server legado. "null" cobre o frontend antigo aberto via file://
+# e deve sair quando interface/frontend for removido.
+CORS_ORIGINS = [
+    "http://localhost:8001", "http://127.0.0.1:8001",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:8080", "http://127.0.0.1:8080",
+    "null",
+]
+
+# Geometria/limites da bancada (fonte única de verdade para backend e frontend)
+STROKE_MIN_MM = 500.0
+STROKE_MAX_MM = 680.0
+# Altura de repouso: meio da faixa válida com a plataforma nivelada (433..631 mm),
+# o que deixa ~90 mm de curso para cada lado em todos os atuadores.
+HOME_Z_MM = 530.0
+
+BACKEND_DIR = Path(__file__).resolve().parent
+WEB_DIST_DIR = BACKEND_DIR.parent / "web" / "dist"
+LEGACY_FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Entrega o event loop ao SerialManager (a thread serial publica no WS por ele)."""
+    serial_mgr.set_event_loop(asyncio.get_running_loop())
+    print("✅ FastAPI startup: event loop configurado")
+    yield
+    serial_mgr.close()
+
+
+app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-async def startup_event():
-    """Configura o event loop no SerialManager quando o servidor inicia"""
-    loop = asyncio.get_event_loop()
-    serial_mgr.set_event_loop(loop)
-    print("✅ FastAPI startup: event loop configurado")
 
 BAUD = 115200
 CSV_DELIM = ';'
@@ -72,9 +110,15 @@ class PlatformResponse(BaseModel):
     platform_points: List[List[float]]
 
 class PlatformConfig(BaseModel):
-    h0: float
-    stroke_min: float
-    stroke_max: float
+    h0: float = Field(..., gt=0, le=1000)
+    stroke_min: float = Field(..., gt=0, le=2000)
+    stroke_max: float = Field(..., gt=0, le=2000)
+
+class PlatformGeometry(PlatformConfig):
+    """Tudo o que o frontend precisa para desenhar e validar a plataforma."""
+    home_z: float
+    base_points: List[List[float]]
+    platform_points_local: List[List[float]]
 
 class SerialOpenRequest(BaseModel):
     port: str
@@ -131,7 +175,7 @@ class JoystickPoseRequest(BaseModel):
 
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
-    def __init__(self, h0=432, stroke_min=500, stroke_max=680):
+    def __init__(self, h0=HOME_Z_MM, stroke_min=STROKE_MIN_MM, stroke_max=STROKE_MAX_MM):
         self.h0 = h0
         self.stroke_min = stroke_min
         self.stroke_max = stroke_max
@@ -332,7 +376,12 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform(h0=432, stroke_min=500, stroke_max=680)  # 182mm de curso útil
+platform = StewartPlatform()  # 180 mm de curso útil
+
+
+def format_spmm6x(course_mm) -> str:
+    """Comando do firmware com os 6 setpoints de curso (mm)."""
+    return "spmm6x=" + ",".join(f"{float(c):.3f}" for c in course_mm)
 
 # -------------------- WS Manager --------------------
 class WSManager:
@@ -374,6 +423,9 @@ class SerialManager:
         self.reader_thread: Optional[threading.Thread] = None
         self.stop_evt = threading.Event()
         self.lock = threading.Lock()
+        # Serializa sequências "sel=N" + comando, para duas requisições
+        # simultâneas não aplicarem um ganho/offset no pistão errado.
+        self.seq_lock = threading.RLock()
         self.latest: Dict[str, Any] = {}
         self.loop = None  # Será configurado quando o servidor iniciar
         # memória para LSQ partir de último chute
@@ -388,16 +440,28 @@ class SerialManager:
         with self.lock:
             if self.ser and self.ser.is_open:
                 raise RuntimeError("Serial já aberta")
-            self.ser = serial.Serial(port, baud, timeout=0.2)
+            if port == SIM_PORT_NAME:
+                self.ser = SimulatedSerial(timeout=0.2)
+            else:
+                self.ser = serial.Serial(port, baud, timeout=0.2)
+            self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
             self.stop_evt.clear()
             self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.reader_thread.start()
             print(f"🔌 Serial ABERTA: {port} @ {baud} baud")
             print(f"📖 Thread de leitura iniciada, aguardando dados...")
 
+    @property
+    def is_open(self) -> bool:
+        return self.ser is not None and self.ser.is_open
+
+    @property
+    def simulated(self) -> bool:
+        return isinstance(self.ser, SimulatedSerial) and self.ser.is_open
+
     def close(self):
         self.stop_evt.set()
-        if self.reader_thread:
+        if self.reader_thread and self.reader_thread is not threading.current_thread():
             self.reader_thread.join(timeout=1.0)
         with self.lock:
             if self.ser:
@@ -522,10 +586,26 @@ class SerialManager:
 
         # Ordena: ESP32 primeiro (por confiança), depois outros
         ports.sort(key=lambda x: (-x["is_esp32"], -x["confidence"], x["device"]))
+
+        # Dispositivo virtual sempre disponível, por último
+        ports.append({
+            "device": SIM_PORT_NAME,
+            "description": "Plataforma virtual (sem hardware)",
+            "display_name": "Simulador",
+            "hwid": "",
+            "vid": None,
+            "pid": None,
+            "manufacturer": "",
+            "is_esp32": False,
+            "confidence": 0,
+            "simulated": True,
+        })
         return ports
 
 
     def write_line(self, s: str, ending: bytes = b"\n"):
+        if "\n" in s or "\r" in s:
+            raise ValueError("Comando não pode conter quebra de linha")
         with self.lock:
             if not self.ser or not self.ser.is_open:
                 raise RuntimeError("Serial não aberta")
@@ -540,7 +620,13 @@ class SerialManager:
                     break
                 data = self.ser.read(1024)
             except Exception as e:
+                # Cabo desconectado/porta sumiu: fecha para /serial/status refletir
                 print(f"❌ Erro ao ler serial: {e}")
+                with self.lock:
+                    if self.ser:
+                        try: self.ser.close()
+                        except Exception: pass
+                        self.ser = None
                 break
             if not data:
                 continue
@@ -579,8 +665,7 @@ class SerialManager:
         # Formato BNO085: 21 campos (ms;SP;Y1-Y6;PWM1-PWM6;Roll;Pitch;Yaw;Qw;Qx;Qy;Qz)
         
         if len(parts) < 14:
-            print(f"   ⚠️ Linha NÃO é telemetria (tem {len(parts)} campos, esperado 14+)")
-            # Broadcast raw mínimo
+            # Não é telemetria (respostas "OK ...", header, etc.): broadcast raw mínimo
             self.latest = {"raw": text, "ts": now}
             if self.loop:
                 asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json({
@@ -723,6 +808,8 @@ class MotionRunner:
         self.platform = stewart_platform
         self.thread: Optional[threading.Thread] = None
         self.stop_evt = threading.Event()
+        # Parada de emergência: interrompe inclusive o movimento para HOME
+        self.abort_evt = threading.Event()
         self.status_dict = {
             "running": False,
             "routine": None,
@@ -734,7 +821,7 @@ class MotionRunner:
 
         # --- limites dinâmicos derivados da HOME ---
         self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
-        self._home_z_mm: float = 520 # Altura Z absoluta para HOME
+        self._home_z_mm: float = HOME_Z_MM  # Altura Z absoluta para HOME
         self._z_safety_mm: float = 5.0    # margem de segurança contra batente
     
     def _home_pose(self) -> dict:
@@ -798,41 +885,46 @@ class MotionRunner:
         with self.lock:
             if self.status_dict["running"]:
                 raise RuntimeError("Rotina já está rodando. Pare primeiro.")
-            
+
             self.stop_evt.clear()
-        self.status_dict = {
-            "running": True,
-            "routine": req.routine,
-            "params": model_to_dict(req),
-            "started_at": time.time(),  # ✅ Define antes da thread (HOME será feito dentro dela)
-            "elapsed": 0.0
-        }
-            
-        self.thread = threading.Thread(
+            self.abort_evt.clear()
+            # Marca como rodando ainda dentro do lock: duas requisições simultâneas
+            # não conseguem iniciar duas threads.
+            self.status_dict = {
+                "running": True,
+                "routine": req.routine,
+                "params": model_to_dict(req),
+                "started_at": time.time(),  # HOME é feito dentro da thread
+                "elapsed": 0.0
+            }
+            self.thread = threading.Thread(
                 target=self._run_routine,
                 args=(req,),
                 daemon=True
             )
-
-        self.thread.start()
+            self.thread.start()
 
     
-    def stop(self):
-        """Para a rotina e retorna suavemente para home"""
+    def stop(self, go_home: bool = True):
+        """Para a rotina. Com go_home=False (emergência) não volta para HOME."""
         with self.lock:
             if not self.status_dict["running"]:
                 return
-            
+
             self.stop_evt.set()
-        
+            if not go_home:
+                self.abort_evt.set()
+
         if self.thread:
             self.thread.join(timeout=2.0)
-        
+
         with self.lock:
             self.status_dict["running"] = False
-        
-        # Retornar suavemente para home (0,0,h0+bias,0,0,0)
-        # print(f"🏠 Retornando para home...")
+
+        if not go_home:
+            return
+
+        # Retornar suavemente para home
         try:
             self._go_home_smooth(duration=1.5)
         except Exception as e:
@@ -893,11 +985,11 @@ class MotionRunner:
                 
                 # Validar com inverse kinematics
                 z_val = pose.get("z", self.platform.h0)
-                L, valid, _ = self.platform.inverse_kinematics(
+                L, valid, P_cmd = self.platform.inverse_kinematics(
                     x=pose["x"], y=pose["y"], z=z_val,
                     roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
                 )
-                
+
                 if not valid:
                     print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
                     break
@@ -910,19 +1002,19 @@ class MotionRunner:
                 
                 # Enviar setpoints via serial 
                 try:
-                    cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-                    self.serial_mgr.write_line(cmd)
+                    self.serial_mgr.write_line(format_spmm6x(course_mm))
                 except Exception as e:
                     print(f"❌ Erro ao enviar comando serial: {e}")
                     break
-                
+
                 # Broadcast via WebSocket
                 try:
-                    # Pegar valores reais da telemetria
-                    latest_telem = self.serial_mgr.latest or {}
-                    actuators_real = [
-                        latest_telem.get(f"Y{i+1}", 0.0) for i in range(6)
-                    ]
+                    # Comprimentos reais (absolutos) a partir da última telemetria
+                    latest_Y = (self.serial_mgr.latest or {}).get("Y")
+                    actuators_real = (
+                        [self.platform.stroke_min + float(y) for y in latest_Y]
+                        if latest_Y else None
+                    )
                     
                     # Converter L para lista Python
                     if hasattr(L, 'tolist'):
@@ -937,7 +1029,8 @@ class MotionRunner:
                         "pose_cmd": pose,
                         "routine": routine_name,
                         "actuators_cmd": actuators_cmd,
-                        "actuators_real": actuators_real
+                        "actuators_real": actuators_real,
+                        "platform_points_cmd": P_cmd.tolist(),
                     }
                     
                     asyncio.run_coroutine_threadsafe(
@@ -1103,6 +1196,9 @@ class MotionRunner:
         
         sent_commands = 0
         for i in range(steps):
+            if self.abort_evt.is_set():
+                print("🛑 HOME interrompido (parada de emergência)")
+                return
             # curva suave apenas para marcar o ritmo de envio (HOME é fixa)
             L, valid, _ = self.platform.inverse_kinematics(**pose)
             if not valid:
@@ -1163,16 +1259,18 @@ def api_close_serial():
 def api_serial_status():
     """Retorna o status da conexão serial"""
     try:
-        is_open = serial_mgr.ser is not None and serial_mgr.ser.is_open
+        is_open = serial_mgr.is_open
         port_name = serial_mgr.ser.port if is_open else None
         return {
             "connected": is_open,
-            "port": port_name
+            "port": port_name,
+            "simulated": serial_mgr.simulated,
         }
-    except Exception as e:
+    except Exception:
         return {
             "connected": False,
-            "port": None
+            "port": None,
+            "simulated": False,
         }
 
 @app.get("/telemetry")
@@ -1212,23 +1310,24 @@ def set_pid_gains(gains: PIDGains):
     try:
         if not 1 <= gains.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
-        
-        # Seleciona o pistão
-        serial_mgr.write_line(f"sel={gains.piston}")
-        time.sleep(0.01)
-        
-        if gains.kp is not None:
-            serial_mgr.write_line(f"kpmm={gains.kp:.4f}")
+
+        with serial_mgr.seq_lock:
+            # Seleciona o pistão
+            serial_mgr.write_line(f"sel={gains.piston}")
             time.sleep(0.01)
-            pid_gains_cache[gains.piston]["kp"] = gains.kp
-        if gains.ki is not None:
-            serial_mgr.write_line(f"kimm={gains.ki:.4f}")
-            time.sleep(0.01)
-            pid_gains_cache[gains.piston]["ki"] = gains.ki
-        if gains.kd is not None:
-            serial_mgr.write_line(f"kdmm={gains.kd:.4f}")
-            time.sleep(0.01)
-            pid_gains_cache[gains.piston]["kd"] = gains.kd
+
+            if gains.kp is not None:
+                serial_mgr.write_line(f"kpmm={gains.kp:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["kp"] = gains.kp
+            if gains.ki is not None:
+                serial_mgr.write_line(f"kimm={gains.ki:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["ki"] = gains.ki
+            if gains.kd is not None:
+                serial_mgr.write_line(f"kdmm={gains.kd:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["kd"] = gains.kd
         
         return {"message": f"Ganhos atualizados para pistão {gains.piston}"}
     except Exception as e:
@@ -1277,15 +1376,16 @@ def set_pid_feedforward(ff: PIDFeedforward):
         if not 1 <= ff.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={ff.piston}")
-        time.sleep(0.01)
-        
-        if ff.u0_adv is not None:
-            serial_mgr.write_line(f"u0a={ff.u0_adv:.2f}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={ff.piston}")
             time.sleep(0.01)
-        if ff.u0_ret is not None:
-            serial_mgr.write_line(f"u0r={ff.u0_ret:.2f}")
-            time.sleep(0.01)
+
+            if ff.u0_adv is not None:
+                serial_mgr.write_line(f"u0a={ff.u0_adv:.2f}")
+                time.sleep(0.01)
+            if ff.u0_ret is not None:
+                serial_mgr.write_line(f"u0r={ff.u0_ret:.2f}")
+                time.sleep(0.01)
         
         return {"message": f"Feedforward atualizado para pistão {ff.piston}"}
     except Exception as e:
@@ -1347,7 +1447,8 @@ def pid_select_piston(piston: int):
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={piston}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={piston}")
         return {"message": f"Pistão {piston} selecionado"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1359,9 +1460,10 @@ def set_pid_offset(piston: int, offset: float):
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={piston}")
-        time.sleep(0.01)
-        serial_mgr.write_line(f"offset={offset:.3f}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={piston}")
+            time.sleep(0.01)
+            serial_mgr.write_line(f"offset={offset:.3f}")
         
         return {"message": f"Offset do pistão {piston} = {offset:.3f} mm"}
     except Exception as e:
@@ -1484,6 +1586,28 @@ def motion_stop():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/emergency-stop")
+def emergency_stop():
+    """Parada de emergência.
+
+    Interrompe rotina e simulação de voo (sem voltar para HOME), tira o firmware
+    do modo manual e congela os atuadores na posição medida mais recente.
+    """
+    motion_runner.stop(go_home=False)
+    FLIGHT_SIMULATION_STATE["enabled"] = False
+    held = None
+    if serial_mgr.is_open:
+        try:
+            serial_mgr.write_line("OK")
+            Y = (serial_mgr.latest or {}).get("Y")
+            if Y:
+                rng = platform.stroke_max - platform.stroke_min
+                held = np.clip(np.array(Y, dtype=float), 0.0, rng)
+                serial_mgr.write_line(format_spmm6x(held))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro TX serial: {e}")
+    return {"stopped": True, "held_mm": held.tolist() if held is not None else None}
+
 @app.get("/motion/status")
 def motion_status():
     """Retorna o status da rotina de movimento"""
@@ -1493,18 +1617,31 @@ def motion_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------- Plataforma (REST iguais) --------------------
-@app.get("/config", response_model=PlatformConfig)
+@app.get("/config", response_model=PlatformGeometry)
 def get_config():
-    return PlatformConfig(
+    return PlatformGeometry(
         h0=platform.h0,
         stroke_min=platform.stroke_min,
-        stroke_max=platform.stroke_max
+        stroke_max=platform.stroke_max,
+        home_z=motion_runner._home_z_mm,
+        base_points=platform.B.tolist(),
+        platform_points_local=platform.P0.tolist(),
     )
 
 @app.post("/config")
 def set_config(cfg: PlatformConfig):
-    global platform
-    platform = StewartPlatform(cfg.h0, cfg.stroke_min, cfg.stroke_max)
+    if cfg.stroke_max <= cfg.stroke_min:
+        raise HTTPException(status_code=400, detail="stroke_max deve ser maior que stroke_min")
+    # Não permite ampliar o curso além do limite mecânico da bancada
+    if cfg.stroke_min < STROKE_MIN_MM or cfg.stroke_max > STROKE_MAX_MM:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Curso deve ficar dentro de {STROKE_MIN_MM:.0f}..{STROKE_MAX_MM:.0f} mm",
+        )
+    # Atualiza no lugar: motion_runner e serial_mgr guardam a mesma instância
+    platform.h0 = cfg.h0
+    platform.stroke_min = cfg.stroke_min
+    platform.stroke_max = cfg.stroke_max
     return {"message": "Configuração atualizada"}
 
 
@@ -1550,34 +1687,7 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
 
 @app.post("/calculate", response_model=PlatformResponse)
 def calculate_position(pose: PoseInput):
-    z_value = pose.z if pose.z is not None else platform.h0
-    L, valid, P = platform.inverse_kinematics(
-        x=pose.x, y=pose.y, z=z_value,
-        roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw
-    )
-    perc = platform.stroke_percentages(L)
-    
-    # 🐛 DEBUG: Verificar validação individual
-    #print(f"\n📊 ENDPOINT /calculate:")
-    #print(f"   valid_global = {valid}")
-    
-    acts = [ActuatorData(id=i+1, length=float(L[i]),
-                         percentage=float(perc[i]),
-                         valid=platform.stroke_min <= L[i] <= platform.stroke_max)
-            for i in range(6)]
-    
-    # 🐛 DEBUG: Mostrar o que será retornado
-    #for act in acts:
-        #print(f"   Atuador {act.id}: L={act.length:.2f}mm, valid={act.valid}")
-    
-    return PlatformResponse(
-        pose=PoseInput(x=pose.x, y=pose.y, z=z_value,
-                       roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw),
-        actuators=acts,
-        valid=bool(valid),
-        base_points=platform.B.tolist(),
-        platform_points=P.tolist()
-    )
+    return build_platform_response(pose)
 
 @app.post("/apply_pose")
 def apply_pose(req: ApplyPoseRequest):
@@ -1594,12 +1704,8 @@ def apply_pose(req: ApplyPoseRequest):
     #print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
         # Enviar todos os 6 setpoints de uma vez
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-       # print(f"📤 Enviando comando: {cmd}")
-        serial_mgr.write_line(cmd)
-        #print("✅ Comando enviado com sucesso")
+        serial_mgr.write_line(format_spmm6x(course_mm))
     except Exception as e:
-        #print(f"❌ Erro ao enviar comando: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
 
@@ -1611,7 +1717,7 @@ class MPUControlRequest(BaseModel):
     x: float = Field(0, description="Translação X (mm)")
     y: float = Field(0, description="Translação Y (mm)")
     z: Optional[float] = Field(None, description="Altura Z (mm), default=h0")
-    scale: float = Field(1.0, description="Fator de escala para os ângulos (0.0-1.0)")
+    scale: float = Field(1.0, ge=0.0, le=1.0, description="Fator de escala para os ângulos (0.0-1.0)")
 
 @app.post("/mpu/control")
 def mpu_control(req: MPUControlRequest):
@@ -1652,9 +1758,8 @@ def mpu_control(req: MPUControlRequest):
     
     # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
         #print(f"📤 Enviando comando MPU: {cmd}")
-        serial_mgr.write_line(cmd)
+        serial_mgr.write_line(format_spmm6x(course_mm))
         #print(f"✅ Comando MPU enviado com sucesso")
     except Exception as e:
         #print(f"❌ Erro ao enviar comando MPU: {e}")
@@ -1669,7 +1774,7 @@ def mpu_control(req: MPUControlRequest):
             "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
         },
         "lengths_abs": L.tolist(),
-        "base_points": platform.base_points.tolist(),
+        "base_points": platform.B.tolist(),
         "platform_points": platform_points
     }
 
@@ -1728,13 +1833,13 @@ def joystick_pose(req: JoystickPoseRequest):
     Mapeia eixos normalizados do joystick (-1..1) para pose física da plataforma.
     
     Mapeamento:
-    - lx, ly: Stick esquerdo -> translação X, Y (±10mm)
-    - rx, ry: Stick direito -> rotação Pitch, Roll (±10°)
+    - lx, ly: Stick esquerdo -> translação X, Y (±30mm)
+    - rx, ry: Stick direito -> rotação Pitch, Roll (±8°)
     - lt, rt: Triggers -> controle de Yaw (futuro)
     
     Parâmetros:
     - apply: Se True, envia comando serial para ESP32
-    - z_base: Altura Z base (default = platform.h0 + 23mm, altura elevada segura)
+    - z_base: Altura Z base (default = HOME_Z_MM)
     
     Retorna:
     - valid: Se a pose calculada é válida
@@ -1749,8 +1854,7 @@ def joystick_pose(req: JoystickPoseRequest):
     
     # Constantes de mapeamento (limites físicos da plataforma)
     MAX_TRANS_MM = 30.0   # ±30mm em X e Y
-    MAX_ANGLE_DEG = 8.0  # ±10° em roll, pitch, yaw
-    HOME_BIAS_MM = 68.0   # Altura elevada segura
+    MAX_ANGLE_DEG = 8.0  # ±8° em roll, pitch
     
     # Mapear eixos normalizados para valores físicos
     # lx -> X (direita positivo)
@@ -1758,8 +1862,8 @@ def joystick_pose(req: JoystickPoseRequest):
     x = np.clip(req.lx * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
     y = np.clip(-req.ly * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
     
-    # Z usa valor base fornecido ou h0 + 23mm (altura elevada segura)
-    z = req.z_base if req.z_base is not None else (platform.h0 + HOME_BIAS_MM)
+    # Z usa valor base fornecido ou a altura de repouso
+    z = req.z_base if req.z_base is not None else HOME_Z_MM
     
     # rx -> Pitch (stick direito horizontal)
     # ry -> Roll (stick direito vertical, invertido)
@@ -1795,9 +1899,8 @@ def joystick_pose(req: JoystickPoseRequest):
     applied = False
     if req.apply:
         try:
-            cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
             #print(f"📤 Enviando comando joystick: {cmd}")
-            serial_mgr.write_line(cmd)
+            serial_mgr.write_line(format_spmm6x(course_mm))
             applied = True
             #print("✅ Comando joystick enviado com sucesso")
         except Exception as e:
@@ -1836,47 +1939,46 @@ async def ws_telemetry(ws: WebSocket):
     except Exception:
         await ws_mgr.disconnect(ws)
 
-# -------------------- Raiz --------------------
-@app.get("/")
-def root():
-    return {
-        "name": API_TITLE,
-        "version": API_VERSION,
-        "endpoints": [
-            "GET  /serial/ports",
-            "POST /serial/open {port, baud?}",
-            "POST /serial/close",
-            "GET  /serial/status",
-            "POST /serial/send {command}",
-            "GET  /telemetry",
-            "WS   /ws/telemetry",
-            "POST /calculate",
-            "POST /apply_pose",
-            "POST /joystick/pose",
-            "POST /mpu/control",
-            "GET  /config",
-            "POST /config",
-            "POST /pid/setpoint",
-            "POST /pid/gains",
-            "POST /pid/gains/all",
-            "POST /pid/feedforward",
-            "POST /pid/feedforward/all",
-            "POST /pid/settings",
-            "POST /pid/offset",
-            "POST /pid/offset/all",
-            "POST /pid/manual/{action}",
-            "POST /pid/select/{piston}",
-            "POST /motion/start",
-            "POST /motion/stop",
-            "GET  /motion/status",
-            "POST /flight-simulation/start",
-            "POST /flight-simulation/stop",
-            "POST /flight-simulation/preview",
-            "GET  /flight-simulation/preview",
-            "GET  /flight-simulation/status",
-        ]
-    }
+# -------------------- Raiz / Frontend --------------------
+@app.get("/api/info")
+def api_info():
+    """Nome, versão e rotas da API (a documentação completa está em /docs)."""
+    endpoints = []
+    for route in app.routes:
+        methods = getattr(route, "methods", None)
+        path = getattr(route, "path", "")
+        if methods and not path.startswith(("/docs", "/redoc", "/openapi", "/{")):
+            for method in sorted(methods - {"HEAD", "OPTIONS"}):
+                endpoints.append(f"{method:5} {path}")
+    endpoints.append("WS    /ws/telemetry")
+    return {"name": API_TITLE, "version": API_VERSION, "endpoints": endpoints}
+
+
+# Frontend antigo (vanilla) servido em /antigo/ enquanto a migração não termina
+if LEGACY_FRONTEND_DIR.is_dir():
+    app.mount("/antigo", StaticFiles(directory=LEGACY_FRONTEND_DIR, html=True), name="legacy-frontend")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa(full_path: str):
+    """Serve o build do frontend React (interface/web/dist) com fallback de SPA.
+
+    Registrada por último para nunca encobrir as rotas da API.
+    """
+    index = WEB_DIST_DIR / "index.html"
+    if not index.is_file():
+        if LEGACY_FRONTEND_DIR.is_dir() and full_path == "":
+            return FileResponse(LEGACY_FRONTEND_DIR / "index.html")
+        raise HTTPException(
+            status_code=404,
+            detail="Frontend não compilado. Rode 'npm run build' em interface/web.",
+        )
+    candidate = (WEB_DIST_DIR / full_path).resolve()
+    if full_path and candidate.is_file() and WEB_DIST_DIR.resolve() in candidate.parents:
+        return FileResponse(candidate)
+    return FileResponse(index)
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8001)
