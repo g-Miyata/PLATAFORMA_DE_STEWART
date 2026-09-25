@@ -1,319 +1,203 @@
-[JAVASCRIPT__BADGE]: https://img.shields.io/badge/JavaScript-000?style=for-the-badge&logo=javascript
-[CSS3__BADGE]: https://img.shields.io/badge/CSS3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white
+[REACT__BADGE]: https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB
+[TS__BADGE]: https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white
+[THREE__BADGE]: https://img.shields.io/badge/three.js-000000?style=for-the-badge&logo=threedotjs&logoColor=white
 [FastAPI__BADGE]: https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi
 [TailwindCSS__BADGE]: https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white
-[HTML5__BADGE]: https://img.shields.io/badge/html5-%23E34F26.svg?style=for-the-badge&logo=html5&logoColor=white
 
 <div align="center">
 
-<img src="./interface/frontend/assets/ifsp-logo-md.png" alt="logo ifsp" width="280px">
+<img src="./interface/web/public/brand/ifsp-logo-md.png" alt="logo ifsp" width="280px">
 
 <hr/>
 
 <h1 align="center" style="font-weight: bold;">PLATAFORMA DE STEWART</h1>
 
-![HTML5][HTML5__BADGE]
-![CSS3][CSS3__BADGE]
+![REACT][REACT__BADGE]
+![TYPESCRIPT][TS__BADGE]
+![THREE.JS][THREE__BADGE]
 ![TAILWIND][TailwindCSS__BADGE]
-![JAVASCRIPT][JAVASCRIPT__BADGE]
 ![FASTAPI][FastAPI__BADGE]
 
 </div>
 
 ## Visão Geral
 
-Esta documentação consolida o ecossistema do projeto da Plataforma de Stewart (IFSP – TCC 2025), abrangendo o **frontend** (interfaces web em Three.js/Vanilla), o **backend** (FastAPI + Serial) e os **firmwares** do ESP32-S3. Abaixo você encontrará uma visão macro dos módulos, instruções de instalação/execução e um guia de versionamento, além de links para documentação detalhada de cada funcionalidade.
+Este repositório reúne o projeto da Plataforma de Stewart do IFSP (TCC 2025):
 
-## Arquitetura Macro
+- **interface web** em React + Three.js (`interface/web`), com modelo 3D da bancada, tema claro/escuro e acessibilidade;
+- **backend** FastAPI (`interface/backend`), que calcula a cinemática e conversa com o ESP32 pela serial;
+- **firmwares** do ESP32-S3 (`esp32s3_codes`).
+
+O backend também tem um **dispositivo virtual (simulador)**: dá para usar toda a interface e validar movimentos sem hardware.
+
+## Arquitetura
 
 ```mermaid
-
-flowchart TB
-    subgraph Frontend ["FRONTEND"]
-        F1[controller.html] --> F2[joystick.html] --> F3[kinematics.html] --> F4[accelerometer.html] --> F5[routines.html] --> F6[actuators.html] --> F7[settings.html]
+flowchart LR
+    subgraph Web ["Interface web (React)"]
+        P["Páginas: Atuadores · Cinemática · Joystick<br>Rotinas · IMU · Ganhos PID · Simulação de voo"]
+        V["Modelo 3D (React Three Fiber)"]
     end
 
-    subgraph Backend ["BACKEND"]
-        B1["Endpoints REST<br>/apply_pose, /calculate,<br>/pid/*, /motion/*"]
-        B2["WebSocket /ws/telemetry"]
-        B3["Serial Manager<br>(pyserial)"]
+    subgraph Backend ["Backend FastAPI :8001"]
+        R["REST: /calculate, /apply_pose, /pid/*,<br>/motion/*, /emergency-stop ..."]
+        W["WebSocket /ws/telemetry"]
+        S["SerialManager"]
     end
 
-    subgraph Firmware ["ESP32-S3"]
-        FW1["PID controle 6 DOF<br>pid-control-filter-spike-bno.ino"]
-        FW2["Transmissor BNO085<br>BNO085.ino"]
-        FW3["Transmissor MPU6050<br>cmpu-6050.ino"]
-    end
+    SIM["Simulador<br>(simulated_device.py)"]
+    FW["ESP32-S3<br>pid-control-filter-spike-bno.ino"]
+    IMU["Transmissor IMU<br>BNO085 / MPU-6050"]
+    FG["FlightGear + fg-bridge.py"]
 
-    IMU["IMU remota<br>(BNO085 OU MPU6050)"]
-
-    Frontend -->|HTTP/WS| Backend
-    Backend -->|Serial USB| FW1
-    FW1 --> Backend
-
-    FW2 --> IMU
-    FW3 --> IMU
-    IMU -->|ESP-NOW| FW1
-
-
-
+    Web -->|HTTP / WS| Backend
+    S -->|porta COM| FW
+    S -->|porta SIMULADOR| SIM
+    IMU -->|ESP-NOW| FW
+    FG -->|HTTP| Backend
 ```
 
-# Iniciando
-
-## Instalação
+## Executando
 
 ### Pré-requisitos
 
-#### Versão do Python
+- **Python 3.12** oficial para Windows ([python.org](https://www.python.org/downloads/windows/)). A 3.12.10 é a última 3.12 com instalador para Windows. Na instalação, marque _Add python.exe to PATH_.
+  - Cuidado com Pythons embutidos em outros programas (por exemplo o do Inkscape), que criam o ambiente virtual num formato incompatível. O `start.bat` detecta e recusa esses casos.
+- **Node.js não é necessário** para usar a bancada: o build da interface (`interface/web/dist`) vem pronto no repositório. Só é preciso Node 24 para desenvolver o frontend.
 
-Este projeto requer o **Python 3.12.x**.
+### Iniciar
 
-Versão recomendada:
+Na raiz do projeto:
 
-- Python **3.12.17**
-
-Baixe o Python pelo site oficial:
-
-https://www.python.org/downloads/windows/
-
-Durante a instalação no Windows, marque a opção:
-
-```text
-Add python.exe to PATH
-```
-
-Essa opção permite que o comando `python` seja reconhecido no terminal.
-
-Para verificar se o Python foi instalado corretamente, execute:
-
-```bash
-python --version
-```
-
-ou:
-
-```bash
-py --version
-```
-
----
-
-## Executando o projeto
-
-Na raiz do projeto, execute:
-
-### PowerShell
-
-```powershell
-.\start.bat
-```
-
-### CMD
-
-```cmd
+```bat
 start.bat
 ```
 
-O script irá automaticamente:
+O script:
 
-1. Verificar se o Python está instalado;
-2. Criar um ambiente virtual em `interface/backend/.venv`;
-3. Instalar as dependências do backend;
-4. Iniciar a API FastAPI na porta `8001`;
-5. Abrir o frontend no navegador.
+1. procura o Python 3.12 (primeiro `py -3.12`, depois `python`);
+2. cria o ambiente virtual em `interface/backend/.venv` e instala as dependências;
+3. sobe o FastAPI em `http://localhost:8001`;
+4. abre a interface em **http://localhost:8001/**.
 
-Caso o frontend não seja aberto automaticamente, abra manualmente o arquivo:
+| Endereço                      | Conteúdo                                               |
+| ----------------------------- | ------------------------------------------------------ |
+| http://localhost:8001/        | Interface nova (React)                                 |
+| http://localhost:8001/antigo/ | Interface antiga (HTML/JS), mantida durante a migração |
+| http://localhost:8001/docs    | Documentação interativa da API                         |
 
-- PLATAFORMA_DE_STEWART\interface\frontend\index.html
+> Se aparecer "O ambiente virtual existente é inválido", apague a pasta `interface/backend/.venv` e rode o `start.bat` de novo.
 
+## Modo simulação (sem hardware)
 
-A documentação da API estará disponível em:
+No topo da interface, escolha **Simulador** e clique em **Conectar**. O selo muda para **SIMULAÇÃO** (azul). Nada físico se move, e todas as páginas funcionam.
 
-- http://localhost:8001/docs
+- O backend passa a usar `interface/backend/simulated_device.py` no lugar da porta serial. Ele aceita os mesmos comandos do firmware (`spmm6x=`, `sel=`, `kpmm=`, `A`/`R`/`OK`...), roda o mesmo PID e responde com a mesma telemetria CSV.
+- A dinâmica de cada atuador (velocidade máxima e zona morta) foi ajustada aos ensaios de degrau reais (`MATLAB/workspace1-6.mat`) por `interface/backend/tools/fit_sim_params.py`, com fit de ~90%. Os parâmetros ficam em `interface/backend/sim_params.json`.
+- No modelo 3D, a plataforma sólida é a medida (telemetria) e o **fantasma verde** é a pose comandada. A diferença entre as duas mostra o atraso real dos atuadores.
+- A página **Rotinas** estima a velocidade de pico que cada movimento exige e avisa quando ela passa do que os atuadores sustentam (~12 mm/s).
+- Nas páginas Joystick e IMU há controles virtuais (sliders) para quando não há gamepad ou sensor.
 
+Para usar o hardware, selecione a porta COM do ESP32-S3 e confirme. O selo fica vermelho, **HARDWARE REAL**.
 
----
+### Segurança
 
-## Dependências Python
+- **Parar** (ou a tecla **Esc**) chama `POST /emergency-stop`: interrompe rotinas e a simulação de voo, tira o firmware do modo manual (`OK`) e congela os atuadores na posição atual. Joystick, IMU e "aplicar automaticamente" desligam sozinhos.
+- O backend escuta só em `127.0.0.1`, e o CORS é restrito ao próprio servidor e ao servidor de desenvolvimento.
 
-As bibliotecas do backend estão em:
+## Desenvolvimento
 
-```text
-interface/backend/requirements.txt
+### Backend
+
+```bat
+cd interface\backend
+.venv\Scripts\activate
+pip install -r requirements.txt pytest
+uvicorn app:app --reload --port 8001
+pytest
 ```
 
-Não é necessário instalar manualmente as dependências, pois o arquivo `start.bat` faz isso automaticamente.
+Os testes automatizados ficam em `interface/backend/tests/` e cobrem a cinemática, o simulador e a API com o simulador conectado. Os `test_*.py` soltos na pasta do backend são scripts manuais antigos (precisam de servidor ou hardware) e o `pytest.ini` os ignora.
 
-Caso queira instalar manualmente, acesse a pasta do backend e execute:
+### Frontend (`interface/web`)
 
-```bash
-pip install -r requirements.txt
+```bat
+cd interface\web
+npm install
+npm run dev
 ```
 
-Conteúdo atual do `requirements.txt`:
+O servidor de desenvolvimento fica em http://localhost:5173 e repassa a API para o backend em `:8001`.
 
-```txt
-# ==== API e servidor Web  ====
-fastapi==0.104.1
-starlette==0.27.0
-uvicorn[standard]==0.24.0.post1
-pydantic==2.5.3
-python-multipart==0.0.9
+| Comando                              | O que faz                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------- |
+| `npm run build`                      | Gera `dist/`, que o FastAPI serve. **Rode antes de commitar** mudanças no frontend. |
+| `npm run lint` / `npm run typecheck` | ESLint (inclui regras de acessibilidade jsx-a11y) e TypeScript                      |
+| `npm test`                           | Testes unitários (Vitest)                                                           |
+| `npm run test:e2e`                   | Playwright + axe contra o build, com o simulador (usa o Edge instalado no Windows)  |
 
-# ==== Científico ====
-numpy==1.26.4
-scipy==1.13.1
+Detalhes de arquitetura, tema IFSP, acessibilidade e o fluxo para melhorar o modelo 3D no Blender estão em [interface/web/README.md](interface/web/README.md).
 
-# ==== Serial ====
-pyserial==3.5
+### Integração contínua
 
-# ==== Utilitários ====
-python-dotenv==1.0.1
-typing-extensions>=4.8,<5
-httpx==0.28.1
-flightgear-python==2.0.3
-```
-
----
-
-## Observação sobre o ambiente virtual
-
-O projeto cria automaticamente a pasta:
-
-```text
-interface/backend/.venv
-```
-
-Essa pasta contém o ambiente virtual Python usado pelo backend.
-
-#### Ambiente ESP32-S3/ESP32
-
-- **Arduino IDE 2.x**
-- **Core ESP32**: _esp32 by Espressif Systems_ v2.0.15
-- **Bibliotecas adicionais**:
-  - SparkFun BNO08x Cortex Based IMU – v1.0.6
-- **Driver USB–Serial**: CP210x USB to UART Bridge  
-  Download e instruções: [Robocore – Instalando driver do NodeMCU](https://www.robocore.net/tutoriais/instalando-driver-do-nodemcu)
-
-#### Outros
-
-- **Node.js** LTS (para rodar servers estáticos, bundlers opcionais etc.).
-- **Ferramentas de linha de comando**: `git`, `make` (opcional), `python -m http.server` ou similar para servir o frontend.
-
-### Backend (FastAPI)
-
-1. Entre em `interface/backend`.
-2. Crie (opcional) um ambiente virtual e instale dependências:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # Linux/macOS
-   .\.venv\Scripts\activate   # Windows PowerShell
-   pip install -r requirements.txt
-   ```
-3. Execute o servidor:
-   ```bash
-    uvicorn app:app --reload --host 127.0.0.1 --port 8001
-   ```
-4. Confirme que a API responde em `http://localhost:8001/docs`.
-
-### Frontend
-
-O frontend é estático. Basta abrir os arquivos `.html` diretamente no navegador ou servir via um servidor local (ex.: `live-server`, `python -m http.server`, etc.). Para páginas que dependem de módulos ES6, verifique se o navegador carrega via `file://` sem bloquear. Recomenda-se rodar um server simples:
-
-```bash
-cd interface/frontend
-python -m http.server 8080
-# Abrir http://localhost:8080/controller.html
-```
-
-> Existe também um script pronto (`start.bat`) na raiz do repositório. Ele abre duas janelas de terminal: uma com o backend FastAPI (`uvicorn`) e outra com `python -m http.server 8080` para o frontend. Basta executar `start.bat` para subir ambos.
+`.github/workflows/ci.yml` roda pytest, lint, tipos, testes, build e os testes de ponta a ponta com acessibilidade em cada PR. Em tags `v*`, anexa o build (`stewart-web-dist.zip`) à release.
 
 ### Firmware ESP32-S3
 
-1. Abra `esp32s3_codes/pid-control-filter-spike-bno/pid-control-filter-spike-bno.ino` (ou variantes) no Arduino IDE (ESP32 S3 board selecionada) ou PlatformIO.
-2. Ajuste as constantes de pinagem/ganhos conforme necessário.
-3. Compile e faça upload via USB.
+- **Arduino IDE 2.x**, com o core _esp32 by Espressif Systems_ **2.0.x** (testado na 2.0.15). O core 3.x muda `ledcSetup`/`ledcAttachPin` e o callback do ESP-NOW, e o código não compila nele.
+- **Bibliotecas:** SparkFun BNO08x Cortex Based IMU 1.0.6 e MPU6050_light.
+- **Driver USB-serial:** CP210x ([tutorial Robocore](https://www.robocore.net/tutoriais/instalando-driver-do-nodemcu)).
 
-> Consulte [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md) para detalhes completos do firmware.
+| Sketch                                                                 | Função                                                                                     |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `esp32s3_codes/stewart-platform-control/pid-control-filter-spike-bno/` | Firmware principal: PID dos 6 atuadores, telemetria, receptor ESP-NOW                      |
+| `esp32s3_codes/stewart-platform-control/BNO085/`                       | Transmissor de orientação com BNO085                                                       |
+| `esp32s3_codes/stewart-platform-control/mpu-6050/`                     | Transmissor de orientação com MPU-6050                                                     |
+| `esp32s3_codes/others/`                                                | Sketches de teste antigos (algumas pinagens diferem da principal: não gravar sem conferir) |
 
-## Execução e Fluxo
+Comandos seriais e telemetria: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md).
 
-1. **Ligar o ESP32-S3** com o firmware PID. Ele aguardará setpoints pela serial e telemetria pelo sensor.
-2. **Iniciar o backend** (`uvicorn app:app --reload --port 8001`).
-3. **Abrir uma página do frontend**:
-   - `joystick.html` para controle via joystick.
-   - `kinematics.html` para cálculos de cinemática.
-   - `accelerometer.html` para controle por IMU.
-   - `routines.html` para rotinas de movimentoBN e gráficos.
-   - `actuators.html` para controle PID e telemetria.
-   - `settings.html` para ajustes rápidos de ganhos/offsets.
-4. Conectar-se à porta serial na UI e ativar as funcionalidades desejadas.
+## Estrutura do repositório
 
-## Documentação por Módulo
+| Pasta                       | Conteúdo                                                       |
+| --------------------------- | -------------------------------------------------------------- |
+| `interface/web`             | Interface React (código em `src/`, build em `dist/`)           |
+| `interface/backend`         | FastAPI, simulador, testes (`tests/`) e ferramentas (`tools/`) |
+| `interface/frontend`        | Interface antiga (servida em `/antigo/` até o fim da migração) |
+| `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`) e assets do FlightGear       |
+| `interface-coleta-de-dados` | Aplicativos Python usados nas aquisições do TCC                |
+| `esp32s3_codes`             | Firmwares do ESP32-S3                                          |
+| `MATLAB`                    | Identificação de sistema e projeto dos controladores           |
+| `aquisições`                | Dados brutos dos ensaios (CSV) por pistão                      |
+| `3D-drawings-archives`      | Peças para impressão 3D (STL/3MF)                              |
+| `docs`                      | Monografia, apresentação e cópias em PDF da documentação       |
 
-- **Controle por Joystick (controller/joystick)**  
-  [JOYSTICK-CONTROL-README.md](JOYSTICK-CONTROL-README.md) – explica endpoints (`/joystick/pose`), mapeamentos dos eixos, telemetria, segurança e UI.
-- **Cinemática (kinematics.html + kinematics.js)**  
-  [KINEMATICS-README.md](KINEMATICS-README.md) – descreve o preview 3D, inputs e integração com `/calculate` e `/apply_pose`.
-- **Controle por Acelerômetro**  
-  [ACCELEROMETER-README.md](ACCELEROMETER-README.md) – modo roll/pitch/yaw via IMU (MPU/BNO), WebSocket de telemetria, recalibração e comandos `/mpu/control`.
-- **Rotinas de Movimento**  
-  [ROUTINES-README.md](ROUTINES-README.md) – presets, Chart.js, IndexedDB para gravação, endpoints `/motion/*`.
-- **Painel de Atuadores / PID**  
-  [ACTUATORS-README.md](ACTUATORS-README.md) – telemetria, setpoints, comandos manuais, export CSV, integração com `/pid/*`.
-- **Painel de Configurações**  
-  [SETTINGS-README.md](SETTINGS-README.md) - explica como ler/aplicar `kp/ki/kd`, deadband, PWM mínimo via `/pid/gains` e `/pid/settings`.
-- **Integração FlightGear**  
-  [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md) - ponte Telnet->FastAPI que lê roll/pitch do simulador, valida com `/calculate`, publica pré-visualização e envia poses seguras via `/apply_pose`.
-- **Firmware ESP32-S3**
-  - [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md) – loop PID principal no ESP32-S3.
-  - [BNO085-README.md](BNO085-README.md) – transmissor ESP-NOW baseado no sensor SparkFun BNO08x (Euler + quaternions).
-  - [MPU6050-README.md](MPU6050-README.md) – transmissor ESP-NOW com MPU-6050 (roll/pitch/yaw simples).
+## Documentação por módulo
 
-## Código do ESP32-S3
+Os documentos abaixo descrevem a **interface antiga** (em `/antigo/`) e os endpoints, que continuam os mesmos:
 
-O código principal está em `esp32s3_codes/pid-control-filter-spike-bno/`. Ele implementa:
-
-- **ESP-NOW** para receber dados do sensor de orientação (MPU6050 ou BNO085) e gravar MAC para comandos de retorno.
-- **Controle PID** com feedforward e anti-windup.
-- **Parser serial** para receber setpoints e ajustes vindos do backend (comandos `spmm6x`, `kpmm`, `u0a`, `offset`, etc.).
-- **Telemetria** no formato CSV, compatível com gráficos no frontend (`actuators.html`).
-
-> Transmissores auxiliares:
->
-> - [BNO085-README.md](BNO085-README.md) - leitura do SparkFun BNO08x (Euler + quaternions) e envio por ESP-NOW.
-> - [MPU6050-README.md](MPU6050-README.md) - versão simplificada usando MPU6050_light.
-
-### Principais integrações com o backend
-
-- `apply_setpoint_all` e `apply_setpoint_individual` são acionados via `/apply_pose` (controller/joystick).
-- `set_pid_gains`, `set_pid_offset`, `set_pid_feedforward` são usados pelas páginas `settings` e `actuators`.
-- Comandos manuais (`man=adv`, `man=ret`, `man=free`) são expostos no painel de atuadores para testes de bancada.
+- [JOYSTICK-CONTROL-README.md](JOYSTICK-CONTROL-README.md) e [CONTROLLER-README.md](CONTROLLER-README.md): joystick e `/joystick/pose`
+- [KINEMATICS-README.md](KINEMATICS-README.md): cinemática, `/calculate` e `/apply_pose`
+- [ACCELEROMETER-README.md](ACCELEROMETER-README.md): controle por IMU e `/mpu/control`
+- [ROUTINES-README.md](ROUTINES-README.md): rotinas e `/motion/*`
+- [ACTUATORS-README.md](ACTUATORS-README.md): telemetria, setpoints e comandos manuais
+- [SETTINGS-README.md](SETTINGS-README.md): `/pid/gains` e `/pid/settings`
+- [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): integração com o FlightGear
+- Firmware: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md), [BNO085-README.md](BNO085-README.md), [MPU6050-README.md](MPU6050-README.md)
 
 ## Versionamento
 
-O repositório utiliza Git (branch padrão `docs/atualiza-documentacao`). Recomenda-se o seguinte fluxo:
-
-1. **Commits frequentes** por feature:
-   - `feature/frontend-joystick-z-trigger`
-   - `feature/backend-motion-endpoints`
-   - `docs/add-accelerometer-readme`
-2. **Pull Requests** para revisão (incluir referência a issues do Trello/Jira).
-3. **Tags** para releases estáveis:
-   - `v1.0.0` – primeiro release funcional (controle manual + PID).
-   - `v1.1.0` – inclui modos de rotinas, telemetria e joystick Z-trigger.
-4. **Changelogs** no README ou em `CHANGELOG.md`.
+A branch padrão é `main`. Use uma branch por mudança (`feat/...`, `fix/...`, `docs/...`) e abra um Pull Request: o CI precisa passar antes do merge.
 
 ### Autor
 
-**Guilherme Miyata** - Instituto Federal de São Paulo (IFSP)  
+**Guilherme Miyata** - Instituto Federal de São Paulo (IFSP)
 Trabalho de Conclusão de Curso - 2025
 
 ---
 
 <a href='https://github.com/g-Miyata'>Github</a><br>
-<a href='www.linkedin.com/in/g-miyata'>Linkedin</a><br>
+<a href='https://www.linkedin.com/in/g-miyata'>Linkedin</a><br>
 <a href='https://www.g-miyata.com'>Portfólio</a>
 
-**Última atualização:** Novembro 2025
+**Última atualização:** Setembro 2026
