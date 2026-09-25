@@ -1,0 +1,156 @@
+// Contratos da API FastAPI (interface/backend/app.py) e das mensagens do WebSocket.
+
+export type Vec3 = [number, number, number];
+
+export interface Pose {
+  x: number;
+  y: number;
+  z: number;
+  roll: number;
+  pitch: number;
+  yaw: number;
+}
+
+export interface ActuatorData {
+  id: number;
+  /** comprimento absoluto (mm), junta a junta */
+  length: number;
+  percentage: number;
+  valid: boolean;
+}
+
+export interface PlatformResponse {
+  pose: Pose;
+  actuators: ActuatorData[];
+  valid: boolean;
+  base_points: Vec3[];
+  platform_points: Vec3[];
+}
+
+export interface PlatformGeometry {
+  h0: number;
+  stroke_min: number;
+  stroke_max: number;
+  home_z: number;
+  base_points: Vec3[];
+  platform_points_local: Vec3[];
+}
+
+export interface SerialPortInfo {
+  device: string;
+  description: string;
+  display_name: string;
+  is_esp32: boolean;
+  confidence: number;
+  simulated?: boolean;
+}
+
+export interface SerialStatus {
+  connected: boolean;
+  port: string | null;
+  simulated: boolean;
+}
+
+export interface ApplyPoseResult {
+  applied: boolean;
+  valid: boolean;
+  message?: string;
+  setpoints_mm?: number[];
+}
+
+export interface PoseControlResult extends ApplyPoseResult {
+  pose?: Pose;
+  lengths_abs?: number[];
+  course_mm?: number[];
+  base_points?: Vec3[];
+  platform_points?: Vec3[];
+}
+
+export type PidGains = Record<'1' | '2' | '3' | '4' | '5' | '6', { kp: number; ki: number; kd: number }>;
+
+export interface PidSettings {
+  dbmm: number;
+  minpwm: number;
+}
+
+export type RoutineName = 'sine_axis' | 'circle_xy' | 'helix' | 'heave_pitch';
+export type Axis = 'x' | 'y' | 'z' | 'roll' | 'pitch' | 'yaw';
+
+export interface MotionRequest {
+  routine: RoutineName;
+  duration_s: number;
+  hz: number;
+  axis?: Axis;
+  amp?: number;
+  offset?: number;
+  ax?: number;
+  ay?: number;
+  phx?: number;
+  z_amp_mm?: number;
+  z_cycles?: number;
+}
+
+export interface MotionStatus {
+  running: boolean;
+  routine: RoutineName | null;
+  params: Partial<MotionRequest>;
+  started_at: number | null;
+  elapsed: number;
+}
+
+export interface FlightSimStatus {
+  enabled: boolean;
+  safe_z: number;
+  started_at: number | null;
+  last_preview_ts: number | null;
+}
+
+// ---------------- WebSocket /ws/telemetry ----------------
+export interface Orientation {
+  roll: number;
+  pitch: number;
+  yaw: number;
+}
+
+export interface Quaternion {
+  w: number;
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface TelemetryMessage {
+  type: 'telemetry' | 'telemetry_mpu' | 'telemetry_bno085';
+  ts: number;
+  sp_mm: number;
+  /** curso medido de cada pistão (mm, 0..180) */
+  Y: number[];
+  PWM: number[];
+  mpu: Orientation | null;
+  quaternions: Quaternion | null;
+  format: 'standard' | 'mpu6050' | 'bno085';
+  actuator_lengths_abs: number[];
+  pose_live: Pose | null;
+  platform_points_live: Vec3[] | null;
+  base_points: Vec3[];
+}
+
+export interface RawMessage {
+  type: 'raw';
+  ts: number;
+  raw: string;
+  parse_error?: boolean;
+}
+
+export interface MotionTickMessage {
+  type: 'motion_tick';
+  t: number;
+  elapsed_ms: number;
+  pose_cmd: Pose;
+  routine: RoutineName;
+  actuators_cmd: number[];
+  actuators_real: number[] | null;
+  platform_points_cmd: Vec3[];
+}
+
+export type WsMessage = TelemetryMessage | RawMessage | MotionTickMessage;
