@@ -314,6 +314,10 @@ test.describe('Calibração', () => {
     await page.getByRole('button', { name: 'Iniciar calibração (simulador)' }).click();
     await expect(page.getByRole('progressbar', { name: 'Progresso da calibração' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Calibrando' })).toBeVisible();
+    // mostra o que está sendo testado agora e o curso de cada pistão
+    await expect(page.getByRole('region', { name: 'Agora', exact: true })).toBeVisible();
+    await expect(page.getByText(/Pistão 1 subindo/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('listitem', { name: /Pistão 1, em teste/ })).toBeVisible();
     expect((await page.request.post('/apply_pose', { data: { z: 530 } })).status()).toBe(409);
     await expect(page.getByRole('heading', { name: /Relatório de/ })).toBeVisible({ timeout: 170_000 });
     await expect(page.getByRole('row', { name: /^P6/ }).first()).toBeVisible();

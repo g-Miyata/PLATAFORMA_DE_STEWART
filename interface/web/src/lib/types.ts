@@ -192,6 +192,17 @@ export interface CalibrationStatus {
   report_id: string | null;
   /** etapas do plano, na ordem */
   steps: string[];
+  /** o que o passo atual faz e o que ele mede */
+  detail: string;
+  measuring: string;
+  /** pistão em teste (1..6) ou null quando os seis se movem juntos */
+  piston: number | null;
+  /** curso alvo de cada pistão (mm) no passo atual */
+  target: number[] | null;
+  /** "Esperando o pistão 3 chegar ao alvo (faltam 4,2 mm)" */
+  waiting: string | null;
+  step_index: number;
+  step_count: number;
 }
 
 export interface PistonCheck {

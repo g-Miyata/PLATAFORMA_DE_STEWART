@@ -7,9 +7,11 @@ import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, StatusPill } from '@/components/ui/status';
+import { NowPanel } from '@/features/calibration/NowPanel';
 import { formatDate, ReportView } from '@/features/calibration/ReportView';
 import { useCalibrationStatus } from '@/features/calibration/useCalibration';
 import { useCanCommand } from '@/features/control/useControlGate';
+import { PlatformViewer } from '@/features/platform3d/PlatformViewer';
 import { mmss } from '@/features/routines/MotionStatusCard';
 import { LiveTwinChart, TrialCompare } from '@/features/twin/TwinViews';
 import { api } from '@/lib/api';
@@ -109,6 +111,7 @@ function RunTab({ onShowReport }: { onShowReport: (id: string) => void }) {
           <div className="space-y-4">
             <Progress value={st.progress} label={st.label ?? 'Preparando'} />
             <p className="text-sm text-muted tabular-nums">{mmss(elapsed)} decorridos · Esc ou Parar interrompem sem mover</p>
+            <NowPanel st={st} />
             <ol className="grid gap-1 text-sm sm:grid-cols-2" aria-label="Etapas">
               {steps.map((label, i) => (
                 <li key={label} className={cn('flex items-center gap-2', i === current ? 'font-semibold' : i < current ? 'text-muted' : 'text-muted/70')} aria-current={i === current ? 'step' : undefined}>
@@ -160,7 +163,12 @@ function RunTab({ onShowReport }: { onShowReport: (id: string) => void }) {
         )}
       </Card>
 
-      {running && <LiveTwinChart />}
+      {running && (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <PlatformViewer source="live" title="Plataforma agora" showTable={false} canvasClassName="h-72 sm:h-80" />
+          <LiveTwinChart />
+        </div>
+      )}
       {!running && report && (
         <>
           <ReportView report={report} previous={previous} />
