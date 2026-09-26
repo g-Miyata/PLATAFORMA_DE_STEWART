@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<!--
+  Entrada UDP do FlightGear usada como "tela" de um voo gravado: o backend
+  (interface/backend/cueing.py, visual_datagram) manda uma linha por frame com a
+  posição, a atitude e as superfícies da amostra que a plataforma está tocando.
+  O FlightGear roda sem física (opção fdm=null) e só desenha o avião.
+
+  Ligado pelo backend (interface/backend/flightgear.py) com a saída "generic"
+  socket,in,60,127.0.0.1,5511,udp,stewart-visual. A ordem dos campos é a de
+  VISUAL_FIELDS em cueing.py.
+  (Comentários XML não podem conter dois hífens seguidos.)
+-->
+<PropertyList>
+  <generic>
+    <input>
+      <line_separator>newline</line_separator>
+      <var_separator>,</var_separator>
+
+      <chunk><name>lat</name><type>double</type><node>/position/latitude-deg</node></chunk>
+      <chunk><name>lon</name><type>double</type><node>/position/longitude-deg</node></chunk>
+      <chunk><name>alt</name><type>double</type><node>/position/altitude-ft</node></chunk>
+      <chunk><name>roll</name><type>float</type><node>/orientation/roll-deg</node></chunk>
+      <chunk><name>pitch</name><type>float</type><node>/orientation/pitch-deg</node></chunk>
+      <chunk><name>heading</name><type>float</type><node>/orientation/heading-deg</node></chunk>
+
+      <chunk><name>gear0</name><type>float</type><node>/gear/gear[0]/position-norm</node></chunk>
+      <chunk><name>gear1</name><type>float</type><node>/gear/gear[1]/position-norm</node></chunk>
+      <chunk><name>gear2</name><type>float</type><node>/gear/gear[2]/position-norm</node></chunk>
+      <chunk><name>flaps</name><type>float</type><node>/surface-positions/flap-pos-norm</node></chunk>
+      <chunk><name>elevator</name><type>float</type><node>/surface-positions/elevator-pos-norm</node></chunk>
+      <chunk><name>laileron</name><type>float</type><node>/surface-positions/left-aileron-pos-norm</node></chunk>
+      <chunk><name>raileron</name><type>float</type><node>/surface-positions/right-aileron-pos-norm</node></chunk>
+      <chunk><name>rudder</name><type>float</type><node>/surface-positions/rudder-pos-norm</node></chunk>
+      <chunk><name>speedbrake</name><type>float</type><node>/surface-positions/speedbrake-pos-norm</node></chunk>
+      <chunk><name>ias</name><type>float</type><node>/velocities/airspeed-kt</node></chunk>
+    </input>
+  </generic>
+</PropertyList>
