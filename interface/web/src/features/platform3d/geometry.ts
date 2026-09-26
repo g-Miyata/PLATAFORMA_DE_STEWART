@@ -69,16 +69,65 @@ export function offsetConvex(poly: readonly Vec2[], d: number): Vec2[] {
 
 export const xy = (points: readonly Vec3[]): Vec2[] => points.map(([x, y]) => [x, y]);
 
+export interface BaseEdge {
+  /** centro do lado curto (na borda de fora) */
+  center: Vec2;
+  /** normal para fora e direção do lado (da junta i para a i+1) */
+  n: Vec2;
+  t: Vec2;
+}
+
+export interface BasePost {
+  x: number;
+  y: number;
+  /** rotação em Z: faces paralelas ao lado curto */
+  yaw: number;
+}
+
+/**
+ * Contorno da base fixa como na bancada: triângulo de cantos cortados, com um
+ * lado curto (`shortEdge` mm) a `margin` mm além de cada par de juntas
+ * (0-1, 2-3, 4-5). Os perfis ficam dois por lado curto, encostados nas pontas,
+ * com as faces paralelas a ele e a face de fora rente à borda.
+ */
+export function baseLayout(basePoints: readonly Vec3[], margin: number, shortEdge: number, post: number) {
+  const cx = basePoints.reduce((a, p) => a + p[0], 0) / basePoints.length;
+  const cy = basePoints.reduce((a, p) => a + p[1], 0) / basePoints.length;
+  const edges: BaseEdge[] = [];
+  const posts: BasePost[] = [];
+  const corners: Vec2[] = [];
+  for (const i of [0, 2, 4]) {
+    const a = basePoints[i];
+    const b = basePoints[i + 1];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const t: Vec2 = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const mx = (a[0] + b[0]) / 2;
+    const my = (a[1] + b[1]) / 2;
+    let n: Vec2 = [t[1], -t[0]];
+    if (n[0] * (mx - cx) + n[1] * (my - cy) < 0) n = [-n[0], -n[1]];
+    const center: Vec2 = [mx + n[0] * margin, my + n[1] * margin];
+    edges.push({ center, n, t });
+    const yaw = Math.atan2(t[1], t[0]);
+    for (const s of [-1, 1]) {
+      corners.push([center[0] + t[0] * s * (shortEdge / 2), center[1] + t[1] * s * (shortEdge / 2)]);
+      const along = s * (shortEdge / 2 - post / 2);
+      posts.push({ x: center[0] + t[0] * along - n[0] * (post / 2), y: center[1] + t[1] * along - n[1] * (post / 2), yaw });
+    }
+  }
+  return { outline: convexHull(corners), edges, posts };
+}
+
 // ---------------- dimensões da bancada (mm), estimadas pelas fotos ----------------
 export const DIM = {
   mountHeight: 40, // bloco azul impresso (kardan-joint.stl) sob cada par de juntas da base
   baseRingThickness: 12,
   baseRingWidth: 105,
   baseMargin: 70,
+  baseShortEdge: 170, // lado curto do anel, sob cada bloco azul (dois perfis nas pontas)
   postSize: 40, // perfil de alumínio 40x40
   postHeight: 240,
   bottomPlateThickness: 10,
-  bottomMargin: 45,
+  bottomMargin: 0, // placa de baixo do mesmo tamanho do anel
   footHeight: 28,
   topPlateThickness: 8,
   topPlateGap: 26, // da junta ao tampo

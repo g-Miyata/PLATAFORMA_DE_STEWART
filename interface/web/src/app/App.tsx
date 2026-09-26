@@ -7,6 +7,7 @@ import { Providers } from './providers';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ActuatorsPage = lazy(() => import('@/pages/ActuatorsPage'));
 const KinematicsPage = lazy(() => import('@/pages/KinematicsPage'));
+const BenchPage = lazy(() => import('@/pages/BenchPage'));
 const JoystickPage = lazy(() => import('@/pages/JoystickPage'));
 const RoutinesPage = lazy(() => import('@/pages/RoutinesPage'));
 const ImuPage = lazy(() => import('@/pages/ImuPage'));
@@ -35,6 +36,7 @@ export const routes = [
       { path: '/', element: page(HomePage) },
       { path: '/atuadores', element: page(ActuatorsPage) },
       { path: '/cinematica', element: page(KinematicsPage) },
+      { path: '/bancada-3d', element: page(BenchPage) },
       { path: '/joystick', element: page(JoystickPage) },
       { path: '/rotinas', element: page(RoutinesPage) },
       { path: '/acelerometro', element: page(ImuPage) },

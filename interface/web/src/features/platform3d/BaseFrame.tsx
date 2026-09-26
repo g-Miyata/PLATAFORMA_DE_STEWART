@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import type { PlatformGeometry } from '@/lib/types';
-import { convexHull, DIM, FLOOR_Z, offsetConvex, xy, type Vec2 } from './geometry';
+import { baseLayout, DIM, FLOOR_Z, offsetConvex, type Vec2 } from './geometry';
 import { BlueMount } from './BlueMount';
 import { MAT } from './materials';
 
@@ -22,15 +22,15 @@ function extrude(shape: THREE.Shape, depth: number, bevel = 2) {
 /** Estrutura fixa: anel da base, perfis 40x40, placa inferior, elétrica e blocos azuis. */
 export function BaseFrame({ geometry }: { geometry: PlatformGeometry }) {
   const parts = useMemo(() => {
-    const hull = convexHull(xy(geometry.base_points));
-    const outer = offsetConvex(hull, DIM.baseMargin);
+    const layout = baseLayout(geometry.base_points, DIM.baseMargin, DIM.baseShortEdge, DIM.postSize);
+    const outer = layout.outline;
     const inner = offsetConvex(outer, -DIM.baseRingWidth);
     const ringShape = shapeFrom(outer);
     ringShape.holes.push(new THREE.Path(inner.map(([x, y]) => new THREE.Vector2(x, y)).reverse()));
     const bottom = offsetConvex(outer, DIM.bottomMargin);
 
-    // Um poste em cada vértice do anel, recuado para ficar sob a chapa
-    const posts = offsetConvex(outer, -DIM.postSize).map(([x, y]) => [x, y] as Vec2);
+    // dois perfis por lado curto, rentes à borda e paralelos a ela
+    const posts = layout.posts;
 
     // Um bloco azul por par de juntas (0-1, 2-3, 4-5), virado para o centro
     const mounts = [0, 2, 4].map((i) => {
@@ -61,13 +61,13 @@ export function BaseFrame({ geometry }: { geometry: PlatformGeometry }) {
       <mesh geometry={parts.ring} material={MAT.blackPlate} position={[0, 0, ringBottom]} castShadow receiveShadow />
       <mesh geometry={parts.bottomPlate} material={MAT.blackPlate} position={[0, 0, plateBottom]} castShadow receiveShadow />
 
-      {parts.posts.map(([x, y], i) => (
-        <mesh key={i} position={[x, y, (postTop + postBottom) / 2]} material={MAT.profile} castShadow>
+      {parts.posts.map(({ x, y, yaw }, i) => (
+        <mesh key={i} position={[x, y, (postTop + postBottom) / 2]} rotation={[0, 0, yaw]} material={MAT.profile} castShadow>
           <boxGeometry args={[DIM.postSize, DIM.postSize, DIM.postHeight]} />
         </mesh>
       ))}
 
-      {parts.posts.filter((_, i) => i % 2 === 0).map(([x, y], i) => (
+      {parts.posts.map(({ x, y }, i) => (
         <mesh key={i} position={[x, y, FLOOR_Z + DIM.footHeight / 2]} material={MAT.blackRubber} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[22, 26, DIM.footHeight, 20]} />
         </mesh>

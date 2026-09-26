@@ -158,3 +158,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Painéis de vidro da Bancada 3D (sólidos quando o sistema pede menos transparência) */
+.glass {
+  background: color-mix(in srgb, var(--c-surface) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--c-surface);
+    backdrop-filter: none;
+  }
+}

@@ -13,7 +13,7 @@ const colorOf = Object.fromEntries(Object.entries(STATUS_LINE).map(([k, v]) => [
 >;
 
 /** Pose comandada/prevista: tampo translúcido e pernas em linha, coloridas pelo estado do curso. */
-export function GhostPlatform({ geometry, store }: { geometry: PlatformGeometry; store: SceneStore }) {
+export function GhostPlatform({ geometry, store }: { geometry: PlatformGeometry; store: Pick<SceneStore, 'ghost' | 'geometry'> }) {
   const plateGroup = useRef<THREE.Group>(null);
   const legsRef = useRef<THREE.LineSegments>(null);
   const { plate } = usePlateGeometry(geometry);

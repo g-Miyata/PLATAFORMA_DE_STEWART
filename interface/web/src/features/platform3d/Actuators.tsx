@@ -3,8 +3,11 @@ import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { PISTON_COLORS } from '@/lib/pistons';
 import { DIM } from './geometry';
+import { applyLegFrame } from './legFrame';
 import { MAT, STATUS_EMISSIVE } from './materials';
 import { ModelSlot } from './ModelSlot';
+import { extrudeAlongY } from './premium/assets';
+import { tubeProfileShape } from './premium/PremiumParts';
 import type { SceneStore } from './sceneState';
 
 /** Junta universal (Kardan) simplificada: cruzeta + garfo, cromada. */
@@ -28,14 +31,14 @@ function Kardan() {
 }
 
 const HOUSING_START = DIM.jointOffset + 10;
-const MOTOR_X = DIM.housingRadius + DIM.motorRadius + 3;
 
-// vetores de trabalho reaproveitados a cada frame
-const vY = new THREE.Vector3();
-const vX = new THREE.Vector3();
-const vZ = new THREE.Vector3();
-const vR = new THREE.Vector3();
-const basis = new THREE.Matrix4();
+// faixa no perfil em "D" do tubo (o mesmo do actuator-housing.glb e do modelo premium)
+let band: THREE.BufferGeometry | null = null;
+function bandGeometry() {
+  band ??= extrudeAlongY(tubeProfileShape(0.8), 12);
+  return band;
+}
+const MOTOR_X = DIM.housingRadius + DIM.motorRadius + 3;
 
 /**
  * Um atuador linear: sistema local com origem na junta da base, +Y ao longo da
@@ -61,15 +64,7 @@ function Actuator({ index, store }: { index: number; store: SceneStore }) {
     if (!group.current || !rod.current || !top.current) return;
     const b = store.geometry.base_points[index];
     const p = store.solid.top[index];
-    vY.set(p[0] - b[0], p[1] - b[1], p[2] - b[2]);
-    const L = vY.length();
-    vY.divideScalar(L || 1);
-    vR.set(b[0], b[1], 0).normalize();
-    vX.copy(vR).addScaledVector(vY, -vR.dot(vY)).normalize();
-    vZ.crossVectors(vX, vY);
-    basis.makeBasis(vX, vY, vZ);
-    group.current.position.set(b[0], b[1], b[2]);
-    group.current.quaternion.setFromRotationMatrix(basis);
+    const L = applyLegFrame(group.current, b, p);
     rod.current.position.set(0, L - DIM.jointOffset - DIM.rodLength / 2, 0);
     top.current.position.set(0, L, 0);
     const glow = STATUS_EMISSIVE[store.solid.status[index]];
@@ -106,9 +101,7 @@ function Actuator({ index, store }: { index: number; store: SceneStore }) {
         </ModelSlot>
       </group>
       {/* faixa com a cor do pistão (fica mesmo com o modelo do Blender) */}
-      <mesh position={[0, HOUSING_START + DIM.housingLength - 38, 0]} material={bandMat}>
-        <cylinderGeometry args={[DIM.housingRadius + 0.8, DIM.housingRadius + 0.8, 12, 32]} />
-      </mesh>
+      <mesh geometry={bandGeometry()} position={[0, HOUSING_START + DIM.housingLength - 44, 0]} material={bandMat} />
       {/* haste cromada (desliza) */}
       <group ref={rod}>
         <ModelSlot name="actuator-rod">

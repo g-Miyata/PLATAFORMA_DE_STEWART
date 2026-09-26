@@ -24,12 +24,18 @@ function BoxMount({ x, y, yaw }: MountProps) {
 
 function StlMount({ x, y, yaw }: MountProps) {
   const raw = useLoader(STLLoader, BLUE_MOUNT_URL);
-  // centraliza em XY e apoia o topo em z = 0 (altura das juntas da base)
   const geometry = useMemo(() => {
     const g = raw.clone();
+    // No STL a face com as porcas sextavadas é a grande inclinada (normal 0; 0,87; 0,5).
+    // Na bancada ela fica apoiada na base: girar 240° em X a deixa virada para baixo,
+    // e as duas faces do "V" (onde parafusam os cardãs) sobem inclinadas para o centro.
+    g.rotateX((4 * Math.PI) / 3);
     g.computeBoundingBox();
     const bb = g.boundingBox!;
-    g.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -bb.max.z);
+    // centro das faces do V: 38,8 mm do lado de fora (y mín.), normal com 0,45 para dentro;
+    // o centro da cruzeta fica ~15 mm à frente da face, sobre o ponto da junta (y = 0)
+    const vFaceY = bb.min.y + 38.8 + 0.45 * 15;
+    g.translate(-(bb.min.x + bb.max.x) / 2, -vFaceY, -DIM.mountHeight - bb.min.z);
     g.computeVertexNormals();
     return g;
   }, [raw]);

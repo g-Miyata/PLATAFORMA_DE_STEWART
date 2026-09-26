@@ -97,6 +97,7 @@ No topo da interface, escolha **Simulador** e clique em **Conectar**. O selo mud
 - No modelo 3D, a plataforma sólida é a medida (telemetria) e o **fantasma verde** é a pose comandada. A diferença entre as duas mostra o atraso real dos atuadores.
 - A página **Rotinas** estima a velocidade de pico que cada movimento exige e avisa quando ela passa do que os atuadores sustentam (~12 mm/s).
 - Nas páginas Joystick e IMU há controles virtuais (sliders) para quando não há gamepad ou sensor.
+- A **Bancada 3D** (`/bancada-3d`) traz o modelo mais detalhado, com tela cheia. Clique num pistão e arraste a seta para mudar só o comprimento dele: os outros cinco ficam fixos e o tampo se acomoda pela cinemática direta. Clique no ponto verde do tampo para mover a plataforma inteira em Z, roll, pitch ou yaw. Tudo também funciona pelo teclado.
 
 Para usar o hardware, selecione a porta COM do ESP32-S3 e confirme. O selo fica vermelho, **HARDWARE REAL**.
 

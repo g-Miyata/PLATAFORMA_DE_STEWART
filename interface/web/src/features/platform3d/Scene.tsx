@@ -26,18 +26,21 @@ export const CAMERA_VIEWS: Record<CameraView, { label: string; position: [number
 
 const LOOK_AT: [number, number, number] = [0, 0, 140];
 
-function CameraRig({ view, nonce }: { view: CameraView; nonce: number }) {
+/** `distance` multiplica as posições das vistas (1 = padrão). */
+export function CameraRig({ view, nonce, enabled = true, distance = 1 }: { view: CameraView; nonce: number; enabled?: boolean; distance?: number }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const camera = useThree((s) => s.camera);
   useEffect(() => {
-    camera.position.set(...CAMERA_VIEWS[view].position);
+    const [x, y, z] = CAMERA_VIEWS[view].position;
+    camera.position.set(x * distance, y * distance, z * distance);
     controls.current?.target.set(...LOOK_AT);
     controls.current?.update();
-  }, [camera, view, nonce]);
+  }, [camera, view, nonce, distance]);
   return (
     <OrbitControls
       ref={controls}
       makeDefault
+      enabled={enabled}
       target={LOOK_AT}
       enableDamping
       dampingFactor={0.12}
