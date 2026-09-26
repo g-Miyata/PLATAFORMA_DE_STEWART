@@ -1,5 +1,5 @@
 import { Circle, Copy, Download, FilePlus2, FileUp, ListRestart, Pause, Play, Plus, Send, Square, Trash2, Wand2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { PlatformViewer } from '@/features/platform3d/PlatformViewer';
 import { EXAMPLES, exportJson, findRecording, useLibrary, type Recording } from '@/features/recorder/library';
 import { useRecorder, type RecordSource } from '@/features/recorder/recorderStore';
 import { TimelinePlot } from '@/features/recorder/TimelinePlot';
+import { usePreviewClock } from '@/features/recorder/usePreviewClock';
 import {
   analyzeTrajectory,
   duration,
@@ -158,45 +159,23 @@ export default function RecorderPage() {
   const activeId = useLibrary((s) => s.activeId);
   const items = useLibrary((s) => s.items);
   const rec = useMemo(() => findRecording(activeId) ?? EXAMPLES[0], [activeId, items]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [time, setTime] = useState(0);
-  // prévia: instante de partida e relógio (performance.now) de quando começou
-  const [playFrom, setPlayFrom] = useState<{ t0: number; at: number } | null>(null);
-  const playing = playFrom !== null;
-  const stopPreview = () => setPlayFrom(null);
   const [selected, setSelected] = useState<number | null>(0);
   const motion = useMotionStatus();
   const running = !!motion.data?.running;
 
   const total = duration(rec.keys);
+  const clock = usePreviewClock(total, rec.speed, rec.loop);
+  const { time, playing } = clock;
+  const setTime = clock.seek;
   const sampler = useMemo(() => makeSampler(rec.keys, rec.interp), [rec.keys, rec.interp]);
-  const previewPose = useMemo(() => sampler(Math.min(time, total)), [sampler, time, total]);
+  const previewPose = useMemo(() => sampler(time), [sampler, time]);
   const samples = useMemo(() => sampleTrajectory(rec.keys, rec.interp), [rec.keys, rec.interp]);
   const check = useMemo(() => analyzeTrajectory(samples, geometry, rec.speed), [samples, geometry, rec.speed]);
   const sel = selected !== null && selected < rec.keys.length ? selected : null;
 
-  // prévia só no modelo (requestAnimationFrame)
-  useEffect(() => {
-    if (!playFrom) return;
-    let raf = 0;
-    const tick = (now: number) => {
-      const t = playFrom.t0 + ((now - playFrom.at) / 1000) * rec.speed;
-      if (t <= total) setTime(t);
-      else if (rec.loop && total > 0) setTime(t % total);
-      else {
-        setTime(total);
-        setPlayFrom(null);
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [playFrom, total, rec.speed, rec.loop]);
-
   function open(id: string) {
     useLibrary.getState().setActive(id);
     setTime(0);
-    stopPreview();
     setSelected(0);
   }
 
@@ -217,7 +196,7 @@ export default function RecorderPage() {
   }
 
   function addKeyAtTime() {
-    const t = Math.round(Math.min(time, total) * 20) / 20;
+    const t = Math.round(time * 20) / 20;
     // no fim da linha do tempo, acrescenta 2 s depois; no meio, insere no instante
     const atEnd = t >= total - 0.025;
     const existing = rec.keys.findIndex((k) => Math.abs(k.t - t) < 0.025);
@@ -334,18 +313,14 @@ export default function RecorderPage() {
                 canvasClassName="h-72 sm:h-80"
               />
               <div className="min-w-0 space-y-4">
-                <TimelinePlot keys={rec.keys} interp={rec.interp} homeZ={geometry.home_z} time={Math.min(time, total)} selected={sel} onSelect={(i) => {
+                <TimelinePlot keys={rec.keys} interp={rec.interp} homeZ={geometry.home_z} time={time} selected={sel} onSelect={(i) => {
                   setSelected(i);
                   setTime(rec.keys[i].t);
-                  stopPreview();
                 }} />
                 <div className="flex flex-wrap items-end gap-3">
                   <Button
                     variant="primary"
-                    onClick={() => {
-                      if (playing) return stopPreview();
-                      setPlayFrom({ t0: time >= total ? 0 : time, at: performance.now() });
-                    }}
+                    onClick={clock.toggle}
                     disabled={total <= 0}
                     aria-pressed={playing}
                   >
@@ -357,11 +332,10 @@ export default function RecorderPage() {
                     Início
                   </Button>
                   <p className="ml-auto text-sm tabular-nums text-muted" aria-live="off">
-                    {mmss(Math.min(time, total))} / {mmss(total)}
+                    {mmss(time)} / {mmss(total)}
                   </p>
                 </div>
-                <SliderField label="Instante" value={Math.min(time, total)} onValueChange={(v) => {
-                  stopPreview();
+                <SliderField label="Instante" value={time} onValueChange={(v) => {
                   setTime(v);
                 }} min={0} max={Math.max(total, 0.05)} step={0.05} unit="s" unitSpoken="segundos" digits={2} />
                 {reducedMotion() && <p className="text-xs text-muted">Movimento reduzido está ativo no sistema: prefira arrastar o instante em vez da prévia animada.</p>}
@@ -396,7 +370,6 @@ export default function RecorderPage() {
                       onClick={() => {
                         setSelected(i);
                         setTime(k.t);
-                        stopPreview();
                       }}
                       aria-current={sel === i ? 'true' : undefined}
                       className={cn(

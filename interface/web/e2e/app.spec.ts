@@ -12,6 +12,7 @@ const ROUTES = [
   ['/configuracoes', 'Ganhos PID'],
   ['/simulacao-voo', 'Simulação de voo'],
   ['/gravar', 'Gravar e reproduzir'],
+  ['/blocos', 'Programação em blocos'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -216,4 +217,19 @@ test.describe('Gravar e reproduzir', () => {
     await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem').first()).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: /Gravação / })).toBeVisible();
   });
+});
+
+test('programação em blocos: abre um exemplo, mostra os passos e reproduz no simulador', async ({ page }) => {
+  await serial(page, 'open');
+  page.on('dialog', (d) => d.accept());
+  await page.goto('/blocos');
+  await page.getByRole('combobox', { name: 'Exemplos' }).selectOption('quadrado');
+  const steps = page.getByRole('list', { name: 'Passos do programa' });
+  await expect(steps).toContainText('Mover para X 20 · Y -20');
+  await expect(steps).toContainText('Repetir 2 vezes:');
+  await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Reproduzir no simulador' }).click();
+  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: 5_000 }).toBe('trajectory');
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
 });
