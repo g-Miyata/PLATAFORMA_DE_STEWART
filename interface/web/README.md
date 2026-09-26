@@ -14,7 +14,7 @@ npm test           :: Vitest (cinemática, rotinas, joystick, CSV...)
 npm run test:e2e   :: Playwright + axe contra o build, com o simulador
 ```
 
-O `test:e2e` usa o Edge instalado no Windows. Defina `PYTHON` com o Python do venv do backend se ele não for o `python` do PATH. No CI (Linux), use `PW_CHANNEL=chromium` depois de `npx playwright install chromium`.
+O `test:e2e` usa o Edge instalado no Windows. Com o `start.bat` aberto, rode num backend separado (`PW_PORT=8011`) para não desconectar a sua sessão. Defina `PYTHON` com o Python do venv do backend se ele não for o `python` do PATH. No CI (Linux), use `PW_CHANNEL=chromium` depois de `npx playwright install chromium`.
 
 ## Estrutura
 
@@ -28,10 +28,13 @@ src/
     control/    PoseEditor, validação no backend, trava de controle ao vivo
     serial/     conexão (hardware real pede confirmação; padrão = simulador)
     safety/     parada de emergência (botão e tecla Esc)
+    bench3d/    Bancada 3D: store de edição (FK ao mexer num pistão, IK ao mexer na pose),
+                gizmos de arraste (seta de eixo, anéis de rotação) e cena premium
     joystick/   Gamepad API + mapeamento idêntico ao /joystick/pose
     routines/   presets e estimativa de velocidade dos atuadores
     actuators/  console serial
-  lib/          api (REST tipado), ws (WebSocket único com backoff), kinematics, types, csv
+  lib/          api (REST tipado), ws (WebSocket único com backoff), kinematics (inversa),
+                forwardKinematics (direta, Levenberg-Marquardt), types, csv
   stores/       zustand: connection, telemetry, ui (tema, contador de parada de emergência)
   pages/        uma página por rota
 ```
@@ -54,6 +57,25 @@ Cada atuador acende em âmbar perto do batente e em vermelho fora do curso. As m
 
 Tudo é montado a partir da geometria do `GET /config` (`base_points`, `platform_points_local`, curso), com fallback embutido em `features/platform3d/geometry.ts`. Mudou a geometria no backend, o desenho acompanha.
 
+### Bancada 3D
+
+O modelo "premium" (`features/platform3d/premium/`) é usado só nesta tela:
+
+- **Peças:** tubo de alumínio de cantos arredondados, motor com etiqueta e o número do pistão, caixa de redução, juntas cardã cromadas, perfis 40×40 com canais em T e a parte elétrica (fonte, drivers, canaletas, trilho DIN, botão de emergência).
+- **Render:** pós-processamento (N8AO, bloom, AgX, SMAA) no modo **Alta**. O modo **Leve** entra sozinho se o FPS cair.
+- **Frameloop sob demanda:** a cena só redesenha quando a edição, a telemetria ou a câmera mudam.
+
+**Teclado** (com o modelo em foco):
+
+| Tecla | Ação |
+| --- | --- |
+| 1 a 6 | seleciona um pistão |
+| C | seleciona o tampo e alterna o eixo |
+| Z, R, P, Y | escolhe altura, roll, pitch ou yaw |
+| setas | ajustam (Shift ×10) |
+| Ctrl+Z | desfaz |
+| F | tela cheia |
+
 ## Tema IFSP e acessibilidade
 
 - **Tokens** em `src/index.css`, para `[data-theme="light"]` e `[data-theme="dark"]`. O verde (#2F9E41) e o vermelho (#CD191E) institucionais são usados em ícones, bordas e superfícies. Para texto, o tema claro usa um verde escurecido (#1B6E2B) e o escuro um verde claro, para passar o contraste AA.
@@ -70,7 +92,7 @@ Tudo é montado a partir da geometria do `GET /config` (`base_points`, `platform
 
 ## Modelos 3D (Blender)
 
-Hoje as peças móveis são geradas no código (procedurais), com proporções tiradas das fotos da bancada. O bloco azul da base já usa a peça real do repositório (`3D-drawings-archives/kardan-joint/kardan-joint.stl`, copiada para `public/models/`).
+A carcaça dos atuadores, os cardãs e a parte elétrica da bandeja (drivers, fonte, disjuntor, réguas de bornes, DB37 e botoeira de emergência) vêm de `.glb` gerados por scripts do Blender em [`3D-drawings-archives/blender/`](../../3D-drawings-archives/blender/README.md). O resto é gerado no código (procedural), com proporções tiradas das fotos da bancada. O bloco azul da base usa a peça real do repositório (`3D-drawings-archives/kardan-joint/kardan-joint.stl`, copiada para `public/models/`).
 
 Para trocar uma peça por um modelo mais detalhado feito no Blender:
 
