@@ -257,4 +257,165 @@ export interface MotionTickMessage {
   platform_points_cmd: Vec3[];
 }
 
-export type WsMessage = TelemetryMessage | RawMessage | MotionTickMessage;
+// ---------------- motion cueing (/cueing, telas Simulador de voo e Orientação do avião) ----------------
+/** washout = Simulador de voo; attitude = Orientação do avião (só roll/pitch) */
+export type CueingProfile = 'washout' | 'attitude';
+export type CueingSource = 'live' | 'replay' | null;
+export type CueingMode = 'off' | 'engaging' | 'on' | 'releasing';
+
+export interface CueingAircraft {
+  t: number;
+  /** força específica no piloto (m/s²), eixos do avião: x frente, y direita, z baixo */
+  f: Vec3;
+  /** velocidades angulares p, q, r (°/s) */
+  w: Vec3;
+  roll: number;
+  pitch: number;
+  heading: number;
+  ias: number;
+  agl: number;
+  alt: number;
+  wow: boolean;
+}
+
+export interface CueingReplay {
+  id: string;
+  name: string;
+  t: number;
+  duration: number;
+  speed: number;
+  loop: boolean;
+  paused: boolean;
+  profile: CueingProfile;
+  /** mandando a posição para o FlightGear desenhar */
+  visual: boolean;
+  /** voo gravado com posição (v2) */
+  has_visual: boolean;
+}
+
+export interface CueingRecording {
+  samples: number;
+  duration: number;
+}
+
+export interface CueingTickMessage {
+  type: 'cueing_tick';
+  ts: number;
+  profile: CueingProfile;
+  source: CueingSource;
+  mode: CueingMode;
+  /** pose que a plataforma recebe (depois do limitador de velocidade) */
+  pose: Pose;
+  /** saída do washout antes do limitador */
+  mca_pose: Pose;
+  limited: boolean;
+  clipped: boolean;
+  aircraft: CueingAircraft | null;
+  /** o que o ocupante sente na plataforma, na convenção do avião */
+  platform: { f: Vec3; w: Vec3 };
+  replay: CueingReplay | null;
+  recording: CueingRecording | null;
+}
+
+export interface CueingParams {
+  f_scale: number;
+  trans_scale: number;
+  trans_omega: number;
+  trans_zeta: number;
+  trans_washout: number;
+  heave_omega: number;
+  heave_washout: number;
+  tilt_omega: number;
+  tilt_rate_max: number;
+  tilt_max: number;
+  rot_scale: number;
+  yaw_scale: number;
+  rot_omega: number;
+  x_max: number;
+  y_max: number;
+  z_max: number;
+  roll_max: number;
+  pitch_max: number;
+  yaw_max: number;
+  z0: number;
+  leg_speed_max: number;
+  invert_pitch: boolean;
+  att_scale: number;
+  att_limit: number;
+  att_z: number;
+}
+
+export interface CueingEvent {
+  ts: number;
+  text: string;
+  tone: 'info' | 'success' | 'warning' | 'danger';
+}
+
+export interface CueingStatus {
+  profile: CueingProfile;
+  source: CueingSource;
+  mode: CueingMode;
+  serial_open: boolean;
+  conflict: string | null;
+  bridge: { connected: boolean; receiving: boolean; rate_hz: number; samples: number };
+  replay: CueingReplay | null;
+  recording: CueingRecording | null;
+  events: CueingEvent[];
+  params: CueingParams;
+}
+
+export interface CueingFlight {
+  id: string;
+  name: string;
+  description: string;
+  aircraft: string | null;
+  recorded_at: string | null;
+  duration_s: number;
+  samples: number;
+  /** gravado com posição e superfícies: dá para ver no FlightGear */
+  visual: boolean;
+}
+
+export type CueingSeriesKey =
+  | 't' | 'ac_fx' | 'ac_fy' | 'ac_nz' | 'pf_fx' | 'pf_fy' | 'pf_nz'
+  | 'ac_p' | 'ac_q' | 'ac_r' | 'pf_p' | 'pf_q' | 'pf_r' | keyof Pose;
+
+export interface CueingAnalysis {
+  flight: CueingFlight;
+  duration_s: number;
+  peak: Pose;
+  speed_limited_pct: number;
+  stroke_limited_pct: number;
+  series: Record<CueingSeriesKey, number[]>;
+}
+
+// ---------------- FlightGear (/fg) ----------------
+export interface FgCheckItem {
+  id: 'fgfs' | 'fgdata' | 'aircraft' | 'livery' | 'protocols' | 'ports' | 'memory';
+  label: string;
+  ok: boolean;
+  detail: string;
+  fix: string;
+  severity: 'error' | 'warning';
+}
+
+export interface FgCheck {
+  ok: boolean;
+  items: FgCheckItem[];
+  paths: Record<string, string | null>;
+}
+
+export interface FgError {
+  message: string;
+  log?: string[];
+  hint?: string;
+}
+
+export interface FgStatus {
+  state: 'stopped' | 'starting' | 'loading' | 'ready' | 'crashed' | 'stuck';
+  pid?: number;
+  uptime?: number;
+  error?: FgError | null;
+}
+
+export type WsMessage = TelemetryMessage | RawMessage | MotionTickMessage | CueingTickMessage;

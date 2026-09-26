@@ -35,7 +35,7 @@ O backend também tem um **dispositivo virtual (simulador)**: dá para usar toda
 ```mermaid
 flowchart LR
     subgraph Web ["Interface web (React)"]
-        P["Páginas: Atuadores · Cinemática · Joystick<br>Rotinas · IMU · Ganhos PID · Simulação de voo"]
+        P["Páginas: Atuadores · Cinemática · Joystick<br>Rotinas · IMU · Ganhos PID<br>Simulador de voo · Orientação do avião"]
         V["Modelo 3D (React Three Fiber)"]
     end
 
@@ -114,6 +114,8 @@ Além das páginas de controle, o menu tem:
 | **Jogo da bolinha** (`/jogo`) | Incline o tampo e leve a bolinha ao alvo, em 5 fases. Pode espelhar na plataforma (até 5°, devagar). |
 | **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança, corte colorido pela folga até o batente, inclinação máxima por direção e alcance de cada eixo a partir do home. Considera só o curso dos pistões. |
 | **Calibração** (Ajustes → `/calibracao`) | Um processo de 3 a 4 min que interrompe o que estiver rodando e faz o **autoteste** (cada pistão sozinho ±30 mm em torno do home: velocidade, atraso, erro final e ruído; aponta travado, invertido, lento ou ruidoso) e a **recalibração** do simulador (gêmeo digital: um simulador "sombra" recebe os mesmos comandos só durante a calibração; o ajuste de vmax e zona morta só entra se melhorar a reprodução). Gera um relatório datado, comparado com o anterior; os parâmetros novos vão para o `sim_params.json` (com cópia `.bak`) só se você aplicar. Também compara ensaios CSV das Rotinas com o simulador. |
+| **Simulador de voo** (`/simulador-voo`) | Sensações do voo no FlightGear com washout clássico (inclinação sustentada, translação e rotação), respeitando curso e velocidade dos pistões, com o ERJ145 do IFSP voando no FlightGear dentro da página. Toca voos gravados (inclui uma rotina pronta), grava voos ao vivo via UDP e compara avião × plataforma. Veja [MOTION-CUEING-README.md](MOTION-CUEING-README.md) e [FLIGHTGEAR-SETUP.md](FLIGHTGEAR-SETUP.md). |
+| **Orientação do avião** (`/orientacao-voo`) | A plataforma copia roll e pitch do avião (até ±12°), ao vivo ou de um voo gravado, com o mesmo FlightGear embutido. |
 
 Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409), para que eles não briguem com o movimento. Durante a calibração, recusa qualquer comando (poses, rotinas, PID, console).
 
@@ -181,7 +183,7 @@ Comandos seriais e telemetria: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FIL
 | `interface/web`             | Interface React (código em `src/`, build em `dist/`)           |
 | `interface/backend`         | FastAPI, simulador, testes (`tests/`) e ferramentas (`tools/`) |
 | `interface/frontend`        | Interface antiga (servida em `/antigo/` até o fim da migração) |
-| `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`) e assets do FlightGear       |
+| `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`), motion cueing e voos gravados |
 | `interface/mcp-flightgear`  | Servidor MCP para ler e controlar o FlightGear pelo Claude     |
 | `interface-coleta-de-dados` | Aplicativos Python usados nas aquisições do TCC                |
 | `esp32s3_codes`             | Firmwares do ESP32-S3                                          |
@@ -200,8 +202,10 @@ Os documentos abaixo descrevem a **interface antiga** (em `/antigo/`) e os endpo
 - [ROUTINES-README.md](ROUTINES-README.md): rotinas e `/motion/*`
 - [ACTUATORS-README.md](ACTUATORS-README.md): telemetria, setpoints e comandos manuais
 - [SETTINGS-README.md](SETTINGS-README.md): `/pid/gains` e `/pid/settings`
-- [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): integração com o FlightGear
+- [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): ponte antiga roll/pitch via Telnet (interface `/antigo`)
 - [interface/mcp-flightgear/README.md](interface/mcp-flightgear/README.md): servidor MCP do FlightGear
+- [MOTION-CUEING-README.md](MOTION-CUEING-README.md): Simulador de voo e Orientação do avião, voos gravados e ponte UDP
+- [FLIGHTGEAR-SETUP.md](FLIGHTGEAR-SETUP.md): instalar FlightGear, FGData e ERJ145, rodar no FlightGear e erros comuns
 - Firmware: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md), [BNO085-README.md](BNO085-README.md), [MPU6050-README.md](MPU6050-README.md)
 
 ## Versionamento

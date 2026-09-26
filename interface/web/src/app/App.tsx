@@ -12,7 +12,8 @@ const JoystickPage = lazy(() => import('@/pages/JoystickPage'));
 const RoutinesPage = lazy(() => import('@/pages/RoutinesPage'));
 const ImuPage = lazy(() => import('@/pages/ImuPage'));
 const PidSettingsPage = lazy(() => import('@/pages/PidSettingsPage'));
-const FlightSimPage = lazy(() => import('@/pages/FlightSimPage'));
+const OrientationPage = lazy(() => import('@/pages/OrientationPage'));
+const MotionCueingPage = lazy(() => import('@/pages/MotionCueingPage'));
 const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
@@ -50,7 +51,11 @@ export const routes = [
       { path: '/rotinas', element: page(RoutinesPage) },
       { path: '/acelerometro', element: page(ImuPage) },
       { path: '/configuracoes', element: page(PidSettingsPage) },
-      { path: '/simulacao-voo', element: page(FlightSimPage) },
+      { path: '/simulador-voo', element: page(MotionCueingPage) },
+      { path: '/orientacao-voo', element: page(OrientationPage) },
+      // endereços antigos das duas telas
+      { path: '/motion-cueing', element: <Navigate to="/simulador-voo" replace /> },
+      { path: '/simulacao-voo', element: <Navigate to="/orientacao-voo" replace /> },
       { path: '/gravar', element: page(RecorderPage) },
       { path: '/blocos', element: page(BlocksPage) },
       { path: '/aula', element: page(LessonPage) },

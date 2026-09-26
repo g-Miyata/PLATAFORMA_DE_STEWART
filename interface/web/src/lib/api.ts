@@ -1,5 +1,12 @@
 import type {
   ApplyPoseResult,
+  CueingAnalysis,
+  CueingFlight,
+  CueingParams,
+  CueingProfile,
+  CueingStatus,
+  FgCheck,
+  FgStatus,
   FlightSimStatus,
   MotionRequest,
   MotionStatus,
@@ -158,6 +165,31 @@ export const api = {
   calibrationReport: (id: string) => get<CalibrationReport>(`/calibration/reports/${encodeURIComponent(id)}`),
   calibrationApply: (id: string) => post<{ applied: boolean; backup: string }>(`/calibration/reports/${encodeURIComponent(id)}/apply`),
   twinSimulate: (body: { t: number[]; sp: number[][]; y0: number[] }) => post<{ Y_sim: number[][] }>('/twin/simulate', body),
+
+  // Motion cueing (FlightGear -> washout -> plataforma)
+  cueingStatus: () => get<CueingStatus>('/cueing/status'),
+  cueingParams: () => get<{ params: CueingParams; defaults: CueingParams }>('/cueing/params'),
+  cueingSetParams: (params: CueingParams) => post<{ params: CueingParams }>('/cueing/params', params),
+  cueingSaveParams: () => post<{ saved: string }>('/cueing/params/save'),
+  cueingEngage: (profile: CueingProfile) => post<{ mode: string }>('/cueing/engage', { profile }),
+  cueingRelease: () => post<{ mode: string }>(`/cueing/release?reason=botao&origin=${encodeURIComponent(location.host + location.pathname)}`),
+  cueingRecordStart: () => post('/cueing/record/start'),
+  cueingRecordStop: (name: string, description = '') => post<CueingFlight>('/cueing/record/stop', { name, description }),
+  cueingRecordDiscard: () => post('/cueing/record/discard'),
+  cueingFlights: () => get<{ flights: CueingFlight[] }>('/cueing/flights').then((r) => r.flights),
+  cueingAnalysis: (id: string, profile: CueingProfile = 'washout') =>
+    get<CueingAnalysis>(`/cueing/flights/${encodeURIComponent(id)}/analysis?profile=${profile}`),
+  cueingDeleteFlight: (id: string) => post(`/cueing/flights/${encodeURIComponent(id)}/delete`),
+  cueingReplayStart: (r: { flight: string; speed: number; loop: boolean; profile: CueingProfile; visual: boolean }) =>
+    post('/cueing/replay/start', r),
+  cueingReplayUpdate: (u: { paused?: boolean; speed?: number; loop?: boolean; visual?: boolean }) => post('/cueing/replay/update', u),
+  cueingReplayStop: () => post('/cueing/replay/stop'),
+
+  // FlightGear como tela do voo gravado
+  fgCheck: () => get<FgCheck>('/fg/check'),
+  fgStatus: () => get<FgStatus>('/fg/status'),
+  fgLaunch: (flight?: string | null) => post<FgStatus>('/fg/launch', { flight: flight ?? null }),
+  fgStop: () => post<FgStatus>('/fg/stop'),
 
   // Segurança
   emergencyStop: () => post<{ stopped: boolean; held_mm: number[] | null }>('/emergency-stop'),

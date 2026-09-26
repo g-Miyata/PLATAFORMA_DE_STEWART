@@ -38,6 +38,8 @@ import sim_fit
 from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
 from twin import TwinShadow
 from calibration import CalibrationRunner
+from cueing import CueingEngine, create_router as create_cueing_router
+from flightgear import FlightGearManager, VISUAL_PORT, create_router as create_fg_router
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
@@ -1906,6 +1908,7 @@ def emergency_stop():
     do modo manual e congela os atuadores na posição medida mais recente.
     """
     calibration_runner.abort()
+    cueing_engine.emergency_stop()
     motion_runner.stop(go_home=False)
     FLIGHT_SIMULATION_STATE["enabled"] = False
     held = None
@@ -2139,6 +2142,44 @@ def flight_simulation_status():
             else None
         ),
     }
+
+# -------------------- Motion cueing (tela nova; rotas em cueing.py) --------------------
+def _cueing_conflict() -> Optional[str]:
+    """Outro controlador mandando na plataforma impede o cueing de engatar (e o desengata)."""
+    if calibration_runner.is_running():
+        return "a calibração está em andamento"
+    if motion_runner.is_running():
+        return "uma rotina está em execução"
+    if FLIGHT_SIMULATION_STATE["enabled"]:
+        return "a simulação de voo antiga (roll/pitch) está liberada"
+    return None
+
+
+def _cueing_broadcast(obj: dict):
+    loop = serial_mgr.loop
+    if loop and not loop.is_closed():
+        try:
+            asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(obj), loop)
+        except RuntimeError:
+            pass  # loop fechando junto com o servidor
+
+
+cueing_engine = CueingEngine(
+    platform,
+    send_course=lambda course: serial_mgr.write_line(format_spmm6x(course)),
+    serial_open=lambda: serial_mgr.is_open,
+    measured_pose=lambda: (serial_mgr.latest or {}).get("pose_live"),
+    broadcast=_cueing_broadcast,
+    conflict=_cueing_conflict,
+    flights_dir=BACKEND_DIR.parent / "simulation" / "flights",
+    params_file=BACKEND_DIR / "cueing_params.json",
+    visual_addr=("127.0.0.1", VISUAL_PORT),
+)
+app.include_router(create_cueing_router(cueing_engine))
+
+# FlightGear como tela do voo gravado (rotas em flightgear.py)
+fg_manager = FlightGearManager(flight_start=cueing_engine.flight_start)
+app.include_router(create_fg_router(fg_manager))
 
 # -------------------- Joystick Control --------------------
 @app.post("/joystick/pose")

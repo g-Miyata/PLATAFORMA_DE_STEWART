@@ -91,6 +91,9 @@ def test_full_calibration_on_simulator(client):
     assert client.post("/apply_pose", json={"z": backend.HOME_Z_MM}).status_code == 409
     assert client.post("/motion/start", json={"routine": "sine_axis", "axis": "z"}).status_code == 409
     assert client.post("/pid/setpoint", json={"value": 10}).status_code == 409
+    # o motion cueing também não engata durante a calibração
+    r = client.post("/cueing/engage", json={})
+    assert r.status_code == 409 and "calibração" in r.json()["detail"]
 
     deadline = time.time() + 150
     seen = []
