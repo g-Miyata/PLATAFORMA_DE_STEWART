@@ -35,7 +35,7 @@ O backend também tem um **dispositivo virtual (simulador)**: dá para usar toda
 ```mermaid
 flowchart LR
     subgraph Web ["Interface web (React)"]
-        P["Páginas: Atuadores · Cinemática · Joystick<br>Rotinas · IMU · Ganhos PID · Simulação de voo"]
+        P["Páginas: Atuadores · Cinemática · Joystick<br>Rotinas · IMU · Ganhos PID<br>Simulador de voo · Orientação do avião"]
         V["Modelo 3D (React Three Fiber)"]
     end
 
@@ -112,6 +112,8 @@ Além das páginas de controle, o menu tem:
 | **Apresentação e aula** (`/apresentacao`) | Quiosque em tela cheia (demonstração no modelo ou na plataforma, com amplitude, velocidade e tempo de sessão limitados) e aula guiada de cinemática em 8 etapas, com os vetores bᵢ, pᵢ, T, R e Lᵢ = T + R·pᵢ − bᵢ desenhados no 3D e perguntas rápidas. |
 | **Jogo da bolinha** (`/jogo`) | Incline o tampo e leve a bolinha ao alvo, em 5 fases. Pode espelhar na plataforma (até 5°, devagar). |
 | **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança, corte colorido pela folga até o batente, inclinação máxima por direção e alcance de cada eixo a partir do home. Considera só o curso dos pistões. |
+| **Simulador de voo** (`/simulador-voo`) | Sensações do voo no FlightGear com washout clássico (inclinação sustentada, translação e rotação), respeitando curso e velocidade dos pistões, com o ERJ145 do IFSP voando no FlightGear dentro da página. Toca voos gravados (inclui uma rotina pronta), grava voos ao vivo via UDP e compara avião × plataforma. Veja [MOTION-CUEING-README.md](MOTION-CUEING-README.md) e [FLIGHTGEAR-SETUP.md](FLIGHTGEAR-SETUP.md). |
+| **Orientação do avião** (`/orientacao-voo`) | A plataforma copia roll e pitch do avião (até ±12°), ao vivo ou de um voo gravado, com o mesmo FlightGear embutido. |
 | **Gêmeo digital** (`/gemeo-digital`) | Um simulador "sombra" recebe os mesmos comandos da bancada: real × simulado ao vivo, erro e atraso por pistão, comparação de ensaios CSV e recalibração do simulador (`sim_params.json`, com cópia `.bak`). |
 
 Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409), para que eles não briguem com o movimento.
@@ -180,7 +182,8 @@ Comandos seriais e telemetria: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FIL
 | `interface/web`             | Interface React (código em `src/`, build em `dist/`)           |
 | `interface/backend`         | FastAPI, simulador, testes (`tests/`) e ferramentas (`tools/`) |
 | `interface/frontend`        | Interface antiga (servida em `/antigo/` até o fim da migração) |
-| `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`) e assets do FlightGear       |
+| `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`), motion cueing e voos gravados |
+| `interface/mcp-flightgear`  | Servidor MCP para ler e controlar o FlightGear pelo Claude     |
 | `interface-coleta-de-dados` | Aplicativos Python usados nas aquisições do TCC                |
 | `esp32s3_codes`             | Firmwares do ESP32-S3                                          |
 | `MATLAB`                    | Identificação de sistema e projeto dos controladores           |
@@ -198,7 +201,10 @@ Os documentos abaixo descrevem a **interface antiga** (em `/antigo/`) e os endpo
 - [ROUTINES-README.md](ROUTINES-README.md): rotinas e `/motion/*`
 - [ACTUATORS-README.md](ACTUATORS-README.md): telemetria, setpoints e comandos manuais
 - [SETTINGS-README.md](SETTINGS-README.md): `/pid/gains` e `/pid/settings`
-- [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): integração com o FlightGear
+- [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): ponte antiga roll/pitch via Telnet (interface `/antigo`)
+- [interface/mcp-flightgear/README.md](interface/mcp-flightgear/README.md): servidor MCP do FlightGear
+- [MOTION-CUEING-README.md](MOTION-CUEING-README.md): Simulador de voo e Orientação do avião, voos gravados e ponte UDP
+- [FLIGHTGEAR-SETUP.md](FLIGHTGEAR-SETUP.md): instalar FlightGear, FGData e ERJ145, rodar no FlightGear e erros comuns
 - Firmware: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md), [BNO085-README.md](BNO085-README.md), [MPU6050-README.md](MPU6050-README.md)
 
 ## Versionamento
