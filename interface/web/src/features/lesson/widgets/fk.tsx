@@ -1,5 +1,5 @@
 import { ArrowRight, CheckCircle2, FlaskConical, Pause, Play, RotateCcw, Shuffle, StepForward, XCircle } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Tex, texNum } from '@/components/Tex';
 import { Button } from '@/components/ui/button';
 import { PoseEditor } from '@/features/control/PoseEditor';
@@ -178,17 +178,77 @@ export function FkExperiment() {
 const REAL: Omit<Pose, 'z'> & { dz: number } = { x: 14, y: -9, dz: 18, roll: 4, pitch: -3, yaw: 6 };
 const realPose = (homeZ: number): Pose => ({ x: REAL.x, y: REAL.y, z: homeZ + REAL.dz, roll: REAL.roll, pitch: REAL.pitch, yaw: REAL.yaw });
 
+
+function randomPose(homeZ: number, geometry: ReturnType<typeof useGeometry>): Pose {
+  for (;;) {
+    const r = (a: number) => Math.round((Math.random() * 2 - 1) * a);
+    const p: Pose = { x: r(30), y: r(30), z: homeZ + r(45), roll: r(9), pitch: r(9), yaw: r(14) };
+    if (solvePose(p, geometry).valid) return p;
+  }
+}
+
+/** Editor da pose "real" (a que gera os comprimentos medidos), usado nas restrições e no solver. */
+function RealPoseEditor({
+  real,
+  onChange,
+  measured,
+  showReal,
+  onShowReal,
+  defaultOpen = false,
+  children,
+}: {
+  real: Pose;
+  onChange: (p: Pose) => void;
+  measured: number[];
+  showReal: boolean;
+  onShowReal: (on: boolean) => void;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const geometry = useGeometry();
+  const valid = solvePose(real, geometry).valid;
+  return (
+    <details className="rounded-lg border border-border p-3" open={defaultOpen}>
+      <summary className="cursor-pointer text-sm font-semibold">Pose real da plataforma (o que os sensores medem)</summary>
+      <div className="mt-3 space-y-3">
+        <p className="text-sm text-muted">{children}</p>
+        <PoseEditor pose={real} onChange={onChange} />
+        <p className="text-sm tabular-nums text-muted">
+          Medidos: {measured.map((l, i) => `L${i + 1} ${fmt(l, 1)}`).join(' · ')} mm
+        </p>
+        {!valid && <p className="text-sm font-medium text-warning">Essa pose tira alguma perna do curso: a bancada não chegaria lá, mas a conta ainda funciona.</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={() => onChange(randomPose(geometry.home_z, geometry))}>
+            <Shuffle aria-hidden />
+            Sortear pose real
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => onChange(realPose(geometry.home_z))}>
+            <RotateCcw aria-hidden />
+            Pose do exemplo
+          </Button>
+          <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" checked={showReal} onChange={(e) => onShowReal(e.target.checked)} className="size-4 accent-[var(--c-brand)]" />
+            Mostrar a pose real no modelo
+          </label>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 /** Aula 2.4: a esfera de cada perna e a tentativa de acertar a pose à mão. */
 export function FkConstraints() {
   const geometry = useGeometry();
   const pose = useLessonScene((s) => s.pose);
   const leg = useLessonScene((s) => s.leg);
   const set = useLessonScene((s) => s.set);
-  const measured = useMemo(() => legVectors(realPose(geometry.home_z), geometry).map((l) => l.length), [geometry]);
+  const [real, setReal] = useState<Pose>(() => realPose(geometry.home_z));
+  const [showReal, setShowReal] = useState(false);
+  const measured = useMemo(() => legVectors(real, geometry).map((l) => l.length), [real, geometry]);
   useEffect(() => {
-    set({ measured, sphereLeg: useLessonScene.getState().leg });
-    return () => set({ measured: null, sphereLeg: null });
-  }, [measured, set]);
+    set({ measured, sphereLeg: useLessonScene.getState().leg, ghosts: showReal ? [{ pose: real, color: '#3fb654', label: 'pose real' }] : [] });
+  }, [measured, real, showReal, set]);
+  useEffect(() => () => set({ measured: null, sphereLeg: null, ghosts: [] }), [set]);
   useEffect(() => set({ sphereLeg: leg }), [leg, set]);
 
   const legs = legVectors(pose, geometry);
@@ -221,6 +281,9 @@ export function FkConstraints() {
         {worst < 1 ? 'Você resolveu a direta à mão! Os seis comprimentos batem.' : `Maior erro agora: ${fmt(worst, 1)} mm.`}
       </p>
       <PoseEditor pose={pose} onChange={(p) => set({ pose: p })} />
+      <RealPoseEditor real={real} onChange={setReal} measured={measured} showReal={showReal} onShowReal={setShowReal}>
+        Quer outro exercício? Mude a pose real: os comprimentos medidos e as esferas mudam junto. Abrir aqui mostra a resposta, então deixe fechado para os alunos.
+      </RealPoseEditor>
     </div>
   );
 }
@@ -233,13 +296,6 @@ const GUESSES: { id: Guess; label: string; description: string }[] = [
   { id: 'livre', label: 'Escolher o chute', description: 'você define a pose de partida' },
 ];
 
-function randomPose(homeZ: number, geometry: ReturnType<typeof useGeometry>): Pose {
-  for (;;) {
-    const r = (a: number) => Math.round((Math.random() * 2 - 1) * a);
-    const p: Pose = { x: r(30), y: r(30), z: homeZ + r(45), roll: r(9), pitch: r(9), yaw: r(14) };
-    if (solvePose(p, geometry).valid) return p;
-  }
-}
 const FLOW = ['Comprimentos medidos', 'Chute da pose', 'Cinemática inversa', 'Comprimentos estimados', 'Erro', 'Mínimos quadrados', 'Nova pose'];
 const GHOST_COLORS = ['#f5b400', '#f59e0b', '#fb923c', '#f97316', '#ef4444'];
 
@@ -251,7 +307,6 @@ export function FkSolver() {
   const [custom, setCustomPose] = useState<Pose>(() => zeroPose(geometry.home_z));
   const [showReal, setShowReal] = useState(true);
   const measured = useMemo(() => legVectors(real, geometry).map((l) => l.length), [real, geometry]);
-  const realValid = solvePose(real, geometry).valid;
   const [guessId, setGuessId] = useState<Guess>('home');
   const [k, setK] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -312,33 +367,9 @@ export function FkSolver() {
           </li>
         ))}
       </ol>
-      <details className="rounded-lg border border-border p-3" open>
-        <summary className="cursor-pointer text-sm font-semibold">Pose real da plataforma (o que os sensores medem)</summary>
-        <div className="mt-3 space-y-3">
-          <p className="text-sm text-muted">
-            Escolha onde o tampo "está de verdade". Dela saem os seis comprimentos medidos, que são a única coisa que o solver recebe.
-          </p>
-          <PoseEditor pose={real} onChange={setReal} />
-          <p className="text-sm tabular-nums text-muted">
-            Medidos: {measured.map((l, i) => `L${i + 1} ${fmt(l, 1)}`).join(' · ')} mm
-          </p>
-          {!realValid && <p className="text-sm font-medium text-warning">Essa pose tira alguma perna do curso: a bancada não chegaria lá, mas a conta ainda funciona.</p>}
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="secondary" onClick={() => setReal(randomPose(geometry.home_z, geometry))}>
-              <Shuffle aria-hidden />
-              Sortear pose real
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setReal(realPose(geometry.home_z))}>
-              <RotateCcw aria-hidden />
-              Pose do exemplo
-            </Button>
-            <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm">
-              <input type="checkbox" checked={showReal} onChange={(e) => setShowReal(e.target.checked)} className="size-4 accent-[var(--c-brand)]" />
-              Mostrar a pose real no modelo
-            </label>
-          </div>
-        </div>
-      </details>
+      <RealPoseEditor real={real} onChange={setReal} measured={measured} showReal={showReal} onShowReal={setShowReal} defaultOpen>
+        Escolha onde o tampo "está de verdade". Dela saem os seis comprimentos medidos, que são a única coisa que o solver recebe.
+      </RealPoseEditor>
       <fieldset className="rounded-lg border border-border p-3">
         <legend className="px-1 text-sm font-semibold">Chute inicial</legend>
         <div className="mt-1 space-y-1.5">

@@ -450,7 +450,7 @@ const moduloCinematica: Lesson[] = [
           'Escolha um atuador para ver a esfera dele. O problema: $\\mathbf{P}_i$ depende das **seis** incógnitas ao mesmo tempo (a posição e os três ângulos, dentro de senos e cossenos). Mexer em qualquer uma mexe em todas as esferas, por isso as seis equações ficam **acopladas** e não dá para isolar uma incógnita de cada vez.',
         ],
         widgets: ['fk-constraints'],
-        scene: { show: 'stewart', overlays: { legs: 'one', sphere: true, base: true }, camera: 'iso' },
+        scene: { show: 'stewart', overlays: { legs: 'one', sphere: true, base: true, ghosts: true }, camera: 'iso' },
         sceneSummary: 'Uma esfera translúcida de raio Li em torno da junta aᵢ; a junta do tampo Pᵢ fica na superfície dela.',
         quiz: [{ q: 'Cada comprimento Lᵢ obriga a junta Pᵢ a ficar...', options: ['numa reta', 'na superfície de uma esfera em torno de aᵢ', 'no centro do tampo'], correct: 1, explain: 'Todos os pontos a uma distância Lᵢ de aᵢ formam uma esfera.' }],
       },

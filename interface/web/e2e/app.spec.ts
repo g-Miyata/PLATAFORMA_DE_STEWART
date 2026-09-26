@@ -295,6 +295,15 @@ test.describe('Aula', () => {
     await expect(page.getByText('Acertou!')).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText('ΔZ')).toBeVisible();
 
+    // restrições: a pose real (escondida por padrão) também é editável
+    await page.goto('/aula/cinematica/direta/3');
+    const real = page.locator('details', { hasText: 'Pose real da plataforma' });
+    await real.getByText('Pose real da plataforma').click();
+    const l1 = page.getByRole('list', { name: /Erro de cada perna/ }).getByRole('listitem').first();
+    const before = await l1.textContent();
+    await real.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('-25');
+    await expect(l1).not.toHaveText(before ?? '');
+
     await page.goto('/aula/cinematica/direta/5');
     // a pose real é editável: o solver recomeça e converge para ela
     await page.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('-22');
