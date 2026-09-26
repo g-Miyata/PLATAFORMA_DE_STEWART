@@ -11,6 +11,7 @@ Os `.glb` de `interface/web/public/models/` são gerados por estes scripts. As m
 | `db37.py` | `Stewart_DB37` | `db37-female.glb` |
 | `estop.py` | `Stewart_Emergencia` | `estop.glb`: botoeira de emergência |
 | `export.py` | todas as acima | grava os `.glb` em `interface/web/public/models/` |
+| `ur5e.py` | (cena própria, modo CLI) | `serial/ur5e-*.glb`: o braço UR5e da aula, a partir das malhas do MuJoCo Menagerie (BSD-3-Clause). Rode com `blender --background --factory-startup --python ur5e.py -- <fonte> <saída>` e otimize com `gltf-transform optimize --compress meshopt` |
 
 Tudo fica dentro da coleção `Stewart`. Rodar um script de novo apaga e recria só a coleção dele; o resto da cena não é tocado.
 

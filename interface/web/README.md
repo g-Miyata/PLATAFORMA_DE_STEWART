@@ -14,6 +14,8 @@ npm test           :: Vitest (cinemática, rotinas, joystick, CSV...)
 npm run test:e2e   :: Playwright + axe contra o build, com o simulador
 ```
 
+Equações em **KaTeX** (empacotado, funciona offline; `components/Tex.tsx`).
+
 O `test:e2e` usa o Edge instalado no Windows. Com o `start.bat` aberto, rode num backend separado (`PW_PORT=8011`) para não desconectar a sua sessão. Defina `PYTHON` com o Python do venv do backend se ele não for o `python` do PATH. No CI (Linux), use `PW_CHANNEL=chromium` depois de `npx playwright install chromium`.
 
 ## Estrutura
@@ -34,8 +36,9 @@ src/
     routines/   presets, estimativa de velocidade, status e gráfico comandado × medido
     recorder/   trajetórias (interpolação, simplificação, viabilidade), gravador global e biblioteca
     blocks/     blocos do Blockly e compilador (JSON do Blockly → poses-chave)
-    presentation/ quiosque (lista segura de movimentos) e canvas da apresentação
-    lesson/     etapas da aula, vetores da cinemática e sobreposições 3D
+    presentation/ tela de exposição: laço de cenas, palco (bloom, reflexo), controle do público,
+                painel do operador e quiosque (lista segura de movimentos)
+    lesson/     aula: currículo (curriculum.ts), widgets, sobreposições 3D e o UR5e (serial/)
     game/       física da bolinha (passo fixo de 120 Hz), fases e cena
     workspace/  varredura do espaço de trabalho (Web Worker) e iso-superfície
     calibration/ calibração (status, indicador no cabeçalho, relatório)
@@ -100,7 +103,7 @@ O modelo "premium" (`features/platform3d/premium/`) é usado só nesta tela:
 
 ## Modelos 3D (Blender)
 
-A carcaça dos atuadores, os cardãs e a parte elétrica da bandeja (drivers, fonte, disjuntor, réguas de bornes, DB37 e botoeira de emergência) vêm de `.glb` gerados por scripts do Blender em [`3D-drawings-archives/blender/`](../../3D-drawings-archives/blender/README.md). O resto é gerado no código (procedural), com proporções tiradas das fotos da bancada. O bloco azul da base usa a peça real do repositório (`3D-drawings-archives/kardan-joint/kardan-joint.stl`, copiada para `public/models/`).
+A carcaça dos atuadores, os cardãs e a parte elétrica da bandeja (drivers, fonte, disjuntor, réguas de bornes, DB37 e botoeira de emergência) vêm de `.glb` gerados por scripts do Blender em [`3D-drawings-archives/blender/`](../../3D-drawings-archives/blender/README.md). O braço UR5e da aula vem do MuJoCo Menagerie (BSD-3-Clause, licença em `public/models/serial/LICENSE-ur5e.txt`), convertido por `ur5e.py`. O resto é gerado no código (procedural), com proporções tiradas das fotos da bancada. O bloco azul da base usa a peça real do repositório (`3D-drawings-archives/kardan-joint/kardan-joint.stl`, copiada para `public/models/`).
 
 Para trocar uma peça por um modelo mais detalhado feito no Blender:
 
