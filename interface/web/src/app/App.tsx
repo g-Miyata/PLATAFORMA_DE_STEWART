@@ -13,6 +13,7 @@ const RoutinesPage = lazy(() => import('@/pages/RoutinesPage'));
 const ImuPage = lazy(() => import('@/pages/ImuPage'));
 const PidSettingsPage = lazy(() => import('@/pages/PidSettingsPage'));
 const FlightSimPage = lazy(() => import('@/pages/FlightSimPage'));
+const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -42,6 +43,7 @@ export const routes = [
       { path: '/acelerometro', element: page(ImuPage) },
       { path: '/configuracoes', element: page(PidSettingsPage) },
       { path: '/simulacao-voo', element: page(FlightSimPage) },
+      { path: '/gravar', element: page(RecorderPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },

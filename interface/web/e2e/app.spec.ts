@@ -11,6 +11,7 @@ const ROUTES = [
   ['/acelerometro', 'IMU (roll/pitch/yaw)'],
   ['/configuracoes', 'Ganhos PID'],
   ['/simulacao-voo', 'Simulação de voo'],
+  ['/gravar', 'Gravar e reproduzir'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -176,4 +177,43 @@ test('início: reduzir movimento começa com a animação parada', async ({ brow
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Retomar animação' })).toBeVisible();
   await ctx.close();
+});
+
+test.describe('Gravar e reproduzir', () => {
+  test('monta poses-chave, confere a viabilidade e reproduz no simulador', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/gravar');
+    await page.getByRole('button', { name: 'Nova', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Nome' }).fill('e2e');
+    // 2ª pose-chave: 3 s depois, 10 mm mais alta
+    await page.getByRole('button', { name: 'No instante' }).click();
+    await page.getByRole('spinbutton', { name: 'Z (altura) (milímetros)' }).fill('540');
+    await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Reproduzir no simulador' }).click();
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: 5_000 }).toBe('trajectory');
+    await expect(page.getByText('e2e ·')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
+  });
+
+  test('grava comandos de outra página com o indicador REC', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/gravar');
+    await page.getByRole('button', { name: 'Começar a gravar' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'REC' })).toBeVisible();
+    await page.getByRole('link', { name: 'Cinemática' }).click();
+    await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('3');
+    await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
+    await page.waitForTimeout(600);
+    await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('-3');
+    await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
+    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: 'Parar', exact: true }).click();
+    await expect(page.getByText('Gravação salva')).toBeVisible();
+    await page.getByRole('link', { name: 'Gravar e reproduzir' }).click();
+    await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem').first()).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: /Gravação / })).toBeVisible();
+  });
 });
