@@ -101,6 +101,21 @@ No topo da interface, escolha **Simulador** e clique em **Conectar**. O selo mud
 
 Para usar o hardware, selecione a porta COM do ESP32-S3 e confirme. O selo fica vermelho, **HARDWARE REAL**.
 
+### Criar, ensinar e analisar
+
+Além das páginas de controle, o menu tem:
+
+| Página | O que faz |
+| --- | --- |
+| **Gravar e reproduzir** (`/gravar`) | Grava o que é comandado em qualquer página (indicador ● REC no topo), vira poses-chave numa linha do tempo com interpolação suave, prévia no modelo e reprodução na plataforma (`POST /motion/trajectory`, 60 Hz). Confere curso e velocidade antes de mover. |
+| **Programação em blocos** (`/blocos`) | Blocos no estilo Scratch (Blockly): mover para, mover eixo, esperar, repetir, rotinas prontas. O programa vira uma trajetória, com a lista de passos em texto. |
+| **Apresentação e aula** (`/apresentacao`) | Quiosque em tela cheia (demonstração no modelo ou na plataforma, com amplitude, velocidade e tempo de sessão limitados) e aula guiada de cinemática em 8 etapas, com os vetores bᵢ, pᵢ, T, R e Lᵢ = T + R·pᵢ − bᵢ desenhados no 3D e perguntas rápidas. |
+| **Jogo da bolinha** (`/jogo`) | Incline o tampo e leve a bolinha ao alvo, em 5 fases. Pode espelhar na plataforma (até 5°, devagar). |
+| **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança, corte colorido pela folga até o batente, inclinação máxima por direção e alcance de cada eixo a partir do home. Considera só o curso dos pistões. |
+| **Gêmeo digital** (`/gemeo-digital`) | Um simulador "sombra" recebe os mesmos comandos da bancada: real × simulado ao vivo, erro e atraso por pistão, comparação de ensaios CSV e recalibração do simulador (`sim_params.json`, com cópia `.bak`). |
+
+Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409), para que eles não briguem com o movimento.
+
 ### Segurança
 
 - **Parar** (ou a tecla **Esc**) chama `POST /emergency-stop`: interrompe rotinas e a simulação de voo, tira o firmware do modo manual (`OK`) e congela os atuadores na posição atual. Joystick, IMU e "aplicar automaticamente" desligam sozinhos.

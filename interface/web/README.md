@@ -31,7 +31,14 @@ src/
     bench3d/    Bancada 3D: store de edição (FK ao mexer num pistão, IK ao mexer na pose),
                 gizmos de arraste (seta de eixo, anéis de rotação) e cena premium
     joystick/   Gamepad API + mapeamento idêntico ao /joystick/pose
-    routines/   presets e estimativa de velocidade dos atuadores
+    routines/   presets, estimativa de velocidade, status e gráfico comandado × medido
+    recorder/   trajetórias (interpolação, simplificação, viabilidade), gravador global e biblioteca
+    blocks/     blocos do Blockly e compilador (JSON do Blockly → poses-chave)
+    presentation/ quiosque (lista segura de movimentos) e canvas da apresentação
+    lesson/     etapas da aula, vetores da cinemática e sobreposições 3D
+    game/       física da bolinha (passo fixo de 120 Hz), fases e cena
+    workspace/  varredura do espaço de trabalho (Web Worker) e iso-superfície
+    twin/       métricas real × simulado e leitura do CSV das Rotinas
     actuators/  console serial
   lib/          api (REST tipado), ws (WebSocket único com backoff), kinematics (inversa),
                 forwardKinematics (direta, Levenberg-Marquardt), types, csv
