@@ -10,7 +10,8 @@ const ROUTES = [
   ['/rotinas', 'Rotinas de movimento'],
   ['/acelerometro', 'IMU (roll/pitch/yaw)'],
   ['/configuracoes', 'Ganhos PID'],
-  ['/simulacao-voo', 'Simulação de voo'],
+  ['/simulador-voo', 'Simulador de voo'],
+  ['/orientacao-voo', 'Orientação do avião'],
   ['/gravar', 'Gravar e reproduzir'],
   ['/blocos', 'Programação em blocos'],
   ['/apresentacao', 'Apresentação da Plataforma de Stewart'],
@@ -268,6 +269,41 @@ test.describe('Apresentação', () => {
     await page.keyboard.press('Escape');
     await expect(real).not.toBeChecked();
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
+  });
+});
+
+test.describe('Apresentação: simulador de voo e tema', () => {
+  test('toca o voo gravado pelo motion cueing, engata pelo painel e o Esc desengata', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/apresentacao?modo=voo');
+    await expect(page.getByRole('heading', { name: 'Sinta o voo' })).toBeVisible();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.id ?? null, { timeout: 8_000 }).not.toBeNull();
+    // no voo o toque não assume o controle
+    await page.mouse.move(700, 350);
+    await page.mouse.down();
+    await page.mouse.move(780, 320, { steps: 5 });
+    await page.mouse.up();
+    await expect(page.getByRole('heading', { name: 'Você está no controle' })).toHaveCount(0);
+    await page.keyboard.press('KeyO');
+    const real = page.getByRole('switch', { name: 'Mover a plataforma de verdade' });
+    await real.click();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: 8_000 }).not.toBe('off');
+    await page.keyboard.press('Escape');
+    await expect(real).not.toBeChecked();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode).toBe('off');
+    // sair da página para o voo
+    await page.goto('/');
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay).toBeNull();
+  });
+
+  test('o botão troca o tema da apresentação e continua acessível', async ({ page }) => {
+    await setTheme(page, 'dark');
+    await page.goto('/apresentacao');
+    await page.getByRole('button', { name: 'Usar o tema claro' }).click();
+    await expect(page.getByRole('button', { name: 'Usar o tema escuro' })).toBeVisible();
+    await expect(page.locator('[data-theme="light"]').first()).toBeAttached();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
   });
 });
 
