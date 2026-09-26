@@ -1,4 +1,4 @@
-import { Box, CircleDot, Clapperboard, Compass, Orbit, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Box, CircleDot, Clapperboard, Compass, Copy, Orbit, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'analisar';
 
@@ -33,4 +33,5 @@ export const NAV: NavItem[] = [
   { path: '/apresentacao', label: 'Apresentação e aula', description: 'Demonstração em tela cheia e aula guiada de cinemática com vetores no 3D', Icon: Presentation, group: 'mostrar' },
   { path: '/jogo', label: 'Jogo da bolinha', description: 'Incline o tampo e leve a bolinha ao alvo, desviando dos buracos', Icon: CircleDot, group: 'mostrar' },
   { path: '/espaco-de-trabalho', label: 'Espaço de trabalho', description: 'Volume que o tampo alcança e inclinação máxima em cada direção', Icon: Orbit, group: 'mostrar' },
+  { path: '/gemeo-digital', label: 'Gêmeo digital', description: 'Bancada × simulador lado a lado, erro por pistão e recalibração do modelo', Icon: Copy, group: 'analisar' },
 ];

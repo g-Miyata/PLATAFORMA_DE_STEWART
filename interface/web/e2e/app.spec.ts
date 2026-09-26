@@ -16,6 +16,7 @@ const ROUTES = [
   ['/apresentacao', 'Apresentação'],
   ['/jogo', 'Jogo da bolinha'],
   ['/espaco-de-trabalho', 'Espaço de trabalho'],
+  ['/gemeo-digital', 'Gêmeo digital'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -301,4 +302,28 @@ test('espaço de trabalho: inclinar encolhe o volume e a pose vai para a Cinemá
   await page.getByRole('button', { name: 'Abrir na Cinemática' }).click();
   await expect(page).toHaveURL(/\/cinematica\?x=25/);
   await expect(page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' })).toHaveValue('8');
+});
+
+test.describe('Gêmeo digital', () => {
+  test('ao vivo: recebe o simulador sombra e compara', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/gemeo-digital');
+    await expect(page.getByText('Recebendo')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('row', { name: /P1 .* mm/ })).toBeVisible();
+  });
+
+  test('ensaio: importa o CSV das Rotinas e simula', async ({ page }) => {
+    await page.goto('/gemeo-digital');
+    await page.getByRole('tab', { name: 'Ensaio (CSV)' }).click();
+    const cols = ['t_s', 'rotina', 'x_cmd', 'y_cmd', 'z_cmd', 'roll_cmd', 'pitch_cmd', 'yaw_cmd', ...[1, 2, 3, 4, 5, 6].map((p) => `L${p}_cmd_mm`), ...[1, 2, 3, 4, 5, 6].map((p) => `L${p}_real_mm`)];
+    const rows = Array.from({ length: 120 }, (_, i) => {
+      const t = i * 0.05;
+      const cmd = 560 + 10 * Math.sin(t);
+      return [t, 'sine_axis', 0, 0, 530, 0, 0, 0, ...Array(6).fill(cmd), ...Array(6).fill(cmd - 1)].map((v) => String(v).replace('.', ',')).join(';');
+    });
+    const csv = ['sep=;', cols.join(';'), ...rows].join('\r\n');
+    await page.getByLabel('Importar CSV de ensaio').setInputFiles({ name: 'ensaio.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+    await expect(page.getByText(/ensaio\.csv: 120 amostras/)).toBeVisible();
+    await expect(page.getByRole('row', { name: /P1 .* mm/ })).toBeVisible();
+  });
 });

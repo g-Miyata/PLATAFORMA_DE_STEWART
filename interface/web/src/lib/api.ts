@@ -13,6 +13,9 @@ import type {
   SerialStatus,
   TrajectoryRequest,
   TrajectoryStartResult,
+  TwinFitResult,
+  TwinParams,
+  TwinStatus,
 } from './types';
 
 /** Mesma origem: o FastAPI serve o frontend em produção e o Vite faz proxy em dev. */
@@ -146,6 +149,12 @@ export const api = {
   flightStop: () => post<FlightSimStatus>('/flight-simulation/stop'),
   flightStatus: () => get<FlightSimStatus>('/flight-simulation/status'),
   flightPreview: () => get<PlatformResponse & { timestamp: number }>('/flight-simulation/preview'),
+
+  // Gêmeo digital
+  twinStatus: () => get<TwinStatus>('/twin/status'),
+  twinSimulate: (body: { t: number[]; sp: number[][]; y0: number[] }) => post<{ Y_sim: number[][] }>('/twin/simulate', body),
+  twinFit: () => post<TwinFitResult>('/twin/fit', {}),
+  twinSaveParams: (params: Partial<TwinParams>) => post<{ saved: boolean; backup: string }>('/twin/params', { params }),
 
   // Segurança
   emergencyStop: () => post<{ stopped: boolean; held_mm: number[] | null }>('/emergency-stop'),

@@ -18,6 +18,7 @@ const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
+const TwinPage = lazy(() => import('@/pages/TwinPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -52,6 +53,7 @@ export const routes = [
       { path: '/apresentacao', element: page(PresentationPage) },
       { path: '/jogo', element: page(GamePage) },
       { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
+      { path: '/gemeo-digital', element: page(TwinPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },

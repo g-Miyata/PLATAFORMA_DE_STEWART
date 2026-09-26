@@ -156,6 +156,34 @@ export interface TelemetryMessage {
   pose_live: Pose | null;
   platform_points_live: Vec3[] | null;
   base_points: Vec3[];
+  /** posições do simulador sombra (gêmeo digital), no mesmo instante */
+  twin?: { Y_sim: number[] } | null;
+}
+
+export type TwinParamKey = 'vmax_adv_mm_s' | 'vmax_ret_mm_s' | 'deadzone_adv_pwm' | 'deadzone_ret_pwm';
+export type TwinParams = Record<TwinParamKey, number[]>;
+
+export interface TwinStatus {
+  active: boolean;
+  simulated: boolean;
+  samples: number;
+  params: TwinParams;
+}
+
+export interface TwinPistonFit extends Record<TwinParamKey, number> {
+  ok: boolean;
+  reason?: string;
+  samples: number;
+  fit_before: number;
+  fit_after: number;
+}
+
+export interface TwinFitResult {
+  samples: number;
+  pistons: TwinPistonFit[];
+  proposed: TwinParams;
+  rms_before: number[];
+  rms_after: number[];
 }
 
 export interface RawMessage {
