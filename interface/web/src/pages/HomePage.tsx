@@ -61,7 +61,8 @@ const FEATURES: Record<string, string[]> = {
   '/rotinas': ['Senoide, círculo, hélice e onda', 'Estimativa de velocidade dos atuadores', 'Comandado × medido e CSV'],
   '/acelerometro': ['BNO085 ou MPU-6050', 'IMU virtual para simular', 'Escala e recalibração'],
   '/configuracoes': ['Kp, Ki e Kd por pistão', 'Zona morta e PWM mínimo', 'Feedforward e offset'],
-  '/simulacao-voo': ['Ponte Telnet com o FlightGear', 'Limite de ±12°', 'Prévia antes de mover'],
+  '/simulador-voo': ['Washout: acelerações e rotações do voo', 'ERJ145 voando no FlightGear ao lado', 'Voos gravados com Play'],
+  '/orientacao-voo': ['Roll e pitch do avião, limitados a ±12°', 'Voos gravados e gravação ao vivo', 'FlightGear embutido na página'],
 };
 
 const GUIDES: { title: string; steps: { text: string; code?: string }[] }[] = [
@@ -83,11 +84,11 @@ const GUIDES: { title: string; steps: { text: string; code?: string }[] }[] = [
     ],
   },
   {
-    title: 'Simulação de voo',
+    title: 'Simulador de voo',
     steps: [
-      { text: 'Abra o FlightGear com o Telnet:', code: 'fgfs --telnet=socket,bi,60,localhost,5050,tcp' },
-      { text: 'Em outro terminal, rode a ponte:', code: 'cd interface\\simulation\npython fg-bridge.py' },
-      { text: 'Na página Simulação de voo, clique em Liberar controle.' },
+      { text: 'Na página Simulador de voo, clique em Rodar no FlightGear (o ERJ145 abre na tela ao lado).' },
+      { text: 'Conecte a bancada ou o simulador e clique em Engatar.' },
+      { text: 'Em Voos gravados, clique em Play. Passo a passo e erros comuns em FLIGHTGEAR-SETUP.md.' },
     ],
   },
 ];

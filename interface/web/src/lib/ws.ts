@@ -2,6 +2,7 @@
 // Como o app é uma SPA, ela sobrevive à troca de páginas: substitui as seis
 // implementações de reconexão do frontend antigo.
 import { useConnection } from '@/stores/connection';
+import { useCueing } from '@/stores/cueing';
 import { useTelemetry } from '@/stores/telemetry';
 import type { WsMessage } from './types';
 
@@ -22,6 +23,9 @@ export function dispatchMessage(msg: WsMessage) {
       break;
     case 'motion_tick':
       telemetry.onMotionTick(msg);
+      break;
+    case 'cueing_tick':
+      useCueing.getState().onTick(msg);
       break;
     case 'raw':
       telemetry.pushLog(msg.parse_error ? 'error' : 'rx', msg.raw);
