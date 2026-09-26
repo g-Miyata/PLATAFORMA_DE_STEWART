@@ -1,5 +1,6 @@
 import { Home, Send } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
@@ -19,9 +20,20 @@ import { useConnection } from '@/stores/connection';
 
 const AUTO_APPLY_MS = 100;
 
+function poseFromParams(params: URLSearchParams, base: Pose): Pose {
+  const pose = { ...base };
+  for (const k of ['x', 'y', 'z', 'roll', 'pitch', 'yaw'] as const) {
+    const v = Number(params.get(k));
+    if (params.has(k) && Number.isFinite(v)) pose[k] = v;
+  }
+  return pose;
+}
+
 export default function KinematicsPage() {
   const geometry = useGeometry();
-  const [pose, setPose] = useState<Pose>(() => zeroPose(geometry.home_z));
+  const [params] = useSearchParams();
+  // pose inicial pela URL (?x=…&roll=…), usada pelo Espaço de trabalho
+  const [pose, setPose] = useState<Pose>(() => poseFromParams(params, zeroPose(geometry.home_z)));
   const [autoApply, setAutoApply] = useState(false);
   const [applying, setApplying] = useState(false);
   const canCommand = useCanCommand();

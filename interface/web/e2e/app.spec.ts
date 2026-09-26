@@ -15,6 +15,7 @@ const ROUTES = [
   ['/blocos', 'Programação em blocos'],
   ['/apresentacao', 'Apresentação'],
   ['/jogo', 'Jogo da bolinha'],
+  ['/espaco-de-trabalho', 'Espaço de trabalho'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -286,4 +287,18 @@ test('jogo da bolinha: setas começam, espaço pausa e o espelhamento desliga no
   await page.waitForTimeout(500);
   await page.keyboard.press('Escape');
   await expect(mirror).not.toBeChecked();
+});
+
+test('espaço de trabalho: inclinar encolhe o volume e a pose vai para a Cinemática', async ({ page }) => {
+  await page.goto('/espaco-de-trabalho');
+  const volume = page.getByText(/^\d+,\d+ L$/);
+  await expect(volume).toBeVisible({ timeout: 10_000 });
+  const litros = async () => Number((await volume.textContent())!.replace(' L', '').replace(',', '.'));
+  const flat = await litros();
+  await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('8');
+  await expect.poll(litros, { timeout: 10_000 }).toBeLessThan(flat);
+  await page.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('25');
+  await page.getByRole('button', { name: 'Abrir na Cinemática' }).click();
+  await expect(page).toHaveURL(/\/cinematica\?x=25/);
+  await expect(page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' })).toHaveValue('8');
 });

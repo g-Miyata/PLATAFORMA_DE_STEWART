@@ -17,6 +17,7 @@ const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
+const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -50,6 +51,7 @@ export const routes = [
       { path: '/blocos', element: page(BlocksPage) },
       { path: '/apresentacao', element: page(PresentationPage) },
       { path: '/jogo', element: page(GamePage) },
+      { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },
