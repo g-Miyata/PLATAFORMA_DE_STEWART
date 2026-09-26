@@ -13,7 +13,6 @@ import { PISTON_COLORS } from '@/lib/pistons';
 import type { PlatformGeometry, Pose } from '@/lib/types';
 import { shotPosition, type Shot } from './scenes';
 
-export const EXHIBIT_BG = '#05080a';
 const BRAND = '#3fb654';
 
 export interface ExhibitFrame {
@@ -162,7 +161,7 @@ function AxisGizmo({ getFrame }: { getFrame: () => ExhibitFrame }) {
 }
 
 /** Piso escuro com reflexo suave (só no modo de alta qualidade). */
-function ReflectiveFloor() {
+function ReflectiveFloor({ color }: { color: string }) {
   return (
     <group position={[0, 0, PREMIUM_FLOOR_Z]}>
       <mesh position={[0, 0, -1]} receiveShadow>
@@ -176,7 +175,7 @@ function ReflectiveFloor() {
           depthScale={0.6}
           minDepthThreshold={0.4}
           maxDepthThreshold={1.2}
-          color="#0b1110"
+          color={color}
           metalness={0.4}
           mirror={0.4}
         />
@@ -192,6 +191,10 @@ function ReflectiveFloor() {
 }
 
 interface ExhibitCanvasProps {
+  /** cores do tema (fundo/névoa e piso) */
+  bg: string;
+  floor: string;
+  dark: boolean;
   geometry: PlatformGeometry;
   getFrame: () => ExhibitFrame;
   onFrame?: (dt: number) => void;
@@ -199,7 +202,7 @@ interface ExhibitCanvasProps {
 }
 
 /** Palco da apresentação ao público: câmera dirigida, luzes de recorte, reflexo e brilho. */
-export function ExhibitCanvas({ geometry, getFrame, onFrame, reducedMotion }: ExhibitCanvasProps) {
+export function ExhibitCanvas({ geometry, getFrame, onFrame, reducedMotion, bg, floor, dark }: ExhibitCanvasProps) {
   const [high, setHigh] = useState(true);
   const getPose = () => getFrame().pose;
   return (
@@ -209,26 +212,26 @@ export function ExhibitCanvas({ geometry, getFrame, onFrame, reducedMotion }: Ex
       camera={{ position: [1650, -1900, 1150], up: [0, 0, 1], fov: 30, near: 5, far: 30000 }}
       gl={{ antialias: !high, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.1 }}
     >
-      <color attach="background" args={[EXHIBIT_BG]} />
-      <fog attach="fog" args={[EXHIBIT_BG, 4800, 11000]} />
+      <color attach="background" args={[bg]} />
+      <fog attach="fog" args={[bg, 4800, 11000]} />
       <PerformanceMonitor onDecline={() => setHigh(false)} />
       {onFrame && <FrameHook onFrame={onFrame} />}
       <CameraDirector getFrame={getFrame} instant={reducedMotion} />
       <StudioLights high={high} />
       {/* luzes de recorte: verde IFSP atrás e azul frio de lado */}
-      <spotLight position={[-1400, 1500, 1500]} angle={0.5} penumbra={0.8} intensity={5e6} distance={0} decay={2} color={BRAND} />
-      <spotLight position={[1800, 1200, 600]} angle={0.45} penumbra={0.9} intensity={5e6} distance={0} decay={2} color="#6aa8ff" />
+      <spotLight position={[-1400, 1500, 1500]} angle={0.5} penumbra={0.8} intensity={dark ? 5e6 : 2.5e6} distance={0} decay={2} color={BRAND} />
+      <spotLight position={[1800, 1200, 600]} angle={0.45} penumbra={0.9} intensity={dark ? 5e6 : 2.5e6} distance={0} decay={2} color="#6aa8ff" />
       <PremiumRig geometry={geometry} getPose={getPose} />
       <LegGlow geometry={geometry} getFrame={getFrame} />
       <AxisGizmo getFrame={getFrame} />
-      {!reducedMotion && <Sparkles count={70} scale={[2600, 2600, 1200]} position={[0, 0, 500]} size={6} speed={0.25} opacity={0.5} color={BRAND} />}
-      {high ? <ReflectiveFloor /> : <StudioStage color={EXHIBIT_BG} high={false} />}
+      {!reducedMotion && <Sparkles count={70} scale={[2600, 2600, 1200]} position={[0, 0, 500]} size={6} speed={0.25} opacity={dark ? 0.5 : 0.35} color={BRAND} />}
+      {high ? <ReflectiveFloor color={floor} /> : <StudioStage color={bg} high={false} />}
       {high && (
         <EffectComposer multisampling={0}>
           <N8AO aoRadius={90} intensity={2} distanceFalloff={0.7} halfRes />
-          <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.2} intensity={reducedMotion ? 0.4 : 0.9} mipmapBlur />
+          <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.2} intensity={reducedMotion || !dark ? 0.4 : 0.9} mipmapBlur />
           <ToneMapping mode={ToneMappingMode.AGX} />
-          <Vignette offset={0.25} darkness={0.75} />
+          <Vignette offset={0.25} darkness={dark ? 0.75 : 0.3} />
           <SMAA />
         </EffectComposer>
       )}

@@ -1,18 +1,22 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, Moon, Plane, Sun } from 'lucide-react';
 import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { ModeBadge } from '@/components/ModeBadge';
 import { useFullscreen } from '@/components/Stage';
 import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate';
+import { useFgReady } from '@/features/cueing/FlightGearPanel';
+import { useReleaseOnLeave } from '@/features/cueing/SharedCards';
 import { useGamepad } from '@/features/joystick/gamepad';
 import { useGeometry } from '@/features/platform3d/geometry';
 import type { ExhibitFrame } from '@/features/presentation/ExhibitCanvas';
 import { prefersReducedMotion, useIdleCursor, useWakeLock } from '@/features/presentation/hooks';
 import { buildPlaylist } from '@/features/presentation/kiosk';
 import { OperatorPanel } from '@/features/presentation/OperatorPanel';
-import { SceneHud } from '@/features/presentation/SceneHud';
+import { FlightHud, SceneHud } from '@/features/presentation/SceneHud';
 import { dofAt, SCENES, sceneAt, sceneStart, type Shot } from '@/features/presentation/scenes';
+import { exhibitPalette, type ExhibitMode } from '@/features/presentation/theme';
+import { useExhibitFlight } from '@/features/presentation/useExhibitFlight';
 import { useKiosk } from '@/features/presentation/useKiosk';
 import { stepTilt, VISITOR_IDLE_S, VISITOR_MODEL, VISITOR_REAL } from '@/features/presentation/visitor';
 import { useLibrary } from '@/features/recorder/library';
@@ -21,12 +25,14 @@ import { cn } from '@/lib/cn';
 import { zeroPose } from '@/lib/kinematics';
 import { fmt } from '@/lib/pistons';
 import { useConnection } from '@/stores/connection';
+import { useCueing } from '@/stores/cueing';
 import { useTelemetry } from '@/stores/telemetry';
+import { useUi } from '@/stores/ui';
 
 // three + pós-processamento carregam separados: o texto aparece na hora
 const ExhibitCanvas = memo(lazy(() => import('@/features/presentation/ExhibitCanvas').then((m) => ({ default: m.ExhibitCanvas }))));
 
-const VISITOR_SHOT: Shot = { azimuth: -90, elevation: 34, distance: 3300, targetZ: 200 };
+const VISITOR_SHOT: Shot = { azimuth: -90, elevation: 34, distance: 2800, targetZ: 200 };
 const SEND_MS = 100;
 const HOLD_MS = 1800;
 const KEYS: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
@@ -37,7 +43,7 @@ function Countdown({ left }: { left: number }) {
   const k = Math.max(0, Math.min(1, left / VISITOR_IDLE_S));
   return (
     <svg viewBox="0 0 64 64" className="size-16" aria-hidden>
-      <circle cx="32" cy="32" r={r} fill="none" stroke="#ffffff22" strokeWidth="5" />
+      <circle cx="32" cy="32" r={r} fill="none" stroke="var(--ex-track)" strokeWidth="5" />
       <circle
         cx="32"
         cy="32"
@@ -50,7 +56,7 @@ function Countdown({ left }: { left: number }) {
         strokeDashoffset={2 * Math.PI * r * (1 - k)}
         transform="rotate(-90 32 32)"
       />
-      <text x="32" y="37" textAnchor="middle" fontSize="16" fontWeight="700" fill="#fff">
+      <text x="32" y="37" textAnchor="middle" fontSize="16" fontWeight="700" fill="var(--ex-text)">
         {Math.ceil(left)}
       </text>
     </svg>
@@ -68,6 +74,15 @@ export default function PresentationPage() {
   const [reduced] = useState(prefersReducedMotion);
   const [params] = useSearchParams();
   const firstScene = useRef(sceneStart(params.get('cena')));
+  const theme = useUi((s) => s.theme);
+  const toggleTheme = useUi((s) => s.toggleTheme);
+  const pal = exhibitPalette(theme);
+  // show automático ou simulador de voo (motion cueing); ?modo=voo abre direto no voo
+  const [mode, setMode] = useState<ExhibitMode>(params.get('modo') === 'voo' ? 'voo' : 'show');
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   const [sceneIndex, setSceneIndex] = useState(0);
   const [visitor, setVisitor] = useState(false);
@@ -85,7 +100,10 @@ export default function PresentationPage() {
   const [now, setNow] = useState(() => Date.now());
   const playlist = useMemo(() => buildPlaylist(geometry, recordings), [geometry, recordings]);
   const visitorDrivesReal = real && publicReal && visitor;
-  const kiosk = useKiosk(real && !visitorDrivesReal, playlist, sessionMin, () => setReal(false));
+  const kiosk = useKiosk(real && mode === 'show' && !visitorDrivesReal, playlist, sessionMin, () => setReal(false));
+  const fgReady = useFgReady();
+  const flight = useExhibitFlight(mode === 'voo', real, fgReady, () => setReal(false));
+  useReleaseOnLeave('washout');
 
   useEffect(() => {
     document.title = 'Apresentação · Plataforma de Stewart · IFSP';
@@ -132,10 +150,12 @@ export default function PresentationPage() {
   const tilt = useRef({ roll: 0, pitch: 0 });
 
   const touch = useCallback(() => {
+    // no simulador de voo quem pilota é o voo gravado: o toque não assume o controle
+    if (modeRef.current === 'voo') return;
     lastInput.current = performance.now();
     firstScene.current = 0;
     setVisitor(true);
-  }, []);
+  }, [setVisitor]);
 
   const updateInput = useCallback(() => {
     let x = 0;
@@ -237,6 +257,18 @@ export default function PresentationPage() {
   const onFrame = useCallback(
     (dt: number) => {
       const live = real ? useTelemetry.getState().telemetry?.pose_live : null;
+      if (mode === 'voo') {
+        // pose calculada pelo washout (a mesma que vai para a bancada quando engatada)
+        const tick = useCueing.getState().tick;
+        const t = performance.now() / 1000;
+        frame.current = {
+          pose: live ?? tick?.pose ?? zeroPose(home),
+          shot: { azimuth: -55 + 35 * Math.sin(t * 0.04), elevation: 16 + 5 * Math.sin(t * 0.07), distance: 3000, targetZ: 220 },
+          legs: null,
+          axis: null,
+        };
+        return;
+      }
       if (visitor) {
         tilt.current = stepTilt(tilt.current, input.current, dt, real && publicReal ? VISITOR_REAL : VISITOR_MODEL);
         const cmd = { x: 0, y: 0, z: home, roll: tilt.current.roll, pitch: tilt.current.pitch, yaw: 0 };
@@ -256,9 +288,10 @@ export default function PresentationPage() {
         axis: id === 'gdl' && !live ? dofAt(st.u).axis : null,
       };
     },
-    [visitor, real, publicReal, home],
+    [mode, visitor, real, publicReal, home],
   );
   const getFrame = useCallback(() => frame.current, []);
+  const getTick = useCallback(() => useCueing.getState().tick, []);
   const getHudState = useCallback(() => {
     const st = sceneAt((performance.now() - loopStart.current) / 1000, home);
     return { u: st.u, pose: frame.current.pose };
@@ -293,8 +326,9 @@ export default function PresentationPage() {
   return (
     <div
       ref={stage}
-      data-theme="dark"
-      className={cn('relative h-dvh w-full touch-none select-none overflow-hidden bg-[#05080a] text-white', hideCursor && 'cursor-none')}
+      data-theme={theme}
+      style={{ ...pal.vars, background: pal.bg }}
+      className={cn('relative h-dvh w-full touch-none select-none overflow-hidden text-[var(--ex-text)]', hideCursor && 'cursor-none')}
       onPointerDown={onPointer}
       onPointerMove={onPointer}
       onPointerUp={onPointer}
@@ -303,35 +337,44 @@ export default function PresentationPage() {
       <h1 className="sr-only">Apresentação da Plataforma de Stewart</h1>
       <div className="absolute inset-0" aria-hidden>
         <Suspense fallback={null}>
-          <ExhibitCanvas geometry={geometry} getFrame={getFrame} onFrame={onFrame} reducedMotion={reduced} />
+          <ExhibitCanvas geometry={geometry} getFrame={getFrame} onFrame={onFrame} reducedMotion={reduced} bg={pal.bg} floor={pal.floor} dark={pal.dark} />
         </Suspense>
       </div>
       {/* leitura do texto sobre a cena */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(0,0,0,0.75),transparent_60%)]" />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/60 to-transparent" />
+      <div aria-hidden className={cn('pointer-events-none absolute inset-0', pal.scrim)} />
+      <div aria-hidden className={cn('pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b to-transparent', pal.scrimTop)} />
 
       {/* topo: logo (segurar = painel do operador) */}
       <div className="absolute left-5 top-5 flex items-center gap-4 sm:left-8 sm:top-7" onPointerDown={startHold} onPointerUp={endHold} onPointerLeave={endHold}>
-        <img src="/brand/ifsp-logo-texto-claro.svg" alt="Instituto Federal de São Paulo, Campus São José dos Campos" className="h-11 w-auto sm:h-14" draggable={false} />
+        <img src={pal.logo} alt="Instituto Federal de São Paulo, Campus São José dos Campos" className="h-11 w-auto sm:h-14" draggable={false} />
       </div>
       <div className="absolute right-5 top-5 flex items-center gap-3 sm:right-8 sm:top-7">
         {real && (
           <>
             <ModeBadge />
-            <span className="rounded-full bg-black/50 px-3 py-1 text-sm font-semibold">
-              <kbd className="rounded border border-white/30 px-1">Esc</kbd> para parar
+            <span className="rounded-full bg-[var(--ex-panel)] px-3 py-1 text-sm font-semibold">
+              <kbd className="rounded border border-[var(--ex-border)] px-1">Esc</kbd> para parar
             </span>
           </>
         )}
         {hint && !operator && (
-          <span className="scene-enter rounded-full bg-black/50 px-3 py-1 text-xs text-white/80">
-            Tecla <kbd className="rounded border border-white/30 px-1">O</kbd>: painel do operador
+          <span className="scene-enter rounded-full bg-[var(--ex-panel)] px-3 py-1 text-xs text-[var(--ex-muted)]">
+            Tecla <kbd className="rounded border border-[var(--ex-border)] px-1">O</kbd>: painel do operador
           </span>
         )}
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={toggleTheme}
+          className="grid size-9 place-items-center rounded-full text-[var(--ex-muted)] transition-colors hover:bg-[var(--ex-panel)] hover:text-[var(--ex-text)]"
+          aria-label={pal.dark ? 'Usar o tema claro' : 'Usar o tema escuro'}
+        >
+          {pal.dark ? <Sun aria-hidden className="size-4" /> : <Moon aria-hidden className="size-4" />}
+        </button>
         <Link
           to="/"
           onPointerDown={(e) => e.stopPropagation()}
-          className="grid size-9 place-items-center rounded-full text-white/40 transition-colors hover:bg-white/10 hover:text-white focus-visible:text-white"
+          className="grid size-9 place-items-center rounded-full text-[var(--ex-muted)] transition-colors hover:bg-[var(--ex-panel)] hover:text-[var(--ex-text)]"
           aria-label="Sair da apresentação"
         >
           <LogOut aria-hidden className="size-4" />
@@ -340,15 +383,17 @@ export default function PresentationPage() {
 
       {/* texto da cena ou HUD do visitante */}
       <div className="pointer-events-none absolute inset-x-5 bottom-20 sm:inset-x-10 sm:bottom-24 lg:right-auto lg:max-w-[64rem]" aria-live="polite">
-        {visitor ? (
+        {mode === 'voo' ? (
+          <FlightHud getTick={getTick} flightName={flight?.name ?? null} />
+        ) : visitor ? (
           <section aria-labelledby="visitante-titulo" className="scene-enter flex items-end gap-5">
             <Countdown left={idleLeft} />
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#62d275]">Modo interativo</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--ex-accent)]">Modo interativo</p>
               <h2 id="visitante-titulo" className="text-5xl font-extrabold tracking-tight sm:text-6xl">
                 Você está no controle
               </h2>
-              <p className="mt-2 text-lg text-white/80">
+              <p className="mt-2 text-lg text-[var(--ex-muted)]">
                 Arraste para inclinar · roll {fmt(tiltShown.roll, 1)}° · pitch {fmt(tiltShown.pitch, 1)}°
                 {visitorDrivesReal && ' · movendo a bancada de verdade'}
               </p>
@@ -359,9 +404,19 @@ export default function PresentationPage() {
         )}
       </div>
 
+      {mode === 'voo' && fgReady && (
+        <figure className="pointer-events-none absolute right-5 top-20 w-[min(34rem,42vw)] overflow-hidden rounded-xl border border-[var(--ex-border)] bg-black shadow-2xl sm:right-8">
+          <img src="/fg/stream?k=apresentacao" alt="FlightGear: o avião do voo que está tocando" className="aspect-video w-full object-cover" />
+          <figcaption className="flex items-center gap-1.5 bg-[var(--ex-panel)] px-3 py-1.5 text-xs text-[var(--ex-muted)]">
+            <Plane aria-hidden className="size-3.5" />
+            FlightGear ao vivo · ERJ145 do IFSP
+          </figcaption>
+        </figure>
+      )}
+
       {/* joystick virtual no ponto do toque */}
       {stick && (
-        <div aria-hidden className="pointer-events-none absolute size-40 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/30 bg-white/5" style={{ left: stick.ox, top: stick.oy }}>
+        <div aria-hidden className="pointer-events-none absolute size-40 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--ex-border)] bg-[var(--ex-panel)]" style={{ left: stick.ox, top: stick.oy }}>
           <div
             className="absolute left-1/2 top-1/2 size-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3fb654] shadow-[0_0_30px_#3fb654]"
             style={{ transform: `translate(calc(-50% + ${stick.x * 60}px), calc(-50% + ${-stick.y * 60}px))` }}
@@ -371,18 +426,18 @@ export default function PresentationPage() {
 
       {/* rodapé: progresso das cenas e convite */}
       <div className="pointer-events-none absolute inset-x-5 bottom-6 flex items-center justify-between gap-4 sm:inset-x-10 sm:bottom-8">
-        <ol className="flex gap-2" aria-label="Cenas">
+        <ol className={cn('flex gap-2', mode === 'voo' && 'invisible')} aria-label="Cenas" aria-hidden={mode === 'voo' || undefined}>
           {SCENES.map((s, i) => (
             <li
               key={s.id}
               aria-current={!visitor && i === sceneIndex ? 'step' : undefined}
-              className={cn('h-1.5 rounded-full transition-all duration-500', !visitor && i === sceneIndex ? 'w-12 bg-[#3fb654]' : 'w-5 bg-white/25')}
+              className={cn('h-1.5 rounded-full transition-all duration-500', !visitor && i === sceneIndex ? 'w-12 bg-[#3fb654]' : 'w-5 bg-[var(--ex-track)]')}
             >
               <span className="sr-only">{s.title}</span>
             </li>
           ))}
         </ol>
-        {!visitor && <p className="text-sm font-medium text-white/70">Toque e arraste para controlar</p>}
+        {!visitor && mode === 'show' && <p className="text-sm font-medium text-[var(--ex-muted)]">Toque e arraste para controlar</p>}
       </div>
 
       {operator && (
@@ -401,6 +456,13 @@ export default function PresentationPage() {
           playlistLength={playlist.length}
           fullscreen={fullscreen}
           onFullscreen={toggleFullscreen}
+          mode={mode}
+          onMode={(m) => {
+            setMode(m);
+            setVisitor(false);
+          }}
+          flightName={flight?.name ?? null}
+          fgReady={fgReady}
         />
       )}
     </div>

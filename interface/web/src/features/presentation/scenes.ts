@@ -56,8 +56,8 @@ export const SCENES: Scene[] = [
     seconds: 12,
     pose: (u) => ({ z: 22 * s(u, 1.5), yaw: 6 * s(u, 1, 0.25) }),
     shot: [
-      { azimuth: -70, elevation: 8, distance: 3300, targetZ: 260 },
-      { azimuth: -35, elevation: 22, distance: 3900, targetZ: 170 },
+      { azimuth: -70, elevation: 8, distance: 2800, targetZ: 260 },
+      { azimuth: -35, elevation: 22, distance: 3300, targetZ: 170 },
     ],
   },
   {
@@ -70,8 +70,8 @@ export const SCENES: Scene[] = [
       return { [d.axis]: d.amp * envelope(d.u, 0.2) * s(d.u, 1) };
     },
     shot: [
-      { azimuth: -40, elevation: 24, distance: 3600, targetZ: 200 },
-      { azimuth: 20, elevation: 28, distance: 3600, targetZ: 200 },
+      { azimuth: -40, elevation: 24, distance: 3050, targetZ: 200 },
+      { azimuth: 20, elevation: 28, distance: 3050, targetZ: 200 },
     ],
   },
   {
@@ -81,19 +81,19 @@ export const SCENES: Scene[] = [
     seconds: 12,
     pose: (u) => ({ z: 16 * s(u, 2), pitch: 6 * s(u, 2, 0.25), roll: 4 * s(u, 1) }),
     shot: [
-      { azimuth: 60, elevation: 14, distance: 3200, targetZ: 230 },
-      { azimuth: 110, elevation: 18, distance: 3300, targetZ: 210 },
+      { azimuth: 60, elevation: 14, distance: 2700, targetZ: 230 },
+      { azimuth: 110, elevation: 18, distance: 2800, targetZ: 210 },
     ],
   },
   {
     id: 'voo',
     title: 'Do simulador de voo para a bancada',
-    subtitle: 'Integrada ao FlightGear: a plataforma reproduz as curvas e arfagens do avião',
+    subtitle: 'Integrada ao FlightGear, com motion cueing: a plataforma reproduz as acelerações e as curvas do avião',
     seconds: 12,
     pose: (u) => ({ roll: 9 * s(u, 1), pitch: 4 * s(u, 2, 0.1), yaw: 5 * s(u, 1, 0.25), z: 8 * s(u, 2) }),
     shot: [
-      { azimuth: 180, elevation: 10, distance: 3450, targetZ: 240 },
-      { azimuth: 150, elevation: 16, distance: 3450, targetZ: 220 },
+      { azimuth: 180, elevation: 10, distance: 2950, targetZ: 240 },
+      { azimuth: 150, elevation: 16, distance: 2950, targetZ: 220 },
     ],
   },
   {
@@ -103,8 +103,8 @@ export const SCENES: Scene[] = [
     seconds: 12,
     pose: (u) => ({ x: 20 * c(u, 1.5), y: 20 * s(u, 1.5), roll: -2.5 * s(u, 1.5), pitch: 2.5 * c(u, 1.5) }),
     shot: [
-      { azimuth: -120, elevation: 30, distance: 3750, targetZ: 180 },
-      { azimuth: -80, elevation: 26, distance: 3600, targetZ: 180 },
+      { azimuth: -120, elevation: 30, distance: 3200, targetZ: 180 },
+      { azimuth: -80, elevation: 26, distance: 3050, targetZ: 180 },
     ],
   },
   {
@@ -114,8 +114,8 @@ export const SCENES: Scene[] = [
     seconds: 9,
     pose: (u) => ({ roll: 4 * s(u, 1.5), pitch: 4 * c(u, 1.5) }),
     shot: [
-      { azimuth: -55, elevation: 24, distance: 3750, targetZ: 170 },
-      { azimuth: -40, elevation: 26, distance: 3750, targetZ: 170 },
+      { azimuth: -55, elevation: 24, distance: 3200, targetZ: 170 },
+      { azimuth: -40, elevation: 26, distance: 3200, targetZ: 170 },
     ],
   },
 ];

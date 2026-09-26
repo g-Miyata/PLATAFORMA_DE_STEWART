@@ -4,7 +4,7 @@ import { Tex, texNum } from '@/components/Tex';
 import { cn } from '@/lib/cn';
 import { solvePose } from '@/lib/kinematics';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
-import type { PlatformGeometry, Pose } from '@/lib/types';
+import type { CueingTickMessage, PlatformGeometry, Pose } from '@/lib/types';
 import { dofAt, SCENES, type SceneId } from './scenes';
 
 /** Relê um valor a cada `ms` (os números da cena mudam a 60 Hz; o texto não precisa). */
@@ -19,7 +19,7 @@ export function usePolled<T>(read: () => T, ms = 100): T {
   return v;
 }
 
-const panel = 'rounded-2xl border border-white/10 bg-black/45 backdrop-blur-md shadow-2xl';
+const panel = 'rounded-2xl border border-[var(--ex-border)] bg-[var(--ex-panel)] backdrop-blur-md shadow-2xl';
 
 const STATS = [
   ['6', 'graus de liberdade'],
@@ -29,7 +29,7 @@ const STATS = [
 ] as const;
 
 /** Instrumento de atitude (horizonte artificial) com o roll e o pitch do tampo. */
-function AttitudeIndicator({ roll, pitch }: { roll: number; pitch: number }) {
+export function AttitudeIndicator({ roll, pitch }: { roll: number; pitch: number }) {
   const shift = Math.max(-40, Math.min(40, pitch * 4));
   return (
     <svg viewBox="-60 -60 120 120" className="size-40 drop-shadow-xl sm:size-48" role="img" aria-label={`Horizonte artificial: roll ${fmt(roll, 0)} graus, pitch ${fmt(pitch, 0)} graus`}>
@@ -64,8 +64,8 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
           <div key={l} className={cn(panel, 'px-4 py-3')}>
             <dt className="sr-only">{l}</dt>
             <dd>
-              <span className="block text-2xl font-bold tabular-nums text-white sm:text-3xl">{v}</span>
-              <span aria-hidden className="text-sm text-white/70">
+              <span className="block text-2xl font-bold tabular-nums text-[var(--ex-text)] sm:text-3xl">{v}</span>
+              <span aria-hidden className="text-sm text-[var(--ex-muted)]">
                 {l}
               </span>
             </dd>
@@ -83,7 +83,7 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
             aria-current={i === cur.index ? 'true' : undefined}
             className={cn(
               'rounded-xl border px-4 py-2 text-lg font-semibold transition-all duration-300',
-              i === cur.index ? 'scale-110 border-[#3fb654] bg-[#3fb654] text-black shadow-[0_0_30px_#3fb65499]' : 'border-white/15 bg-black/40 text-white/70',
+              i === cur.index ? 'scale-110 border-[#3fb654] bg-[#3fb654] text-black shadow-[0_0_30px_#3fb65499]' : 'border-[var(--ex-border)] bg-[var(--ex-panel)] text-[var(--ex-muted)]',
             )}
           >
             {name}
@@ -107,8 +107,8 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
             <span className="block text-xs font-semibold uppercase tracking-wider" style={{ color: PISTON_COLORS[i] }}>
               Pistão {i + 1}
             </span>
-            <span className="text-2xl font-bold tabular-nums text-white">{fmt(l, 0)}</span>
-            <span className="text-sm text-white/60"> mm</span>
+            <span className="text-2xl font-bold tabular-nums text-[var(--ex-text)]">{fmt(l, 0)}</span>
+            <span className="text-sm text-[var(--ex-muted)]"> mm</span>
           </li>
         ))}
       </ul>
@@ -118,13 +118,13 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
     return (
       <div className="flex items-center gap-5">
         <AttitudeIndicator roll={pose.roll} pitch={pose.pitch} />
-        <dl className="space-y-1 text-white">
+        <dl className="space-y-1 text-[var(--ex-text)]">
           <div>
-            <dt className="text-xs uppercase tracking-wider text-white/60">Rolagem</dt>
+            <dt className="text-xs uppercase tracking-wider text-[var(--ex-muted)]">Rolagem</dt>
             <dd className="text-3xl font-bold tabular-nums">{fmt(pose.roll, 1)}°</dd>
           </div>
           <div>
-            <dt className="text-xs uppercase tracking-wider text-white/60">Arfagem</dt>
+            <dt className="text-xs uppercase tracking-wider text-[var(--ex-muted)]">Arfagem</dt>
             <dd className="text-3xl font-bold tabular-nums">{fmt(pose.pitch, 1)}°</dd>
           </div>
         </dl>
@@ -133,18 +133,18 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
   if (id === 'cinematica') {
     const L1 = solvePose(pose, geometry).lengths[0];
     return (
-      <div className={cn(panel, 'inline-block px-6 py-4 text-2xl text-white sm:text-3xl')}>
+      <div className={cn(panel, 'inline-block px-6 py-4 text-2xl text-[var(--ex-text)] sm:text-3xl')}>
         <Tex block label={`L1 igual à norma de p mais R vezes b1 menos a1, igual a ${fmt(L1, 1)} milímetros`}>
           {`L_1 = \\lVert \\mathbf{p} + R\\,\\mathbf{b}_1 - \\mathbf{a}_1 \\rVert = ${texNum(L1)}\\ \\text{mm}`}
         </Tex>
-        <p className="mt-1 text-sm text-white/70">
+        <p className="mt-1 text-sm text-[var(--ex-muted)]">
           p = ({fmt(pose.x, 0)}, {fmt(pose.y, 0)}, {fmt(pose.z, 0)}) mm · o mesmo cálculo para os seis pistões, 60 vezes por segundo
         </p>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-6 text-white" aria-hidden>
+    <div className="flex items-center gap-6 text-[var(--ex-text)]" aria-hidden>
       <Hand className="size-16 animate-bounce text-[#3fb654] motion-reduce:animate-none" />
       <Gamepad2 className="size-16 animate-pulse text-[#6aa8ff] motion-reduce:animate-none" />
     </div>
@@ -157,14 +157,65 @@ export function SceneHud({ index, getState, geometry }: { index: number; getStat
   const { u, pose } = usePolled(getState, 100);
   return (
     <section key={scene.id} aria-labelledby="cena-titulo" className="scene-enter space-y-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#62d275]">
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--ex-accent)]">
         {String(index + 1).padStart(2, '0')} / {String(SCENES.length).padStart(2, '0')}
       </p>
-      <h2 id="cena-titulo" className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight text-white drop-shadow-[0_4px_30px_rgba(0,0,0,0.8)] sm:text-6xl xl:text-7xl">
+      <h2 id="cena-titulo" className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight text-[var(--ex-text)] drop-shadow-[0_4px_30px_var(--ex-shadow)] sm:text-6xl xl:text-7xl">
         {scene.title}
       </h2>
-      <p className="max-w-2xl text-lg text-white/80 sm:text-xl">{scene.subtitle}</p>
+      <p className="max-w-2xl text-lg text-[var(--ex-muted)] sm:text-xl">{scene.subtitle}</p>
       <SceneExtra id={scene.id} u={u} pose={pose} geometry={geometry} />
+    </section>
+  );
+}
+
+/** Modo "Simulador de voo": instrumentos do avião e o que a plataforma faz (motion cueing). */
+export function FlightHud({ getTick, flightName }: { getTick: () => CueingTickMessage | null; flightName: string | null }) {
+  const tick = usePolled(getTick, 100);
+  const ac = tick?.aircraft ?? null;
+  const rp = tick?.replay ?? null;
+  const pose = tick?.pose ?? null;
+  return (
+    <section aria-labelledby="voo-titulo" className="scene-enter space-y-5">
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--ex-accent)]">Simulador de voo · motion cueing</p>
+      <h2 id="voo-titulo" className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight text-[var(--ex-text)] drop-shadow-[0_4px_30px_var(--ex-shadow)] sm:text-6xl xl:text-7xl">
+        Sinta o voo
+      </h2>
+      <p className="max-w-2xl text-lg text-[var(--ex-muted)] sm:text-xl">
+        A plataforma reproduz as acelerações e as curvas do ERJ145 do IFSP no FlightGear. Para simular uma aceleração longa, ela inclina devagar e depois volta ao centro sem você perceber (washout).
+      </p>
+      <div className="flex flex-wrap items-center gap-5">
+        <AttitudeIndicator roll={ac?.roll ?? 0} pitch={ac?.pitch ?? 0} />
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-[var(--ex-text)]">
+          {(
+            [
+              ['Velocidade', ac ? `${fmt(ac.ias, 0)} kt` : '—'],
+              ['Altitude', ac ? `${fmt(ac.alt, 0)} ft` : '—'],
+              ['Rumo', ac ? `${fmt(((ac.heading % 360) + 360) % 360, 0)}°` : '—'],
+              ['Plataforma', pose ? `roll ${fmt(pose.roll, 1)}° · pitch ${fmt(pose.pitch, 1)}°` : '—'],
+            ] as const
+          ).map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-xs uppercase tracking-wider text-[var(--ex-muted)]">{k}</dt>
+              <dd className="text-2xl font-bold tabular-nums">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      {rp && (
+        <div className="max-w-xl">
+          <div className="mb-1 flex justify-between gap-3 text-sm text-[var(--ex-muted)]">
+            <span className="truncate">{flightName ?? rp.name}</span>
+            <span className="tabular-nums">
+              {Math.floor(rp.t / 60)}:{String(Math.floor(rp.t % 60)).padStart(2, '0')} / {Math.floor(rp.duration / 60)}:{String(Math.floor(rp.duration % 60)).padStart(2, '0')}
+            </span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-[var(--ex-track)]" aria-hidden>
+            <div className="h-full rounded-full bg-[#3fb654]" style={{ width: `${Math.min(100, (rp.t / Math.max(1, rp.duration)) * 100)}%` }} />
+          </div>
+        </div>
+      )}
+      {!tick && <p className="text-sm text-[var(--ex-muted)]">Aguardando o voo gravado começar…</p>}
     </section>
   );
 }

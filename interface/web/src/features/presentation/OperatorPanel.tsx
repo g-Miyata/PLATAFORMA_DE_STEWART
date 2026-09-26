@@ -1,10 +1,11 @@
 import { LogOut, Maximize, Minimize, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { SelectField, SwitchField } from '@/components/ui/field';
 import { mmss } from '@/features/routines/MotionStatusCard';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
+import type { ExhibitMode } from './theme';
 import type { KioskState } from './useKiosk';
 
 interface OperatorPanelProps {
@@ -22,7 +23,16 @@ interface OperatorPanelProps {
   playlistLength: number;
   fullscreen: boolean;
   onFullscreen: () => void;
+  mode: ExhibitMode;
+  onMode: (m: ExhibitMode) => void;
+  flightName: string | null;
+  fgReady: boolean;
 }
+
+const MODES: { id: ExhibitMode; label: string; description: string }[] = [
+  { id: 'show', label: 'Show automático', description: 'as cenas em laço; o público pode tocar para controlar' },
+  { id: 'voo', label: 'Simulador de voo (motion cueing)', description: 'um voo gravado do ERJ145 em laço, com washout' },
+];
 
 const AUTO_CLOSE_MS = 20_000;
 
@@ -56,6 +66,8 @@ export function OperatorPanel(p: OperatorPanelProps) {
     };
   }, []);
 
+  const modeName = useId();
+  const voo = p.mode === 'voo';
   return (
     <aside
       ref={ref}
@@ -72,8 +84,30 @@ export function OperatorPanel(p: OperatorPanelProps) {
           <X aria-hidden />
         </Button>
       </div>
+      <fieldset className="space-y-1.5">
+        <legend className="mb-1 text-sm font-semibold">O que a tela mostra</legend>
+        {MODES.map((m) => (
+          <label key={m.id} className="flex cursor-pointer items-start gap-2 text-sm">
+            <input type="radio" name={modeName} checked={p.mode === m.id} onChange={() => p.onMode(m.id)} className="mt-0.5 size-4 accent-[var(--c-brand)]" />
+            <span>
+              <span className="font-medium">{m.label}</span> <span className="text-muted">— {m.description}</span>
+            </span>
+          </label>
+        ))}
+        {voo && (
+          <p className="text-xs text-muted">
+            {p.flightName ? `Tocando: ${p.flightName}. ` : 'Carregando o voo… '}
+            {p.fgReady ? 'O FlightGear aparece no canto da tela.' : 'Abra o FlightGear na página Simulador de voo para mostrar o avião também.'}
+          </p>
+        )}
+      </fieldset>
       <div role="status" aria-live="polite" className="text-sm">
-        {p.real ? (
+        {voo && p.real ? (
+          <>
+            <span className="font-semibold">{p.simulated ? 'Simulador' : 'Bancada'}:</span> engatada no motion cueing
+            {p.remaining !== null && <span className="block text-muted tabular-nums">Sessão termina em {mmss(p.remaining)}</span>}
+          </>
+        ) : p.real ? (
           <>
             <span className="font-semibold">{p.simulated ? 'Simulador' : 'Bancada'}:</span>{' '}
             {p.kiosk.phase === 'resting' ? 'pausa no home' : (p.kiosk.current ?? 'controle do público')}
@@ -85,7 +119,11 @@ export function OperatorPanel(p: OperatorPanelProps) {
       </div>
       <SwitchField
         label="Mover a plataforma de verdade"
-        description={`Toca ${p.playlistLength} movimentos com amplitude reduzida (até ~10 mm/s), com pausa no home entre eles.`}
+        description={
+          voo
+            ? 'Engata a plataforma no motion cueing: ela sente o voo (dentro do curso e da velocidade dos pistões) e volta ao neutro ao desligar.'
+            : `Toca ${p.playlistLength} movimentos com amplitude reduzida (até ~10 mm/s), com pausa no home entre eles.`
+        }
         checked={p.real}
         onCheckedChange={p.onReal}
         disabled={!p.canCommand}
@@ -96,7 +134,7 @@ export function OperatorPanel(p: OperatorPanelProps) {
         description="Quem tocar na tela inclina a bancada de verdade (até 5°, devagar). Desligado: o público só mexe no modelo."
         checked={p.publicReal}
         onCheckedChange={p.onPublicReal}
-        disabled={!p.real}
+        disabled={!p.real || voo}
       />
       <SelectField label="Duração da sessão" value={String(p.sessionMin)} onChange={(e) => p.onSessionMin(Number(e.target.value))} disabled={p.real}>
         {[5, 10, 15, 20, 30, 60].map((m) => (
