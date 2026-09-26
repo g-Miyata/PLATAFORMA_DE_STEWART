@@ -21,12 +21,25 @@ export interface FkGeometry {
   platform_points_local: Vec3[];
 }
 
+export interface FkStep {
+  iteration: number;
+  pose: Pose;
+  /** maior erro de comprimento (mm) nessa iteração */
+  maxError: number;
+  /** erro RMS dos seis comprimentos (mm) */
+  rms: number;
+  /** comprimentos que a pose dessa iteração daria (cinemática inversa) */
+  lengths: number[];
+}
+
 export interface FkResult {
   pose: Pose;
   converged: boolean;
   /** maior erro de comprimento (mm) na solução */
   maxError: number;
   iterations: number;
+  /** cada iteração, a partir do chute inicial (só com `history: true`, para a aula) */
+  history?: FkStep[];
 }
 
 function residual(v: number[], geom: FkGeometry, target: readonly number[]): number[] {
@@ -63,7 +76,7 @@ export function forwardKinematics(
   lengths: readonly number[],
   geom: FkGeometry,
   guess: Pose,
-  { tolerance = 1e-4, maxIterations = 40 }: { tolerance?: number; maxIterations?: number } = {},
+  { tolerance = 1e-4, maxIterations = 40, history = false }: { tolerance?: number; maxIterations?: number; history?: boolean } = {},
 ): FkResult {
   let v = clampVec(toVec(guess));
   let r = residual(v, geom, lengths);
@@ -71,6 +84,11 @@ export function forwardKinematics(
   let lambda = 1e-3;
   const h = 1e-4;
   let it = 0;
+  const steps: FkStep[] = [];
+  const record = () =>
+    history &&
+    steps.push({ iteration: steps.length, pose: toPose(v), maxError: Math.max(...r.map(Math.abs)), rms: Math.sqrt(cost / 6), lengths: r.map((e, i) => e + lengths[i]) });
+  record();
 
   for (; it < maxIterations; it++) {
     if (Math.max(...r.map(Math.abs)) < tolerance) break;
@@ -111,10 +129,11 @@ export function forwardKinematics(
       }
     }
     if (!improved) break;
+    record();
   }
 
   const maxError = Math.max(...r.map(Math.abs));
-  return { pose: toPose(v), converged: maxError < 0.01, maxError, iterations: it };
+  return { pose: toPose(v), converged: maxError < 0.01, maxError, iterations: it, ...(history ? { history: steps } : {}) };
 }
 
 export const POSE_KEYS = KEYS;

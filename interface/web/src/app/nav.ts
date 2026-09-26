@@ -1,4 +1,4 @@
-import { Box, CircleDot, Clapperboard, Compass, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Box, CircleDot, Clapperboard, Compass, GraduationCap, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'ajustes';
 
@@ -29,7 +29,8 @@ export const NAV: NavItem[] = [
   { path: '/simulacao-voo', label: 'Simulação de voo', description: 'Integração com o FlightGear', Icon: Plane, group: 'controlar' },
   { path: '/gravar', label: 'Gravar e reproduzir', description: 'Grave movimentos, edite poses-chave numa linha do tempo e reproduza', Icon: Clapperboard, group: 'criar' },
   { path: '/blocos', label: 'Programação em blocos', description: 'Monte sequências encaixando blocos, como no Scratch', Icon: Puzzle, group: 'criar' },
-  { path: '/apresentacao', label: 'Apresentação e aula', description: 'Demonstração em tela cheia e aula guiada de cinemática com vetores no 3D', Icon: Presentation, group: 'mostrar' },
+  { path: '/aula', label: 'Aula de cinemática', description: 'Curso guiado: a plataforma, robôs seriais × paralelos, cinemática inversa e direta', Icon: GraduationCap, group: 'mostrar' },
+  { path: '/apresentacao', label: 'Apresentação', description: 'Tela cheia para feiras e exposições: show automático e o público controla', Icon: Presentation, group: 'mostrar' },
   { path: '/jogo', label: 'Jogo da bolinha', description: 'Incline o tampo e leve a bolinha ao alvo, desviando dos buracos', Icon: CircleDot, group: 'mostrar' },
   { path: '/espaco-de-trabalho', label: 'Espaço de trabalho', description: 'Volume que o tampo alcança e inclinação máxima em cada direção', Icon: Orbit, group: 'mostrar' },
   { path: '/configuracoes', label: 'Ganhos PID', description: 'Kp, Ki, Kd, zona morta e PWM mínimo', Icon: SlidersHorizontal, group: 'ajustes' },

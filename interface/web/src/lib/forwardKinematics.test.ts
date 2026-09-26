@@ -43,4 +43,23 @@ describe('cinemática direta', () => {
     for (let i = 0; i < 50; i++) forwardKinematics(L, DEFAULT_GEOMETRY, home);
     expect((performance.now() - t0) / 50).toBeLessThan(5);
   });
+
+  it('guarda o histórico das iterações para a aula (erro não cresce e termina < 0,01 mm)', () => {
+    const { L } = cases[1];
+    const r = forwardKinematics(L, DEFAULT_GEOMETRY, home, { history: true });
+    const h = r.history!;
+    expect(h.length).toBeGreaterThan(2);
+    expect(h[0].pose).toEqual(home);
+    for (let i = 1; i < h.length; i++) expect(h[i].rms).toBeLessThanOrEqual(h[i - 1].rms + 1e-9);
+    expect(h[h.length - 1].maxError).toBeLessThan(0.01);
+    // os comprimentos de cada iteração são a inversa da pose dela
+    expect(h[0].lengths[0]).toBeCloseTo(solvePose(home, DEFAULT_GEOMETRY).lengths[0], 6);
+  });
+
+  it('chega na mesma pose partindo de um chute bom ou de um chute médio', () => {
+    const { L, pose } = cases[1];
+    const a = forwardKinematics(L, DEFAULT_GEOMETRY, pose);
+    const b = forwardKinematics(L, DEFAULT_GEOMETRY, { x: -20, y: 20, z: 500, roll: -5, pitch: 5, yaw: -5 });
+    for (const k of ['x', 'y', 'z', 'roll', 'pitch', 'yaw'] as const) expect(b.pose[k]).toBeCloseTo(a.pose[k], 2);
+  });
 });

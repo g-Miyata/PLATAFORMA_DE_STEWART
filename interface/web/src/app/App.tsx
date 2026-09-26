@@ -16,6 +16,7 @@ const FlightSimPage = lazy(() => import('@/pages/FlightSimPage'));
 const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
+const LessonPage = lazy(() => import('@/pages/LessonPage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage'));
@@ -36,6 +37,8 @@ const page = (Component: React.ComponentType) => (
 );
 
 export const routes = [
+  // tela de exposição: página inteira, sem cabeçalho nem menu
+  { path: '/apresentacao', element: page(PresentationPage) },
   {
     element: <AppShell />,
     children: [
@@ -50,7 +53,8 @@ export const routes = [
       { path: '/simulacao-voo', element: page(FlightSimPage) },
       { path: '/gravar', element: page(RecorderPage) },
       { path: '/blocos', element: page(BlocksPage) },
-      { path: '/apresentacao', element: page(PresentationPage) },
+      { path: '/aula', element: page(LessonPage) },
+      { path: '/aula/:module/:lesson/:step?', element: page(LessonPage) },
       { path: '/jogo', element: page(GamePage) },
       { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
       { path: '/calibracao', element: page(CalibrationPage) },

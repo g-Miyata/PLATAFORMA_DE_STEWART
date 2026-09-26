@@ -13,7 +13,8 @@ const ROUTES = [
   ['/simulacao-voo', 'Simulação de voo'],
   ['/gravar', 'Gravar e reproduzir'],
   ['/blocos', 'Programação em blocos'],
-  ['/apresentacao', 'Apresentação'],
+  ['/apresentacao', 'Apresentação da Plataforma de Stewart'],
+  ['/aula', 'Aula de cinemática'],
   ['/jogo', 'Jogo da bolinha'],
   ['/espaco-de-trabalho', 'Espaço de trabalho'],
   ['/calibracao', 'Calibração'],
@@ -209,7 +210,7 @@ test.describe('Gravar e reproduzir', () => {
     await page.goto('/gravar');
     await page.getByRole('button', { name: 'Começar a gravar' }).click();
     await expect(page.getByRole('status').filter({ hasText: 'REC' })).toBeVisible();
-    await page.getByRole('link', { name: 'Cinemática' }).click();
+    await page.getByRole('link', { name: 'Cinemática', exact: true }).click();
     await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('3');
     await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
     await page.waitForTimeout(600);
@@ -239,10 +240,27 @@ test('programação em blocos: abre um exemplo, mostra os passos e reproduz no s
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
 });
 
-test.describe('Apresentação e aula', () => {
-  test('quiosque move o simulador de verdade e o Esc para tudo', async ({ page }) => {
+test.describe('Apresentação', () => {
+  test('o show troca de cena, arrastar passa o controle ao público e O abre o painel do operador', async ({ page }) => {
+    await page.goto('/apresentacao?cena=voo');
+    await expect(page.getByRole('heading', { name: 'Do simulador de voo para a bancada' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cinemática em tempo real' })).toBeVisible({ timeout: 15_000 });
+    await page.mouse.move(700, 350);
+    await page.mouse.down();
+    await page.mouse.move(780, 320, { steps: 5 });
+    await expect(page.getByRole('heading', { name: 'Você está no controle' })).toBeVisible();
+    await page.mouse.up();
+    await page.keyboard.press('KeyO');
+    await expect(page.getByRole('complementary', { name: 'Painel do operador' })).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
+  });
+
+  test('pelo painel do operador o quiosque move o simulador, e o Esc para tudo', async ({ page }) => {
     await serial(page, 'open');
     await page.goto('/apresentacao');
+    await expect(page.getByRole('heading', { name: 'Plataforma de Stewart', exact: true })).toBeVisible();
+    await page.keyboard.press('KeyO');
     const real = page.getByRole('switch', { name: 'Mover a plataforma de verdade' });
     await real.click();
     await expect(real).toBeChecked();
@@ -251,22 +269,50 @@ test.describe('Apresentação e aula', () => {
     await expect(real).not.toBeChecked();
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
   });
+});
 
-  test('aula: → avança de etapa e as perguntas dão retorno', async ({ page }) => {
-    await page.addInitScript(() => localStorage.removeItem('stewart-lesson'));
-    await page.goto('/apresentacao');
-    await page.getByRole('tab', { name: 'Aula' }).click();
-    await expect(page.getByRole('heading', { name: '1. Seis graus de liberdade' })).toBeVisible();
+test.describe('Aula', () => {
+  test('→ avança, a URL guarda a etapa e as perguntas dão retorno', async ({ page }) => {
+    await page.addInitScript(() => localStorage.removeItem('stewart-lesson-v2'));
+    await page.goto('/aula');
+    await expect(page.getByRole('heading', { name: '1. Um robô de cadeia fechada' })).toBeVisible();
     await page.getByRole('radio', { name: '6', exact: true }).check();
-    await page.getByRole('button', { name: 'Conferir' }).first().click();
-    await expect(page.getByText('Isso!').first()).toBeVisible();
-    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.getByRole('button', { name: 'Conferir' }).click();
+    await expect(page.getByText('Isso!')).toBeVisible();
     await page.keyboard.press('ArrowRight');
-    await expect(page.getByRole('heading', { name: '2. As juntas da base (bᵢ)' })).toBeVisible();
-    await page.getByRole('button', { name: /^6\./ }).click();
-    await expect(page.getByText(/‖L1‖ = \d/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: '2. De onde ela veio' })).toBeVisible();
+    await expect(page).toHaveURL(/\/aula\/plataforma\/o-que-e\/2$/);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: '2. De onde ela veio' })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
+  });
+
+  test('direta: o experimento mostra a pose e o solver converge', async ({ page }) => {
+    await page.goto('/aula/cinematica/direta/2');
+    await page.getByRole('radio', { name: 'O tampo sobe, praticamente sem girar' }).check();
+    await page.getByRole('button', { name: 'Testar' }).click();
+    await expect(page.getByText('Acertou!')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('ΔZ')).toBeVisible();
+
+    await page.goto('/aula/cinematica/direta/5');
+    await page.getByRole('button', { name: 'Rodar' }).click();
+    await expect(page.getByText(/Convergiu em \d+ iterações para a pose real/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('cell', { name: '< 0,01 mm' }).first()).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
+  });
+
+  test('seriais: o braço 2R mostra as duas soluções e o UR5e as da inversa', async ({ page }) => {
+    await page.goto('/aula/cinematica/seriais-paralelos/3');
+    await expect(page.getByText('Cotovelo para cima', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^\d soluções para o mesmo alvo$/)).toBeVisible();
+    const arm = page.getByRole('application', { name: /Braço de duas juntas/ });
+    await arm.focus();
+    for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowRight');
+    await expect(page.getByText('Fora do alcance: nenhuma solução.')).toBeVisible();
+    // as setas no braço não trocam de etapa
+    await expect(page.getByRole('heading', { name: '3. Inversa no serial: o problema difícil' })).toBeVisible();
   });
 });
 
