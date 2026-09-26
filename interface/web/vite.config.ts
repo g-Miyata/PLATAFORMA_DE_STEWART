@@ -8,9 +8,9 @@ const BACKEND = 'http://127.0.0.1:8001';
 // Rotas da API FastAPI (servidas na raiz). Em dev o Vite repassa para o backend;
 // em produção o próprio FastAPI serve o build, então tudo é same-origin.
 // Regex ancorada: "/config" não pode capturar a rota da SPA "/configuracoes",
-// nem "/joystick/pose" a página "/joystick".
+// nem "/joystick/pose" a página "/joystick". "/antigo" é o frontend legado servido pelo FastAPI.
 const API_ROUTES =
-  '^/(serial|pid|motion|calculate|apply_pose|mpu|joystick/pose|flight-simulation|telemetry|emergency-stop|api|docs|openapi[.]json|config)(/|[?]|$)';
+  '^/(serial|pid|motion|calculate|apply_pose|mpu|joystick/pose|flight-simulation|telemetry|emergency-stop|api|docs|openapi[.]json|config|antigo)(/|[?]|$)';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
