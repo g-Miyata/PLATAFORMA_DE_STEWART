@@ -162,6 +162,22 @@ class MotionRequest(BaseModel):
     z_amp_mm: Optional[float] = None  # Amplitude em Z para helix (mm)
     z_cycles: Optional[float] = None  # Número de ciclos completos em Z durante uma volta no círculo XY
 
+class TrajectorySample(BaseModel):
+    t: float = Field(..., ge=0)
+    x: float = 0
+    y: float = 0
+    z: float
+    roll: float = 0
+    pitch: float = 0
+    yaw: float = 0
+
+class TrajectoryRequest(BaseModel):
+    """Trajetória arbitrária (gravação, linha do tempo ou programa em blocos)."""
+    samples: List[TrajectorySample] = Field(..., min_length=2, max_length=72_000)
+    loop: bool = False
+    speed: float = Field(1.0, ge=0.25, le=2.0)
+    name: str = Field("trajetória", max_length=80)
+
 class JoystickPoseRequest(BaseModel):
     """Modelo para controle por joystick (gamepad)"""
     lx: float = Field(0.0, ge=-1.0, le=1.0)  # left stick X, -1..1
@@ -251,6 +267,11 @@ class StewartPlatform:
         # P → pontos móveis (p + R b_i)
         return L, bool(valid), P
 
+    def leg_lengths_batch(self, poses: np.ndarray) -> np.ndarray:
+        """Comprimentos das 6 pernas para N poses de uma vez. poses: (N, 6) x, y, z, roll, pitch, yaw."""
+        Rm = R.from_euler('ZYX', poses[:, [5, 4, 3]], degrees=True).as_matrix()  # (N, 3, 3)
+        P = np.einsum('nij,kj->nki', Rm, self.P0) + poses[:, None, :3]            # (N, 6, 3)
+        return np.linalg.norm(P - self.B[None], axis=2)                           # (N, 6)
 
     def stroke_percentages(self, lengths: np.ndarray):
         rng = self.stroke_max - self.stroke_min
@@ -938,7 +959,112 @@ class MotionRunner:
             if self.status_dict["running"] and self.status_dict["started_at"] is not None:
                 self.status_dict["elapsed"] = time.time() - self.status_dict["started_at"]
             return self.status_dict.copy()
-    
+
+    def is_running(self) -> bool:
+        with self.lock:
+            return bool(self.status_dict["running"])
+
+    # ---------------- trajetória arbitrária ----------------
+    def start_trajectory(self, req: TrajectoryRequest, track: np.ndarray):
+        """Reproduz uma trajetória já validada. track: (N, 7) com t, x, y, z, roll, pitch, yaw."""
+        with self.lock:
+            if self.status_dict["running"]:
+                raise RuntimeError("Rotina já está rodando. Pare primeiro.")
+            self.stop_evt.clear()
+            self.abort_evt.clear()
+            duration = float(track[-1, 0])
+            self.status_dict = {
+                "running": True,
+                "routine": "trajectory",
+                "params": {"name": req.name, "loop": req.loop, "speed": req.speed,
+                           "samples": int(track.shape[0])},
+                "name": req.name,
+                "duration_s": duration / req.speed,
+                "started_at": time.time(),
+                "elapsed": 0.0,
+            }
+            self.thread = threading.Thread(
+                target=self._run_trajectory, args=(req, track), daemon=True
+            )
+            self.thread.start()
+
+    def _send_pose(self, pose: dict, t: float, routine: str) -> bool:
+        """IK + envio serial + motion_tick. Retorna False se a pose não puder ser enviada."""
+        L, valid, P_cmd = self.platform.inverse_kinematics(
+            x=pose["x"], y=pose["y"], z=pose["z"],
+            roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
+        )
+        if not valid:
+            print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
+            return False
+        stroke_range = self.platform.stroke_max - self.platform.stroke_min
+        course_mm = np.clip(self.platform.lengths_to_stroke_mm(L), 0.0, stroke_range)
+        try:
+            self.serial_mgr.write_line(format_spmm6x(course_mm))
+        except Exception as e:
+            print(f"❌ Erro ao enviar comando serial: {e}")
+            return False
+        try:
+            latest_Y = (self.serial_mgr.latest or {}).get("Y")
+            payload = {
+                "type": "motion_tick",
+                "t": float(t),
+                "elapsed_ms": int(t * 1000),
+                "pose_cmd": pose,
+                "routine": routine,
+                "actuators_cmd": np.asarray(L, dtype=float).tolist(),
+                "actuators_real": (
+                    [self.platform.stroke_min + float(y) for y in latest_Y] if latest_Y else None
+                ),
+                "platform_points_cmd": P_cmd.tolist(),
+            }
+            asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(payload), self.serial_mgr.loop)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+        return True
+
+    def _run_trajectory(self, req: TrajectoryRequest, track: np.ndarray):
+        """HOME → aproximação suave até a 1ª amostra → reprodução a 60 Hz (interpolação linear)."""
+        keys = ("x", "y", "z", "roll", "pitch", "yaw")
+        try:
+            dt = 1.0 / 60.0
+            self._go_home_smooth(duration=1.2)
+            if self.stop_evt.is_set():
+                return
+
+            home = self._home_pose()
+            first = {k: float(track[0, i + 1]) for i, k in enumerate(keys)}
+            approach_s = 1.5
+            t = 0.0
+            while t < approach_s and not self.stop_evt.is_set():
+                a = (1.0 - cos(tau * 0.5 * t / approach_s)) / 2.0
+                pose = {k: home[k] + (first[k] - home[k]) * a for k in keys}
+                if not self._send_pose(pose, 0.0, "trajectory"):
+                    return
+                t += dt
+                time.sleep(dt)
+
+            duration = float(track[-1, 0])
+            times = track[:, 0]
+            t = 0.0
+            print(f"▶️  Trajetória '{req.name}' ({duration:.1f}s, x{req.speed}, loop={req.loop})")
+            while not self.stop_evt.is_set():
+                if t > duration:
+                    if not req.loop:
+                        break
+                    t -= duration
+                pose = {k: float(np.interp(t, times, track[:, i + 1])) for i, k in enumerate(keys)}
+                if not self._send_pose(pose, t, "trajectory"):
+                    break
+                t += dt * req.speed
+                time.sleep(dt)
+        except Exception as e:
+            print(f"❌ Erro na trajetória: {e}")
+        finally:
+            with self.lock:
+                self.status_dict["running"] = False
+
     def _run_routine(self, req: MotionRequest):
         """Thread principal que executa a rotina"""
         try:
@@ -985,64 +1111,10 @@ class MotionRunner:
                 # Limitar pose (com limites dinâmicos de Z, se disponíveis)
                 pose = self._clamp_pose(pose)
                 
-                # Validar com inverse kinematics
-                z_val = pose.get("z", self.platform.h0)
-                L, valid, P_cmd = self.platform.inverse_kinematics(
-                    x=pose["x"], y=pose["y"], z=z_val,
-                    roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
-                )
-
-                if not valid:
-                    print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
-                    break
-                
-                # Converter para curso (mm)
-                course_mm = self.platform.lengths_to_stroke_mm(L)
-                stroke_range = self.platform.stroke_max - self.platform.stroke_min
-                course_mm = np.clip(course_mm, 0.0, stroke_range)
-                
-                
-                # Enviar setpoints via serial 
-                try:
-                    self.serial_mgr.write_line(format_spmm6x(course_mm))
-                except Exception as e:
-                    print(f"❌ Erro ao enviar comando serial: {e}")
+                pose["z"] = pose.get("z", self.platform.h0)
+                if not self._send_pose(pose, t, routine_name):
                     break
 
-                # Broadcast via WebSocket
-                try:
-                    # Comprimentos reais (absolutos) a partir da última telemetria
-                    latest_Y = (self.serial_mgr.latest or {}).get("Y")
-                    actuators_real = (
-                        [self.platform.stroke_min + float(y) for y in latest_Y]
-                        if latest_Y else None
-                    )
-                    
-                    # Converter L para lista Python
-                    if hasattr(L, 'tolist'):
-                        actuators_cmd = L.tolist()
-                    else:
-                        actuators_cmd = list(L)
-                    
-                    payload = {
-                        "type": "motion_tick",
-                        "t": float(t),
-                        "elapsed_ms": int(t * 1000),
-                        "pose_cmd": pose,
-                        "routine": routine_name,
-                        "actuators_cmd": actuators_cmd,
-                        "actuators_real": actuators_real,
-                        "platform_points_cmd": P_cmd.tolist(),
-                    }
-                    
-                    asyncio.run_coroutine_threadsafe(
-                        ws_mgr.broadcast_json(payload),
-                        self.serial_mgr.loop
-                    )
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                
                 # Aguardar próximo tick
                 t += dt
                 step += 1
@@ -1579,6 +1651,61 @@ def motion_start(req: MotionRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+MAX_TRAJECTORY_S = 3600.0
+
+@app.post("/motion/trajectory")
+def motion_trajectory(req: TrajectoryRequest):
+    """Reproduz uma trajetória arbitrária (lista de poses com tempo).
+
+    Valida tudo antes de mover: tempos crescentes a partir de 0, duração máxima
+    e cinemática inversa de cada amostra. Entre amostras a pose é interpolada
+    linearmente a 60 Hz; Parar, Esc e /emergency-stop valem como nas rotinas.
+    """
+    track = np.array(
+        [[s.t, s.x, s.y, s.z, s.roll, s.pitch, s.yaw] for s in req.samples], dtype=float
+    )
+    times = track[:, 0]
+    if times[0] != 0:
+        raise HTTPException(status_code=400, detail="A primeira amostra precisa ter t = 0.")
+    bad = np.nonzero(np.diff(times) <= 0)[0]
+    if bad.size:
+        i = int(bad[0]) + 1
+        raise HTTPException(status_code=400, detail=f"Tempos precisam ser crescentes (amostra {i}, t={times[i]:.3f} s).")
+    if times[-1] > MAX_TRAJECTORY_S:
+        raise HTTPException(status_code=400, detail=f"Duração máxima: {MAX_TRAJECTORY_S:.0f} s.")
+
+    L = platform.leg_lengths_batch(track[:, 1:])
+    out = ~np.all((L >= platform.stroke_min) & (L <= platform.stroke_max), axis=1)
+    if out.any():
+        i = int(np.nonzero(out)[0][0])
+        raise HTTPException(
+            status_code=400,
+            detail=f"Amostra {i} (t={times[i]:.2f} s) fora do curso dos pistões.",
+        )
+    # velocidade de pico das pernas (mm/s), já considerando o fator de velocidade
+    peak = float(np.max(np.abs(np.diff(L, axis=0)) / np.diff(times)[:, None])) * req.speed
+
+    if not (serial_mgr.ser and serial_mgr.ser.is_open):
+        raise HTTPException(status_code=409, detail="Serial não conectada. Conecte primeiro.")
+    try:
+        motion_runner.start_trajectory(req, track)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {
+        "message": f"Trajetória '{req.name}' iniciada",
+        "duration_s": float(times[-1]) / req.speed,
+        "peak_speed_mm_s": peak,
+        "samples": int(track.shape[0]),
+    }
+
+def ensure_manual_allowed():
+    """Comandos manuais não podem brigar com uma rotina/trajetória em execução."""
+    if motion_runner.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="Uma rotina está em execução. Pare-a antes de comandar manualmente.",
+        )
+
 @app.post("/motion/stop")
 def motion_stop():
     """Para a rotina de movimento atual"""
@@ -1693,6 +1820,7 @@ def calculate_position(pose: PoseInput):
 
 @app.post("/apply_pose")
 def apply_pose(req: ApplyPoseRequest):
+    ensure_manual_allowed()
    # print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
     z_value = req.z if req.z is not None else platform.h0
     L, valid, _ = platform.inverse_kinematics(
@@ -1723,6 +1851,7 @@ class MPUControlRequest(BaseModel):
 
 @app.post("/mpu/control")
 def mpu_control(req: MPUControlRequest):
+    ensure_manual_allowed()
     """
     OTIMIZAÇÃO: Aplica controle da plataforma baseado em dados do MPU-6050.
     Calcula cinemática inversa e envia setpoints para os atuadores.
@@ -1900,6 +2029,7 @@ def joystick_pose(req: JoystickPoseRequest):
     # Se apply=True e válido, enviar comando serial
     applied = False
     if req.apply:
+        ensure_manual_allowed()
         try:
             #print(f"📤 Enviando comando joystick: {cmd}")
             serial_mgr.write_line(format_spmm6x(course_mm))

@@ -157,3 +157,61 @@ def test_forward_kinematics_covers_full_height_range(z):
     assert valid
     est, _ = backend.platform.estimate_pose_from_lengths(L)
     assert est["z"] == pytest.approx(z, abs=0.05)
+
+
+# ---------------- trajetória arbitrária ----------------
+def _track(n=40, dz=10.0, dt=0.05):
+    z0 = backend.HOME_Z_MM
+    return [
+        {"t": i * dt, "x": 0, "y": 0, "z": z0 + dz * np.sin(i / n * np.pi), "roll": 0, "pitch": 0, "yaw": 0}
+        for i in range(n + 1)
+    ]
+
+
+def test_leg_lengths_batch_matches_inverse_kinematics():
+    poses = np.array([[5, -3, 540, 2, -1, 3], [0, 0, 530, 0, 0, 0], [-10, 8, 560, -4, 3, -2]], dtype=float)
+    batch = backend.platform.leg_lengths_batch(poses)
+    for pose, row in zip(poses, batch):
+        L, _, _ = backend.platform.inverse_kinematics(*pose)
+        assert np.allclose(L, row)
+
+
+def test_trajectory_rejects_invalid_sample(client):
+    client.post("/serial/open", json={"port": "SIMULADOR"})
+    samples = _track()
+    samples[7]["z"] = 900
+    r = client.post("/motion/trajectory", json={"samples": samples})
+    assert r.status_code == 400
+    assert "Amostra 7" in r.json()["detail"]
+
+
+def test_trajectory_rejects_non_increasing_times(client):
+    samples = _track()
+    samples[3]["t"] = samples[2]["t"]
+    r = client.post("/motion/trajectory", json={"samples": samples})
+    assert r.status_code == 400
+
+
+def test_trajectory_plays_and_blocks_manual_commands(client):
+    client.post("/serial/open", json={"port": "SIMULADOR"})
+    sim = backend.serial_mgr.ser
+    with client.websocket_connect("/ws/telemetry") as ws:
+        r = client.post("/motion/trajectory", json={"samples": _track(dz=15.0, dt=0.1), "name": "teste"})
+        assert r.status_code == 200, r.text
+        assert r.json()["peak_speed_mm_s"] > 0
+        assert backend.motion_runner.status()["routine"] == "trajectory"
+        # comando manual durante a reprodução é recusado
+        assert client.post("/apply_pose", json={"z": backend.HOME_Z_MM}).status_code == 409
+        tick = None
+        for _ in range(3000):
+            msg = ws.receive_json()
+            if msg["type"] == "motion_tick" and msg["routine"] == "trajectory" and msg["t"] > 0:
+                tick = msg
+                break
+    assert tick is not None
+    # o simulador recebeu os setpoints da trajetória
+    assert all(0 < pz.sp < 180 for pz in sim.pistons)
+    r = client.post("/emergency-stop").json()
+    assert r["stopped"] is True
+    assert not backend.motion_runner.status()["running"]
+    assert client.post("/apply_pose", json={"z": backend.HOME_Z_MM}).json()["applied"] is True
