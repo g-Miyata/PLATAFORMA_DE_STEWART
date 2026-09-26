@@ -31,7 +31,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from simulated_device import SIM_PORT_NAME, SimulatedSerial
+import sim_fit
+from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
+from twin import TwinShadow
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
@@ -453,6 +455,8 @@ class SerialManager:
         self.loop = None  # Será configurado quando o servidor iniciar
         # memória para LSQ partir de último chute
         self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
+        # gêmeo digital: simulador sombra alimentado com os mesmos comandos
+        self.twin: Optional[TwinShadow] = None
 
     def set_event_loop(self, loop):
         """Configura o event loop do FastAPI"""
@@ -468,6 +472,11 @@ class SerialManager:
             else:
                 self.ser = serial.Serial(port, baud, timeout=0.2)
             self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
+            try:
+                self.twin = TwinShadow(load_params(SIM_PARAMS_FILE))
+            except Exception as e:
+                print(f"⚠️ Gêmeo digital indisponível: {e}")
+                self.twin = None
             self.stop_evt.clear()
             self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.reader_thread.start()
@@ -491,6 +500,7 @@ class SerialManager:
                 try: self.ser.close()
                 except Exception: pass
                 self.ser = None
+            self.twin = None
 
     def list_ports(self):
         """Lista portas seriais com informações detalhadas para identificar ESP32-S3"""
@@ -633,6 +643,9 @@ class SerialManager:
             if not self.ser or not self.ser.is_open:
                 raise RuntimeError("Serial não aberta")
             self.ser.write(s.encode("utf-8", errors="replace") + ending)
+        twin = self.twin
+        if twin:
+            twin.on_tx(s)
 
     def _reader_loop(self):
         print(f"🔄 Thread de leitura iniciada")
@@ -704,6 +717,8 @@ class SerialManager:
             sp = float(parts[1].replace(",", "."))
             Y = [float(parts[2+i].replace(",", ".")) for i in range(6)]
             PWM = [int(float(parts[8+i].replace(",", "."))) for i in range(6)]
+            twin = self.twin
+            y_sim = twin.on_rx(time.monotonic(), Y, PWM) if twin else None
 
             # OTIMIZAÇÃO: Detectar formato (MPU-6050 ou BNO085)
             has_mpu = len(parts) >= 17
@@ -789,6 +804,7 @@ class SerialManager:
                 "pose_live": pose_live,  # dict ou None
                 "platform_points_live": P_live.tolist() if P_live is not None else None,
                 "base_points": platform.B.tolist(),
+                "twin": {"Y_sim": y_sim} if y_sim is not None else None,
             }
             
             
@@ -1697,6 +1713,125 @@ def motion_trajectory(req: TrajectoryRequest):
         "peak_speed_mm_s": peak,
         "samples": int(track.shape[0]),
     }
+
+# -------------------- Gêmeo digital --------------------
+class TwinSimulateRequest(BaseModel):
+    t: List[float] = Field(..., min_length=2, max_length=72_000)
+    sp: List[List[float]] = Field(..., min_length=2, max_length=72_000)
+    y0: List[float] = Field(..., min_length=6, max_length=6)
+
+class TwinFitRequest(BaseModel):
+    """Sem dados: usa o histórico ao vivo do gêmeo. Com dados: t (N), Y/PWM com sinal/sp (N×6)."""
+    t: Optional[List[float]] = None
+    Y: Optional[List[List[float]]] = None
+    PWM: Optional[List[List[float]]] = None
+    sp: Optional[List[List[float]]] = None
+
+class TwinParamsRequest(BaseModel):
+    params: Dict[str, List[float]]
+
+PARAM_RANGES = {
+    "vmax_adv_mm_s": (1.0, 80.0),
+    "vmax_ret_mm_s": (1.0, 80.0),
+    "deadzone_adv_pwm": (0.0, 200.0),
+    "deadzone_ret_pwm": (0.0, 200.0),
+}
+
+def _check_rows(name: str, rows: List[List[float]], n: int):
+    if len(rows) != n or any(len(r) != 6 for r in rows):
+        raise HTTPException(status_code=400, detail=f"'{name}' precisa ter {n} linhas de 6 valores.")
+
+@app.get("/twin/status")
+def twin_status():
+    twin = serial_mgr.twin
+    return {
+        "active": twin is not None,
+        "simulated": serial_mgr.simulated,
+        "samples": len(twin.history) if twin else 0,
+        "params": {k: load_params(SIM_PARAMS_FILE)[k] for k in PARAM_RANGES},
+    }
+
+@app.post("/twin/simulate")
+def twin_simulate(req: TwinSimulateRequest):
+    """Reproduz setpoints (mm de curso) no simulador, a partir de y0; devolve as posições."""
+    _check_rows("sp", req.sp, len(req.t))
+    t = np.asarray(req.t, dtype=float)
+    if np.any(np.diff(t) < 0):
+        raise HTTPException(status_code=400, detail="Tempos precisam ser crescentes.")
+    Y = sim_fit.replay(load_params(SIM_PARAMS_FILE), t, np.asarray(req.sp), req.y0)
+    return {"Y_sim": np.round(Y, 3).tolist()}
+
+@app.post("/twin/fit")
+def twin_fit(req: TwinFitRequest):
+    """Identifica vmax e zona morta de cada pistão (PWM × velocidade) e valida por reprodução."""
+    if req.t is None:
+        twin = serial_mgr.twin
+        data = twin.arrays() if twin else None
+        if data is None or len(data[0]) < 100:
+            raise HTTPException(status_code=409, detail="Poucos dados ao vivo: conecte a bancada e movimente os pistões por alguns segundos.")
+        t, Y, U, SP, _ = data
+    else:
+        n = len(req.t)
+        for name in ("Y", "PWM", "sp"):
+            if getattr(req, name) is None:
+                raise HTTPException(status_code=400, detail=f"Faltou '{name}'.")
+            _check_rows(name, getattr(req, name), n)
+        t, Y, U, SP = (np.asarray(v, dtype=float) for v in (req.t, req.Y, req.PWM, req.sp))
+
+    current = load_params(SIM_PARAMS_FILE)
+    stroke = float(current["stroke_mm"])
+    pistons = []
+    proposed = {k: list(current[k]) for k in PARAM_RANGES}
+    for i in range(6):
+        cur = {k: float(current[k][i]) for k in PARAM_RANGES}
+        r = sim_fit.fit_plant(t, Y[:, i], U[:, i], cur, stroke)
+        pistons.append(r)
+        if r["ok"]:
+            for k in PARAM_RANGES:
+                proposed[k][i] = r[k]
+    # validação: reproduz os mesmos setpoints com os parâmetros atuais e os propostos;
+    # pistão cuja reprodução piora fica com os parâmetros atuais
+    t_rel = t - t[0]
+    rms_before = sim_fit.rms(sim_fit.replay(current, t_rel, SP, Y[0]), Y)
+    rms_after = sim_fit.rms(sim_fit.replay({**current, **proposed}, t_rel, SP, Y[0]), Y)
+    for i, r in enumerate(pistons):
+        if r["ok"] and rms_after[i] > rms_before[i] * 1.02:
+            for k in PARAM_RANGES:
+                proposed[k][i] = current[k][i]
+            r["ok"] = False
+            r["reason"] = "não melhorou a reprodução"
+            rms_after[i] = rms_before[i]
+    return {
+        "samples": int(len(t)),
+        "pistons": pistons,
+        "proposed": proposed,
+        "rms_before": rms_before,
+        "rms_after": rms_after,
+    }
+
+@app.post("/twin/params")
+def twin_params(req: TwinParamsRequest):
+    """Salva vmax/zona morta no sim_params.json (com cópia .bak). Vale para as próximas conexões."""
+    for k, v in req.params.items():
+        if k not in PARAM_RANGES:
+            raise HTTPException(status_code=400, detail=f"Parâmetro desconhecido: {k}")
+        lo, hi = PARAM_RANGES[k]
+        if len(v) != 6 or not all(lo <= float(x) <= hi for x in v):
+            raise HTTPException(status_code=400, detail=f"'{k}' precisa de 6 valores entre {lo} e {hi}.")
+    path = Path(SIM_PARAMS_FILE)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    backup = path.with_suffix(".json.bak")
+    backup.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    for k, v in req.params.items():
+        data[k] = [round(float(x), 2) for x in v]
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # a sombra passa a usar os novos parâmetros já; o simulador, na próxima conexão
+    if serial_mgr.twin is not None:
+        Y = (serial_mgr.latest or {}).get("Y")
+        serial_mgr.twin = TwinShadow(load_params(path))
+        if Y:
+            serial_mgr.twin.resync(Y)
+    return {"saved": True, "backup": backup.name}
 
 def ensure_manual_allowed():
     """Comandos manuais não podem brigar com uma rotina/trajetória em execução."""

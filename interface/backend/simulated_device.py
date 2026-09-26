@@ -165,6 +165,21 @@ class SimulatedSerial:
         with self._lock:
             self._advance_to(self._t_sim + seconds)
 
+    def sync_positions(self, measured_mm: List[float]):
+        """Coloca cada pistão na posição medida, parado e com o setpoint nela (gêmeo digital)."""
+        with self._lock:
+            for pz, y in zip(self.pistons, measured_mm):
+                pz.pos = min(pz.stroke, max(0.0, float(y) - pz.offset))
+                pz.vel = 0.0
+                pz.last_y = float(y)
+                pz.sp = float(y)
+                pz.integ = 0.0
+
+    def clear_output(self):
+        """Descarta telemetria e respostas acumuladas (quando ninguém lê a porta)."""
+        with self._lock:
+            self._tx.clear()
+
     def _advance_to(self, t: float):
         while self._t_sim < t:
             dt = min(self._substep, t - self._t_sim)
