@@ -24,6 +24,8 @@ export default defineConfig({
   webServer: {
     command: `"${PYTHON}" -m uvicorn app:app --app-dir ../backend --host 127.0.0.1 --port ${PORT}`,
     url: `http://127.0.0.1:${PORT}/api/info`,
+    // calibração encurtada nos testes (ver STEWART_CALIBRATION_FAST em app.py)
+    env: { STEWART_CALIBRATION_FAST: '1' },
     reuseExistingServer: true,
     timeout: 60_000,
   },

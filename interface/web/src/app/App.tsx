@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider } from 'react-router';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
 import { AppShell } from './AppShell';
 import { Providers } from './providers';
 
@@ -18,7 +18,7 @@ const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
-const TwinPage = lazy(() => import('@/pages/TwinPage'));
+const CalibrationPage = lazy(() => import('@/pages/CalibrationPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -53,7 +53,9 @@ export const routes = [
       { path: '/apresentacao', element: page(PresentationPage) },
       { path: '/jogo', element: page(GamePage) },
       { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
-      { path: '/gemeo-digital', element: page(TwinPage) },
+      { path: '/calibracao', element: page(CalibrationPage) },
+      // o gêmeo digital passou a fazer parte da Calibração
+      { path: '/gemeo-digital', element: <Navigate to="/calibracao" replace /> },
       { path: '*', element: page(NotFoundPage) },
     ],
   },

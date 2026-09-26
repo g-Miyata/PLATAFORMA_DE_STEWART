@@ -163,13 +163,6 @@ export interface TelemetryMessage {
 export type TwinParamKey = 'vmax_adv_mm_s' | 'vmax_ret_mm_s' | 'deadzone_adv_pwm' | 'deadzone_ret_pwm';
 export type TwinParams = Record<TwinParamKey, number[]>;
 
-export interface TwinStatus {
-  active: boolean;
-  simulated: boolean;
-  samples: number;
-  params: TwinParams;
-}
-
 export interface TwinPistonFit extends Record<TwinParamKey, number> {
   ok: boolean;
   reason?: string;
@@ -181,9 +174,58 @@ export interface TwinPistonFit extends Record<TwinParamKey, number> {
 export interface TwinFitResult {
   samples: number;
   pistons: TwinPistonFit[];
+  current: TwinParams;
   proposed: TwinParams;
   rms_before: number[];
   rms_after: number[];
+}
+
+export type CalibrationPhase = 'preparo' | 'home' | 'autoteste' | 'coleta' | 'ajuste' | 'relatorio' | 'concluido' | 'cancelado' | 'erro';
+
+export interface CalibrationStatus {
+  running: boolean;
+  phase: CalibrationPhase | null;
+  label: string | null;
+  progress: number;
+  started_at: number | null;
+  error: string | null;
+  report_id: string | null;
+  /** etapas do plano, na ordem */
+  steps: string[];
+}
+
+export interface PistonCheck {
+  piston: number;
+  tested: boolean;
+  amplitude_mm: number;
+  delta_up_mm?: number;
+  delta_down_mm?: number;
+  speed_up_mm_s?: number;
+  speed_down_mm_s?: number;
+  delay_ms?: number | null;
+  settle_err_mm?: number;
+  noise_mm?: number;
+  issues: string[];
+  status: 'ok' | 'alerta';
+}
+
+export interface CalibrationReportSummary {
+  id: string;
+  created_at: string;
+  duration_s: number;
+  simulated: boolean;
+  alerts: number;
+  improvement_pct: number;
+  has_changes: boolean;
+  applied: boolean;
+  applied_at: string | null;
+}
+
+export interface CalibrationReport extends CalibrationReportSummary {
+  pistons: PistonCheck[];
+  fit: TwinFitResult;
+  /** erro do gêmeo ao vivo durante a calibração, com os parâmetros em uso (mm) */
+  rms_live_mm: number[];
 }
 
 export interface RawMessage {

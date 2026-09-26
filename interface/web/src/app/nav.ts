@@ -1,13 +1,13 @@
-import { Box, CircleDot, Clapperboard, Compass, Copy, Orbit, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Box, CircleDot, Clapperboard, Compass, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
-export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'analisar';
+export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'ajustes';
 
 export const NAV_GROUPS: { id: NavGroup; label: string | null }[] = [
   { id: 'inicio', label: null },
   { id: 'controlar', label: 'Controlar' },
   { id: 'criar', label: 'Criar' },
   { id: 'mostrar', label: 'Aprender e mostrar' },
-  { id: 'analisar', label: 'Analisar' },
+  { id: 'ajustes', label: 'Ajustes' },
 ];
 
 export interface NavItem {
@@ -26,12 +26,12 @@ export const NAV: NavItem[] = [
   { path: '/joystick', label: 'Joystick', description: 'Controle em tempo real por gamepad Xbox/PlayStation', Icon: Gamepad2, group: 'controlar' },
   { path: '/rotinas', label: 'Rotinas', description: 'Movimentos automáticos (senoide, círculo, hélice, onda)', Icon: Repeat, group: 'controlar' },
   { path: '/acelerometro', label: 'IMU (roll/pitch/yaw)', description: 'Plataforma segue a orientação do sensor MPU-6050/BNO085', Icon: Compass, group: 'controlar' },
-  { path: '/configuracoes', label: 'Ganhos PID', description: 'Kp, Ki, Kd, zona morta e PWM mínimo', Icon: SlidersHorizontal, group: 'controlar' },
   { path: '/simulacao-voo', label: 'Simulação de voo', description: 'Integração com o FlightGear', Icon: Plane, group: 'controlar' },
   { path: '/gravar', label: 'Gravar e reproduzir', description: 'Grave movimentos, edite poses-chave numa linha do tempo e reproduza', Icon: Clapperboard, group: 'criar' },
   { path: '/blocos', label: 'Programação em blocos', description: 'Monte sequências encaixando blocos, como no Scratch', Icon: Puzzle, group: 'criar' },
   { path: '/apresentacao', label: 'Apresentação e aula', description: 'Demonstração em tela cheia e aula guiada de cinemática com vetores no 3D', Icon: Presentation, group: 'mostrar' },
   { path: '/jogo', label: 'Jogo da bolinha', description: 'Incline o tampo e leve a bolinha ao alvo, desviando dos buracos', Icon: CircleDot, group: 'mostrar' },
   { path: '/espaco-de-trabalho', label: 'Espaço de trabalho', description: 'Volume que o tampo alcança e inclinação máxima em cada direção', Icon: Orbit, group: 'mostrar' },
-  { path: '/gemeo-digital', label: 'Gêmeo digital', description: 'Bancada × simulador lado a lado, erro por pistão e recalibração do modelo', Icon: Copy, group: 'analisar' },
+  { path: '/configuracoes', label: 'Ganhos PID', description: 'Kp, Ki, Kd, zona morta e PWM mínimo', Icon: SlidersHorizontal, group: 'ajustes' },
+  { path: '/calibracao', label: 'Calibração', description: 'Autoteste dos pistões e recalibração do simulador (gêmeo digital), com relatório', Icon: Stethoscope, group: 'ajustes' },
 ];
