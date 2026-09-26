@@ -170,3 +170,13 @@
     backdrop-filter: none;
   }
 }
+
+/* entrada das cenas da apresentação */
+@keyframes scene-enter {
+  from { opacity: 0; transform: translateY(24px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.scene-enter { animation: scene-enter 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-enter { animation: none; }
+}
