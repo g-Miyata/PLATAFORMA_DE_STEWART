@@ -112,9 +112,9 @@ Além das páginas de controle, o menu tem:
 | **Apresentação e aula** (`/apresentacao`) | Quiosque em tela cheia (demonstração no modelo ou na plataforma, com amplitude, velocidade e tempo de sessão limitados) e aula guiada de cinemática em 8 etapas, com os vetores bᵢ, pᵢ, T, R e Lᵢ = T + R·pᵢ − bᵢ desenhados no 3D e perguntas rápidas. |
 | **Jogo da bolinha** (`/jogo`) | Incline o tampo e leve a bolinha ao alvo, em 5 fases. Pode espelhar na plataforma (até 5°, devagar). |
 | **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança, corte colorido pela folga até o batente, inclinação máxima por direção e alcance de cada eixo a partir do home. Considera só o curso dos pistões. |
-| **Gêmeo digital** (`/gemeo-digital`) | Um simulador "sombra" recebe os mesmos comandos da bancada: real × simulado ao vivo, erro e atraso por pistão, comparação de ensaios CSV e recalibração do simulador (`sim_params.json`, com cópia `.bak`). |
+| **Calibração** (Ajustes → `/calibracao`) | Um processo de 3 a 4 min que interrompe o que estiver rodando e faz o **autoteste** (cada pistão sozinho ±30 mm em torno do home: velocidade, atraso, erro final e ruído; aponta travado, invertido, lento ou ruidoso) e a **recalibração** do simulador (gêmeo digital: um simulador "sombra" recebe os mesmos comandos só durante a calibração; o ajuste de vmax e zona morta só entra se melhorar a reprodução). Gera um relatório datado, comparado com o anterior; os parâmetros novos vão para o `sim_params.json` (com cópia `.bak`) só se você aplicar. Também compara ensaios CSV das Rotinas com o simulador. |
 
-Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409), para que eles não briguem com o movimento.
+Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409), para que eles não briguem com o movimento. Durante a calibração, recusa qualquer comando (poses, rotinas, PID, console).
 
 ### Segurança
 
@@ -181,6 +181,7 @@ Comandos seriais e telemetria: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FIL
 | `interface/backend`         | FastAPI, simulador, testes (`tests/`) e ferramentas (`tools/`) |
 | `interface/frontend`        | Interface antiga (servida em `/antigo/` até o fim da migração) |
 | `interface/simulation`      | Ponte FlightGear (`fg-bridge.py`) e assets do FlightGear       |
+| `interface/mcp-flightgear`  | Servidor MCP para ler e controlar o FlightGear pelo Claude     |
 | `interface-coleta-de-dados` | Aplicativos Python usados nas aquisições do TCC                |
 | `esp32s3_codes`             | Firmwares do ESP32-S3                                          |
 | `MATLAB`                    | Identificação de sistema e projeto dos controladores           |
@@ -199,6 +200,7 @@ Os documentos abaixo descrevem a **interface antiga** (em `/antigo/`) e os endpo
 - [ACTUATORS-README.md](ACTUATORS-README.md): telemetria, setpoints e comandos manuais
 - [SETTINGS-README.md](SETTINGS-README.md): `/pid/gains` e `/pid/settings`
 - [FLIGHTGEAR-README.md](FLIGHTGEAR-README.md): integração com o FlightGear
+- [interface/mcp-flightgear/README.md](interface/mcp-flightgear/README.md): servidor MCP do FlightGear
 - Firmware: [PID-CONTROL-FILTER-SPIKE-BNO.md](PID-CONTROL-FILTER-SPIKE-BNO.md), [BNO085-README.md](BNO085-README.md), [MPU6050-README.md](MPU6050-README.md)
 
 ## Versionamento

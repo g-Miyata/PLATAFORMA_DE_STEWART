@@ -38,7 +38,8 @@ src/
     lesson/     etapas da aula, vetores da cinemática e sobreposições 3D
     game/       física da bolinha (passo fixo de 120 Hz), fases e cena
     workspace/  varredura do espaço de trabalho (Web Worker) e iso-superfície
-    twin/       métricas real × simulado e leitura do CSV das Rotinas
+    calibration/ calibração (status, indicador no cabeçalho, relatório)
+    twin/       gêmeo digital: gráfico real × simulado, métricas e comparação de ensaio CSV
     actuators/  console serial
   lib/          api (REST tipado), ws (WebSocket único com backoff), kinematics (inversa),
                 forwardKinematics (direta, Levenberg-Marquardt), types, csv
