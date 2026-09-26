@@ -58,7 +58,7 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
 // ---------------- poses comandadas ----------------
 // Quem precisa saber o que foi enviado à plataforma (o gravador, por exemplo)
 // escuta aqui em vez de cada página avisar por conta própria.
-export type PoseSource = 'cinematica' | 'joystick' | 'imu' | 'bancada';
+export type PoseSource = 'cinematica' | 'joystick' | 'imu' | 'bancada' | 'jogo';
 type PoseListener = (pose: Pose, source: PoseSource) => void;
 const poseListeners = new Set<PoseListener>();
 

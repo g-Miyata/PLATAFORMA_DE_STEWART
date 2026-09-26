@@ -14,6 +14,7 @@ const ROUTES = [
   ['/gravar', 'Gravar e reproduzir'],
   ['/blocos', 'Programação em blocos'],
   ['/apresentacao', 'Apresentação'],
+  ['/jogo', 'Jogo da bolinha'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -264,4 +265,25 @@ test.describe('Apresentação e aula', () => {
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
   });
+});
+
+test('jogo da bolinha: setas começam, espaço pausa e o espelhamento desliga no Esc', async ({ page }) => {
+  await serial(page, 'open');
+  await page.goto('/jogo');
+  const status = page.getByRole('status').filter({ hasText: /Incline|Valendo|Pausado|Chegou|Caiu/ });
+  await expect(status).toHaveText('Incline para começar');
+  await page.keyboard.down('ArrowRight');
+  await expect(status).toHaveText('Valendo!');
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.press('Space');
+  await expect(status).toHaveText('Pausado');
+  await page.keyboard.press('Space');
+  await expect(status).toHaveText('Valendo!');
+
+  const mirror = page.getByRole('switch', { name: 'Espelhar na plataforma' });
+  await mirror.click();
+  await expect(mirror).toBeChecked();
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Escape');
+  await expect(mirror).not.toBeChecked();
 });

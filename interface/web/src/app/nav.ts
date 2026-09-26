@@ -1,4 +1,4 @@
-import { Box, Clapperboard, Compass, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Box, CircleDot, Clapperboard, Compass, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'analisar';
 
@@ -31,4 +31,5 @@ export const NAV: NavItem[] = [
   { path: '/gravar', label: 'Gravar e reproduzir', description: 'Grave movimentos, edite poses-chave numa linha do tempo e reproduza', Icon: Clapperboard, group: 'criar' },
   { path: '/blocos', label: 'Programação em blocos', description: 'Monte sequências encaixando blocos, como no Scratch', Icon: Puzzle, group: 'criar' },
   { path: '/apresentacao', label: 'Apresentação e aula', description: 'Demonstração em tela cheia e aula guiada de cinemática com vetores no 3D', Icon: Presentation, group: 'mostrar' },
+  { path: '/jogo', label: 'Jogo da bolinha', description: 'Incline o tampo e leve a bolinha ao alvo, desviando dos buracos', Icon: CircleDot, group: 'mostrar' },
 ];
