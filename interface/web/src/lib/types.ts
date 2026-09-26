@@ -92,10 +92,33 @@ export interface MotionRequest {
 
 export interface MotionStatus {
   running: boolean;
-  routine: RoutineName | null;
+  /** 'trajectory' = trajetória arbitrária (gravação, linha do tempo, blocos) */
+  routine: RoutineName | 'trajectory' | null;
   params: Partial<MotionRequest>;
   started_at: number | null;
   elapsed: number;
+  /** só em trajetórias */
+  name?: string;
+  duration_s?: number;
+}
+
+/** Amostra de trajetória: pose completa no instante t (s). */
+export interface TrajectorySample extends Pose {
+  t: number;
+}
+
+export interface TrajectoryRequest {
+  samples: TrajectorySample[];
+  loop?: boolean;
+  speed?: number;
+  name?: string;
+}
+
+export interface TrajectoryStartResult {
+  message: string;
+  duration_s: number;
+  peak_speed_mm_s: number;
+  samples: number;
 }
 
 export interface FlightSimStatus {

@@ -2,7 +2,7 @@ import { Html, Outlines, PerformanceMonitor } from '@react-three/drei';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { legStatus, transformPoints } from '@/lib/kinematics';
 import { PISTON_COLORS } from '@/lib/pistons';
@@ -15,6 +15,7 @@ import { PM } from '@/features/platform3d/premium/assets';
 import { PREMIUM_FLOOR_Z, PremiumBase } from '@/features/platform3d/premium/PremiumBase';
 import { ACT, ActuatorBody, ActuatorRod, UJoint } from '@/features/platform3d/premium/PremiumParts';
 import { StudioLights, StudioStage } from '@/features/platform3d/premium/Studio';
+import { Invalidator } from '@/features/platform3d/Invalidator';
 import { CameraRig, type CameraView } from '@/features/platform3d/Scene';
 import { poseState, type PoseState } from '@/features/platform3d/sceneState';
 import { applyPose, usePlateGeometry } from '@/features/platform3d/TopPlate';
@@ -182,19 +183,8 @@ function LiveGhost({ geometry }: { geometry: PlatformGeometry }) {
   return <GhostPlatform geometry={geometry} store={source} />;
 }
 
-/** Re-renderiza (frameloop sob demanda) quando a edição ou a telemetria mudam. */
-function Invalidator() {
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => {
-    const a = useBench.subscribe(() => invalidate());
-    const b = useTelemetry.subscribe(() => invalidate());
-    return () => {
-      a();
-      b();
-    };
-  }, [invalidate]);
-  return null;
-}
+// re-renderiza (frameloop sob demanda) quando a edição ou a telemetria mudam
+const INVALIDATE_ON = [useBench, useTelemetry];
 
 // ---------------- cena ----------------
 interface BenchSceneProps {
@@ -217,7 +207,7 @@ export function BenchScene({ geometry, quality, onDecline, showReal, background,
     <>
       <color attach="background" args={[background]} />
       <fog attach="fog" args={[background, 4200, 9000]} />
-      <Invalidator />
+      <Invalidator stores={INVALIDATE_ON} />
       <PerformanceMonitor onDecline={onDecline} />
       <CameraRig view={view} nonce={viewNonce} enabled={!dragging} distance={1.3} />
 

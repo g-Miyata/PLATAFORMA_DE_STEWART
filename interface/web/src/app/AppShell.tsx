@@ -9,7 +9,7 @@ import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { SerialConnect } from '@/features/serial/SerialConnect';
 import { cn } from '@/lib/cn';
 import { useConnection } from '@/stores/connection';
-import { NAV } from './nav';
+import { NAV, NAV_GROUPS } from './nav';
 
 function Logo() {
   return (
@@ -21,10 +21,10 @@ function Logo() {
   );
 }
 
-function Nav({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ items, onNavigate }: { items: typeof NAV; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1">
-      {NAV.map(({ path, label, Icon }) => (
+      {items.map(({ path, label, Icon }) => (
         <li key={path}>
           <NavLink
             to={path}
@@ -43,6 +43,26 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function Nav({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <div className="space-y-4">
+      {NAV_GROUPS.map(({ id, label }) => {
+        const items = NAV.filter((n) => n.group === id);
+        if (!items.length) return null;
+        if (!label) return <NavLinks key={id} items={items} onNavigate={onNavigate} />;
+        return (
+          <section key={id} aria-labelledby={`nav-${id}`}>
+            <h2 id={`nav-${id}`} className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted">
+              {label}
+            </h2>
+            <NavLinks items={items} onNavigate={onNavigate} />
+          </section>
+        );
+      })}
+    </div>
   );
 }
 

@@ -1,35 +1,22 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Eraser, Gauge, Play, Square, ZoomOut } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Play } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { LiveChart, type LiveChartHandle, type SeriesDef } from '@/components/charts/LiveChart';
 import { PageHeader, WithViewer } from '@/components/PageLayout';
-import { PistonToggles } from '@/components/PistonToggles';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SliderField } from '@/components/ui/field';
-import { Alert, StatusPill } from '@/components/ui/status';
+import { Alert } from '@/components/ui/status';
 import { useCanCommand } from '@/features/control/useControlGate';
 import { useGeometry } from '@/features/platform3d/geometry';
+import { MotionStatusCard, useMotionStatus } from '@/features/routines/MotionStatusCard';
 import { ACTUATOR_SPEED_MM_S, analyzeRoutine, buildRequest, PRESETS, type Preset } from '@/features/routines/routines';
+import { TrackingChart } from '@/features/routines/TrackingChart';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { downloadText, timestampName, toCsv } from '@/lib/csv';
-import { fmt, PISTON_COLORS, PISTONS } from '@/lib/pistons';
+import { fmt } from '@/lib/pistons';
 import { useConnection } from '@/stores/connection';
-import { useTelemetry } from '@/stores/telemetry';
 
-const SERIES: SeriesDef[] = [
-  ...PISTON_COLORS.map((color, i) => ({ label: `P${i + 1} medido`, color })),
-  ...PISTON_COLORS.map((color, i) => ({ label: `P${i + 1} comandado`, color, dashed: true })),
-];
-
-const ROUTINE_NAMES: Record<string, string> = Object.fromEntries(PRESETS.map((p) => [p.routine + (p.axis ?? ''), p.title]));
-
-function mmss(s: number) {
-  const m = Math.floor(s / 60);
-  return `${String(m).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-}
 
 function FeasibilityNote({ preset, values }: { preset: Preset; values: Record<string, number> }) {
   const geometry = useGeometry();
@@ -130,139 +117,8 @@ function RoutinePicker({ running }: { running: boolean }) {
   );
 }
 
-function StatusCard() {
-  const canCommand = useCanCommand();
-  const qc = useQueryClient();
-  const status = useQuery({ queryKey: ['motion-status'], queryFn: api.motionStatus, refetchInterval: 500, enabled: canCommand });
-  const s = status.data;
-  const running = !!s?.running;
-  const duration = s?.params?.duration_s ?? 0;
-  const name = s?.routine ? (ROUTINE_NAMES[s.routine + (s.params?.axis ?? '')] ?? s.routine) : null;
-
-  async function stop() {
-    try {
-      await api.motionStop();
-      toast.info('Rotina parada', { description: 'A plataforma voltou ao home.' });
-    } catch (err) {
-      toast.error('Erro ao parar', { description: (err as Error).message });
-    } finally {
-      qc.invalidateQueries({ queryKey: ['motion-status'] });
-    }
-  }
-
-  return (
-    <Card
-      title="Execução"
-      icon={<Gauge aria-hidden />}
-      actions={running ? <StatusPill tone="info">Rodando</StatusPill> : <StatusPill tone="neutral">Parada</StatusPill>}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <p className="text-sm" aria-live="polite">
-          {running && name ? (
-            <>
-              <span className="font-semibold">{name}</span> · <span className="tabular-nums">{mmss(s!.elapsed)}</span>
-              {duration > 0 && <span className="text-muted tabular-nums"> de {mmss(duration)}</span>}
-            </>
-          ) : (
-            <span className="text-muted">Nenhuma rotina em execução.</span>
-          )}
-        </p>
-        <Button variant="danger" onClick={stop} disabled={!running}>
-          <Square aria-hidden />
-          Parar e voltar ao home
-        </Button>
-      </div>
-      {running && duration > 0 && (
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-3" aria-hidden>
-          <div className="h-full bg-brand transition-[width]" style={{ width: `${Math.min(100, (s!.elapsed / duration) * 100)}%` }} />
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function TrackingChart() {
-  const chart = useRef<LiveChartHandle>(null);
-  const rows = useRef<(string | number)[][]>([]);
-  const lastT = useRef(-1);
-  const [visible, setVisible] = useState<boolean[]>(() => Array(6).fill(true));
-
-  useEffect(
-    () =>
-      useTelemetry.subscribe((s, prev) => {
-        const m = s.motionTick;
-        if (!m || m === prev.motionTick) return;
-        // o tempo voltou: é uma rotina nova, recomeça o gráfico
-        if (m.t < lastT.current) chart.current?.clear();
-        lastT.current = m.t;
-        const real = m.actuators_real ?? Array(6).fill(NaN);
-        chart.current?.push(m.t, [...real, ...m.actuators_cmd]);
-        const p = m.pose_cmd;
-        rows.current.push([Number(m.t.toFixed(3)), m.routine, p.x, p.y, p.z, p.roll, p.pitch, p.yaw, ...m.actuators_cmd.map((v) => Number(v.toFixed(3))), ...real.map((v) => Number(v.toFixed(3)))]);
-        if (rows.current.length > 60_000) rows.current.splice(0, rows.current.length - 60_000);
-      }),
-    [],
-  );
-
-  function exportCsv() {
-    if (!rows.current.length) return toast.info('Ainda não há dados de rotina para exportar.');
-    const header = ['t_s', 'rotina', 'x_cmd', 'y_cmd', 'z_cmd', 'roll_cmd', 'pitch_cmd', 'yaw_cmd', ...PISTONS.map((p) => `L${p}_cmd_mm`), ...PISTONS.map((p) => `L${p}_real_mm`)];
-    downloadText(timestampName('rotina'), toCsv(header, rows.current));
-  }
-
-  return (
-    <Card
-      title="Comandado × medido"
-      description="Comprimento de cada atuador: linha tracejada é o comando, contínua é a medida. A distância entre as duas é o erro de seguimento."
-      actions={
-        <>
-          <Button size="sm" variant="ghost" onClick={() => chart.current?.resetZoom()}>
-            <ZoomOut aria-hidden />
-            Zoom original
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              chart.current?.clear();
-              rows.current = [];
-            }}
-          >
-            <Eraser aria-hidden />
-            Limpar
-          </Button>
-          <Button size="sm" variant="ghost" onClick={exportCsv}>
-            <Download aria-hidden />
-            CSV
-          </Button>
-        </>
-      }
-    >
-      <LiveChart
-        ref={chart}
-        series={SERIES}
-        yLabel="Comprimento (mm)"
-        windowS={20}
-        maxPoints={2400}
-        ariaLabel="Gráfico do comprimento comandado e medido de cada atuador durante a rotina."
-      />
-      <div className="mt-3">
-        <PistonToggles
-          visible={visible}
-          onChange={(i, v) => {
-            setVisible((prev) => prev.map((x, k) => (k === i ? v : x)));
-            chart.current?.setHidden(i, !v);
-            chart.current?.setHidden(i + 6, !v);
-          }}
-        />
-      </div>
-    </Card>
-  );
-}
-
 export default function RoutinesPage() {
-  const canCommand = useCanCommand();
-  const status = useQuery({ queryKey: ['motion-status'], queryFn: api.motionStatus, refetchInterval: 500, enabled: canCommand });
+  const status = useMotionStatus();
   const running = !!status.data?.running;
   return (
     <>
@@ -271,7 +127,7 @@ export default function RoutinesPage() {
         description="Movimentos automáticos gerados pelo backend a 60 Hz. No modelo 3D, o fantasma verde é a pose comandada e a plataforma sólida é a medida."
       />
       <WithViewer viewer={{ followMotion: true, targetLabel: 'Comandada' }}>
-        <StatusCard />
+        <MotionStatusCard />
         <RoutinePicker running={running} />
         <TrackingChart />
       </WithViewer>

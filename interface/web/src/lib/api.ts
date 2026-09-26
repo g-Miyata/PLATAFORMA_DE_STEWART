@@ -11,6 +11,8 @@ import type {
   PoseControlResult,
   SerialPortInfo,
   SerialStatus,
+  TrajectoryRequest,
+  TrajectoryStartResult,
 } from './types';
 
 /** Mesma origem: o FastAPI serve o frontend em produção e o Vite faz proxy em dev. */
@@ -53,6 +55,35 @@ async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, 
   return (await res.json()) as T;
 }
 
+// ---------------- poses comandadas ----------------
+// Quem precisa saber o que foi enviado à plataforma (o gravador, por exemplo)
+// escuta aqui em vez de cada página avisar por conta própria.
+export type PoseSource = 'cinematica' | 'joystick' | 'imu' | 'bancada';
+type PoseListener = (pose: Pose, source: PoseSource) => void;
+const poseListeners = new Set<PoseListener>();
+
+/** Registra um ouvinte das poses aplicadas com sucesso; devolve a função de cancelar. */
+export function onPoseCommanded(listener: PoseListener): () => void {
+  poseListeners.add(listener);
+  return () => {
+    poseListeners.delete(listener);
+  };
+}
+
+function emitPose(pose: Pose | undefined, source: PoseSource) {
+  if (!pose) return;
+  for (const l of poseListeners) l(pose, source);
+}
+
+const fullPose = (p: Partial<Pose>, zDefault: number): Pose => ({
+  x: p.x ?? 0,
+  y: p.y ?? 0,
+  z: p.z ?? zDefault,
+  roll: p.roll ?? 0,
+  pitch: p.pitch ?? 0,
+  yaw: p.yaw ?? 0,
+});
+
 const get = <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal);
 const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {});
 
@@ -74,10 +105,22 @@ export const api = {
   // Cinemática
   geometry: () => get<PlatformGeometry>('/config'),
   calculate: (pose: Partial<Pose>) => post<PlatformResponse>('/calculate', pose),
-  applyPose: (pose: Partial<Pose>) => post<ApplyPoseResult>('/apply_pose', pose),
-  joystickPose: (body: { lx: number; ly: number; rx: number; ry: number; apply: boolean; z_base: number }) =>
-    post<PoseControlResult>('/joystick/pose', body),
-  mpuControl: (body: Partial<Pose> & { scale: number }) => post<PoseControlResult>('/mpu/control', body),
+  /** `source` identifica quem comandou (para o gravador); padrão: cinemática. */
+  applyPose: async (pose: Partial<Pose>, source: PoseSource = 'cinematica') => {
+    const r = await post<ApplyPoseResult>('/apply_pose', pose);
+    if (r.applied && pose.z !== undefined) emitPose(fullPose(pose, pose.z), source);
+    return r;
+  },
+  joystickPose: async (body: { lx: number; ly: number; rx: number; ry: number; apply: boolean; z_base: number }) => {
+    const r = await post<PoseControlResult>('/joystick/pose', body);
+    if (r.applied) emitPose(r.pose, 'joystick');
+    return r;
+  },
+  mpuControl: async (body: Partial<Pose> & { scale: number }) => {
+    const r = await post<PoseControlResult>('/mpu/control', body);
+    if (r.applied) emitPose(r.pose, 'imu');
+    return r;
+  },
 
   // PID
   setpoint: (value: number, piston?: number) => post('/pid/setpoint', { piston: piston ?? null, value }),
@@ -96,6 +139,7 @@ export const api = {
   motionStart: (req: MotionRequest) => post<{ message: string }>('/motion/start', req),
   motionStop: () => post('/motion/stop'),
   motionStatus: () => get<MotionStatus>('/motion/status'),
+  trajectoryStart: (req: TrajectoryRequest) => post<TrajectoryStartResult>('/motion/trajectory', req),
 
   // Simulação de voo (FlightGear)
   flightStart: () => post<FlightSimStatus>('/flight-simulation/start'),

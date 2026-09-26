@@ -1,9 +1,10 @@
 import { Canvas } from '@react-three/fiber';
 import { Box, Eye, EyeOff, Gauge, Home, Maximize, Minimize, MousePointerClick, Send, Sparkles, Undo2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import * as THREE from 'three';
 import { toast } from 'sonner';
 import { ModeBadge } from '@/components/ModeBadge';
+import { glass, stageClass, useFullscreen } from '@/components/Stage';
 import { Button } from '@/components/ui/button';
 import { SliderField, SwitchField } from '@/components/ui/field';
 import { StatusPill } from '@/components/ui/status';
@@ -23,21 +24,6 @@ import { useConnection } from '@/stores/connection';
 import { useUi } from '@/stores/ui';
 
 const LIVE_MS = 100;
-const glass = 'glass rounded-xl border border-border shadow-xl';
-
-function useFullscreen(target: React.RefObject<HTMLElement | null>) {
-  const [active, setActive] = useState(false);
-  useEffect(() => {
-    const on = () => setActive(document.fullscreenElement === target.current);
-    document.addEventListener('fullscreenchange', on);
-    return () => document.removeEventListener('fullscreenchange', on);
-  }, [target]);
-  const toggle = useCallback(() => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void target.current?.requestFullscreen?.().catch(() => toast.error('O navegador não permitiu a tela cheia.'));
-  }, [target]);
-  return [active, toggle] as const;
-}
 
 // ---------------- painéis ----------------
 function PoseReadout() {
@@ -213,7 +199,7 @@ export default function BenchPage() {
 
   async function apply(quiet = false) {
     try {
-      const r = await api.applyPose(useBench.getState().pose);
+      const r = await api.applyPose(useBench.getState().pose, 'bancada');
       if (!r.applied && !quiet) toast.error('Pose não aplicada', { description: r.message });
       else if (!quiet) toast.success(simulated ? 'Aplicado no simulador' : 'Aplicado na plataforma');
     } catch (err) {
@@ -264,7 +250,7 @@ export default function BenchPage() {
     selection.kind === 'piston' ? `pistão ${selection.index + 1} selecionado` : selection.kind === 'platform' ? `plataforma selecionada, eixo ${AXIS_LABEL[selection.axis]}` : 'nada selecionado';
 
   return (
-    <div ref={stage} className="relative -mx-4 -my-5 h-[calc(100dvh-57px)] min-h-[36rem] overflow-hidden bg-bg sm:-mx-6 lg:-mx-8">
+    <div ref={stage} className={stageClass}>
       {/* canvas em tela cheia; o HUD fica por cima */}
       {/* região do modelo: widget próprio (role=application) com teclado documentado em #bancada-instrucoes */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
