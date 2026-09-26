@@ -2292,8 +2292,11 @@ def spa(full_path: str):
         )
     candidate = (WEB_DIST_DIR / full_path).resolve()
     if full_path and candidate.is_file() and WEB_DIST_DIR.resolve() in candidate.parents:
-        return FileResponse(candidate)
-    return FileResponse(index)
+        # assets/ tem hash no nome: pode ficar no cache para sempre
+        immutable = candidate.parent.name == "assets"
+        return FileResponse(candidate, headers={"Cache-Control": "public, max-age=31536000, immutable" if immutable else "no-cache"})
+    # o index.html sempre é revalidado, senão o navegador pode continuar com um build antigo
+    return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
 
 if __name__ == "__main__":

@@ -55,6 +55,9 @@ class Step:
     settle: Optional[List[int]] = None
     #: tempo máximo esperando a acomodação
     max_s: float = 0.0
+    #: o que está acontecendo e o que está sendo medido (mostrado na página)
+    detail: str = ""
+    measuring: str = ""
 
 
 @dataclass
@@ -162,9 +165,20 @@ class CalibrationRunner:
         self.cancel_evt = threading.Event()
         self.abort_evt = threading.Event()
         self.thread: Optional[threading.Thread] = None
-        self.state = {"running": False, "phase": None, "label": None, "progress": 0.0, "started_at": None, "error": None, "report_id": None, "steps": []}
+        self.state = self._blank(running=False, phase=None, label=None, started_at=None)
 
     # ---------- estado ----------
+    @staticmethod
+    def _blank(**kw) -> dict:
+        state = {
+            "progress": 0.0, "error": None, "report_id": None, "steps": [],
+            # passo atual
+            "detail": "", "measuring": "", "piston": None, "target": None,
+            "waiting": None, "step_index": 0, "step_count": 0,
+        }
+        state.update(kw)
+        return state
+
     def is_running(self) -> bool:
         with self.lock:
             return bool(self.state["running"])
@@ -184,7 +198,7 @@ class CalibrationRunner:
                 raise RuntimeError("A calibração já está em andamento.")
             self.cancel_evt.clear()
             self.abort_evt.clear()
-            self.state = {"running": True, "phase": "preparo", "label": "Preparando", "progress": 0.0, "started_at": time.time(), "error": None, "report_id": None, "steps": []}
+            self.state = self._blank(running=True, phase="preparo", label="Preparando", started_at=time.time(), detail="Ligando o simulador sombra e esperando a telemetria.")
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
@@ -224,7 +238,10 @@ class CalibrationRunner:
         L_home = np.asarray(L_home, dtype=float)
         home = self._courses(L_home)
         # o home espera os seis se acomodarem (partindo de longe, leva vários segundos)
-        steps: List[Step] = [Step("Indo para o home", "home", 3 * s, home, settle=list(range(6)), max_s=SETTLE_TIMEOUT_S)]
+        steps: List[Step] = [
+            Step("Indo para o home", "home", 3 * s, home, settle=list(range(6)), max_s=SETTLE_TIMEOUT_S,
+                 detail=f"Os seis pistões vão para o home (z = {home_z:.0f} mm).", measuring="Ponto de partida comum para os testes.")
+        ]
         pistons: List[Optional[PistonPlan]] = []
         for i in range(6):
             amp = next((a for a in AMPLITUDES_MM if all(self._feasible(np.where(np.arange(6) == i, L_home + d, L_home)) for d in (a, -a))), None)
@@ -236,12 +253,19 @@ class CalibrationRunner:
             up[i] += amp
             down = home.copy()
             down[i] -= amp
-            label = f"Autoteste do pistão {i + 1}"
+            n = i + 1
+            label = f"Autoteste do pistão {n}"
             # espera o pistão chegar ao alvo (e ficar parado um pouco, para medir erro e ruído)
             steps += [
-                Step(label, "autoteste", 4 * s, up, i, "up", settle=[i], max_s=12),
-                Step(label, "autoteste", 6 * s, down, i, "down", settle=[i], max_s=16),
-                Step(label, "autoteste", 4 * s, home.copy(), i, "back", settle=[i], max_s=12),
+                Step(label, "autoteste", 4 * s, up, i, "up", settle=[i], max_s=12,
+                     detail=f"Pistão {n} subindo {amp:.0f} mm; os outros ficam parados.",
+                     measuring="Atraso para começar a mover, velocidade de subida e se o sensor acompanha o sentido do motor."),
+                Step(label, "autoteste", 6 * s, down, i, "down", settle=[i], max_s=16,
+                     detail=f"Pistão {n} descendo até {amp:.0f} mm abaixo do home.",
+                     measuring="Velocidade de descida e erro ao chegar no alvo."),
+                Step(label, "autoteste", 4 * s, home.copy(), i, "back", settle=[i], max_s=12,
+                     detail=f"Pistão {n} voltando ao home e ficando parado.",
+                     measuring="Erro final no home e ruído do sensor com o pistão parado."),
             ]
         # coleta: altura quase inteira, sem sair do curso
         def z_limit(direction: int) -> float:
@@ -260,12 +284,19 @@ class CalibrationRunner:
             return self._courses(L)
 
         amp = 0.6 * min(z_hi - home_z, home_z - z_lo)
+        motors = "PWM × velocidade de cada motor, para recalibrar o simulador."
         steps += [
-            Step("Subindo até perto do topo", "coleta", 8 * s, at_z(z_hi)),
-            Step("Descendo até perto da base", "coleta", 12 * s, at_z(z_lo)),
-            Step("Voltando ao meio", "coleta", 7 * s, home.copy()),
-            Step("Onda lenta", "coleta", 25 * s, lambda tt: at_z(home_z + amp * np.sin(2 * np.pi * 0.08 * tt / s))),
-            Step("Voltando ao home", "coleta", 3 * s, home.copy(), settle=list(range(6)), max_s=SETTLE_TIMEOUT_S),
+            Step("Subindo até perto do topo", "coleta", 8 * s, at_z(z_hi),
+                 detail=f"Os seis juntos sobem o tampo até z = {z_hi:.0f} mm.", measuring=f"Subida em velocidade máxima: {motors}"),
+            Step("Descendo até perto da base", "coleta", 12 * s, at_z(z_lo),
+                 detail=f"Os seis juntos descem o tampo até z = {z_lo:.0f} mm.", measuring=f"Descida em velocidade máxima: {motors}"),
+            Step("Voltando ao meio", "coleta", 7 * s, home.copy(),
+                 detail=f"Os seis juntos voltam a z = {home_z:.0f} mm.", measuring="Resposta a um degrau médio: atraso e acomodação."),
+            Step("Onda lenta", "coleta", 25 * s, lambda tt: at_z(home_z + amp * np.sin(2 * np.pi * 0.08 * tt / s)),
+                 detail=f"O tampo sobe e desce ±{amp:.0f} mm numa onda lenta (12,5 s por ciclo).",
+                 measuring="Velocidades baixas e a zona morta (PWM mínimo que faz o motor andar)."),
+            Step("Voltando ao home", "coleta", 3 * s, home.copy(), settle=list(range(6)), max_s=SETTLE_TIMEOUT_S,
+                 detail="Os seis voltam ao home.", measuring="Nada novo: só espera a plataforma parar."),
         ]
         return steps, pistons, home
 
@@ -274,7 +305,11 @@ class CalibrationRunner:
         """Os pistões `idx` estão no alvo há pelo menos SETTLE_HOLD_S?"""
         Y = (self.serial_mgr.latest or {}).get("Y")
         now = time.monotonic()
-        ok = bool(Y) and all(abs(float(Y[i]) - float(target[i])) < self.settle_tol for i in idx)
+        errs = [abs(float(Y[i]) - float(target[i])) for i in idx] if Y else []
+        ok = bool(errs) and max(errs) < self.settle_tol
+        if errs:
+            worst = idx[int(np.argmax(errs))]
+            self._set(waiting="No alvo; esperando parar." if ok else f"Esperando o pistão {worst + 1} chegar ao alvo (faltam {max(errs):.1f} mm).")
         if not ok:
             self._settled_at = None
             return False
@@ -310,8 +345,13 @@ class CalibrationRunner:
                 raise RuntimeError("Sem telemetria da bancada.")
 
             done = 0.0
-            for st in steps:
-                self._set(phase=st.phase, label=st.label, progress=0.9 * done / total)
+            for k, st in enumerate(steps):
+                fixed = None if callable(st.target) else [round(float(v), 1) for v in st.target]
+                self._set(
+                    phase=st.phase, label=st.label, progress=0.9 * done / total, detail=st.detail, measuring=st.measuring,
+                    piston=None if st.piston is None else st.piston + 1, target=fixed, waiting=None,
+                    step_index=k + 1, step_count=len(steps),
+                )
                 start = time.monotonic()
                 if not callable(st.target):
                     self._send(st.target)
@@ -323,21 +363,27 @@ class CalibrationRunner:
                     if self.cancel_evt.is_set():
                         raise InterruptedError
                     if callable(st.target):
-                        self._send(st.target(el))
+                        cmd = st.target(el)
+                        self._send(cmd)
+                        self._set(target=[round(float(v), 1) for v in cmd])
                     self._set(progress=0.9 * (done + min(el, st.seconds)) / total)
                     time.sleep(0.05)
                 if st.piston is not None and pistons[st.piston] is not None:
                     pistons[st.piston].windows[st.kind] = [start, time.monotonic()]
                 done += st.seconds
 
-            self._set(phase="ajuste", label="Recalibrando o simulador", progress=0.92)
+            self._set(
+                phase="ajuste", label="Recalibrando o simulador", progress=0.92, piston=None, target=None, waiting=None,
+                detail="Ajustando a velocidade máxima e a zona morta de cada motor com os dados coletados.",
+                measuring="Se o modelo novo reproduz o real melhor que o atual.",
+            )
             data = twin.arrays()
             self.serial_mgr.twin = None
             if data is None or len(data[0]) < 100:
                 raise RuntimeError("Poucos dados de telemetria durante a calibração.")
             t_host, t, Y, U, SP, ysim = data
             fit = sim_fit.fit_all(t, Y, U, SP, params)
-            self._set(phase="relatorio", label="Montando o relatório", progress=0.97)
+            self._set(phase="relatorio", label="Montando o relatório", progress=0.97, detail="Comparando com a calibração anterior e salvando.", measuring="")
             results = [analyze_piston(t_host, t, Y[:, i], p) if p else {"tested": False, "amplitude_mm": 0.0} for i, p in enumerate(pistons)]
             report = self._report(diagnose(results), fit, sim_fit.rms(ysim, Y), float(time.time() - self.status()["started_at"]))
             self._set(running=False, phase="concluido", label="Concluída", progress=1.0, report_id=report["id"])

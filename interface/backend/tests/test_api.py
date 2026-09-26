@@ -215,3 +215,14 @@ def test_trajectory_plays_and_blocks_manual_commands(client):
     assert r["stopped"] is True
     assert not backend.motion_runner.status()["running"]
     assert client.post("/apply_pose", json={"z": backend.HOME_Z_MM}).json()["applied"] is True
+
+
+def test_spa_cache_headers(client):
+    """index.html sempre revalida; os assets com hash ficam no cache."""
+    if not (backend.WEB_DIST_DIR / "index.html").is_file():
+        pytest.skip("frontend não compilado")
+    r = client.get("/calibracao")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"
+    asset = next((backend.WEB_DIST_DIR / "assets").glob("*.js"))
+    r = client.get(f"/assets/{asset.name}")
+    assert "immutable" in r.headers["cache-control"]

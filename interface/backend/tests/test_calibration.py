@@ -93,10 +93,18 @@ def test_full_calibration_on_simulator(client):
     assert client.post("/pid/setpoint", json={"value": 10}).status_code == 409
 
     deadline = time.time() + 150
-    while time.time() < deadline and client.get("/calibration/status").json()["running"]:
+    seen = []
+    while time.time() < deadline:
+        st = client.get("/calibration/status").json()
+        if not st["running"]:
+            break
+        seen.append(st)
         time.sleep(0.5)
-    st = client.get("/calibration/status").json()
     assert st["phase"] == "concluido", st
+    # a página sabe o que está sendo testado: pistão, alvo e descrição do passo
+    testing = [s for s in seen if s["phase"] == "autoteste"]
+    assert testing and all(s["piston"] in range(1, 7) and s["detail"] and len(s["target"]) == 6 for s in testing)
+    assert all(1 <= s["step_index"] <= s["step_count"] for s in seen if s["step_count"])
     assert backend.serial_mgr.twin is None
 
     listing = client.get("/calibration/reports").json()["reports"]
