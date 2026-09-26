@@ -149,3 +149,11 @@ def test_emergency_stop_holds_position_and_stops_routine(client):
     assert r["stopped"] is True and len(r["held_mm"]) == 6
     assert not backend.motion_runner.status()["running"]
     assert all(abs(pz.sp - h) < 1e-3 for pz, h in zip(sim.pistons, r["held_mm"]))
+
+
+@pytest.mark.parametrize("z", [440.0, 600.0, 625.0])
+def test_forward_kinematics_covers_full_height_range(z):
+    L, valid, _ = backend.platform.inverse_kinematics(z=z)
+    assert valid
+    est, _ = backend.platform.estimate_pose_from_lengths(L)
+    assert est["z"] == pytest.approx(z, abs=0.05)

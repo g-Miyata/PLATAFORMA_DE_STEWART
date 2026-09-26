@@ -328,8 +328,10 @@ class StewartPlatform:
                 residuals,   # função de resíduos
                 x0,          # chute inicial
                 bounds=(
+                    # Z precisa cobrir toda a faixa alcançável (433..631 mm nivelada);
+                    # com teto em 600 a pose estimada travava acima disso.
                     [-100, -100, 300, -30, -30, -30],  # limites inferiores  [x,y,z,roll,pitch,yaw]
-                    [ 100,  100, 600,  30,  30,  30]   # limites superiores
+                    [ 100,  100, 750,  30,  30,  30]   # limites superiores
                 ),
                 ftol=1e-6,   # tolerância no valor da função
                 xtol=1e-6,   # tolerância nas variáveis
