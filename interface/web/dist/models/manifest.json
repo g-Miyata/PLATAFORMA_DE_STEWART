@@ -1,4 +1,14 @@
 {
   "_comment": "Modelos .glb disponíveis em public/models (sem extensão). Veja interface/web/README.md, seção Modelos 3D.",
-  "models": []
+  "models": [
+    "actuator-housing",
+    "kardan-top",
+    "driver-board",
+    "power-supply",
+    "breaker",
+    "terminal-strip",
+    "terminal-strip-blue",
+    "db37-female",
+    "estop"
+  ]
 }
