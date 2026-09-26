@@ -1,0 +1,20 @@
+[project]
+name = "flightgear-mcp"
+version = "0.1.0"
+description = "Servidor MCP que lê e controla o FlightGear pela API HTTP de propriedades (--httpd)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=2.2,<3",
+    "httpx>=0.27,<1",
+]
+
+[project.scripts]
+flightgear-mcp = "flightgear_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["flightgear_mcp"]

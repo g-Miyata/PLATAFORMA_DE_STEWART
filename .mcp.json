@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "flightgear": {
+      "command": "uv",
+      "args": ["run", "--quiet", "--directory", "interface/mcp-flightgear", "flightgear-mcp"],
+      "env": {
+        "FG_HTTP_HOST": "127.0.0.1",
+        "FG_HTTP_PORT": "8080"
+      }
+    }
+  }
+}
