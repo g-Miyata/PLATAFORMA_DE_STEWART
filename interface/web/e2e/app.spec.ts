@@ -13,6 +13,7 @@ const ROUTES = [
   ['/simulacao-voo', 'Simulação de voo'],
   ['/gravar', 'Gravar e reproduzir'],
   ['/blocos', 'Programação em blocos'],
+  ['/apresentacao', 'Apresentação'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -232,4 +233,35 @@ test('programação em blocos: abre um exemplo, mostra os passos e reproduz no s
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: 5_000 }).toBe('trajectory');
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
+});
+
+test.describe('Apresentação e aula', () => {
+  test('quiosque move o simulador de verdade e o Esc para tudo', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/apresentacao');
+    const real = page.getByRole('switch', { name: 'Mover a plataforma de verdade' });
+    await real.click();
+    await expect(real).toBeChecked();
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running, { timeout: 8_000 }).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(real).not.toBeChecked();
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
+  });
+
+  test('aula: → avança de etapa e as perguntas dão retorno', async ({ page }) => {
+    await page.addInitScript(() => localStorage.removeItem('stewart-lesson'));
+    await page.goto('/apresentacao');
+    await page.getByRole('tab', { name: 'Aula' }).click();
+    await expect(page.getByRole('heading', { name: '1. Seis graus de liberdade' })).toBeVisible();
+    await page.getByRole('radio', { name: '6', exact: true }).check();
+    await page.getByRole('button', { name: 'Conferir' }).first().click();
+    await expect(page.getByText('Isso!').first()).toBeVisible();
+    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('heading', { name: '2. As juntas da base (bᵢ)' })).toBeVisible();
+    await page.getByRole('button', { name: /^6\./ }).click();
+    await expect(page.getByText(/‖L1‖ = \d/)).toBeVisible();
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
+  });
 });

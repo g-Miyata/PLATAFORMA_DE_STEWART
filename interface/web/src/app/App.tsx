@@ -15,6 +15,7 @@ const PidSettingsPage = lazy(() => import('@/pages/PidSettingsPage'));
 const FlightSimPage = lazy(() => import('@/pages/FlightSimPage'));
 const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
+const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -46,6 +47,7 @@ export const routes = [
       { path: '/simulacao-voo', element: page(FlightSimPage) },
       { path: '/gravar', element: page(RecorderPage) },
       { path: '/blocos', element: page(BlocksPage) },
+      { path: '/apresentacao', element: page(PresentationPage) },
       { path: '*', element: page(NotFoundPage) },
     ],
   },
