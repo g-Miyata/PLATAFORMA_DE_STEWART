@@ -1,0 +1,1 @@
+var e=[`#3b82f6`,`#a855f7`,`#ec4899`,`#f97316`,`#14b8a6`,`#6366f1`],t=[1,2,3,4,5,6],n=new Map,r=(e,t=1,r=``)=>{if(e==null||!Number.isFinite(e))return`—`;let i=n.get(t);i||(i=new Intl.NumberFormat(`pt-BR`,{minimumFractionDigits:t,maximumFractionDigits:t}),n.set(t,i));let a=Math.abs(e)<.5*10**-t?0:e;return`${i.format(a)}${r?r===`°`?r:` ${r}`:``}`};export{e as n,r,t};
