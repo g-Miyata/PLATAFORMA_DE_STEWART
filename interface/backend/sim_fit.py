@@ -24,6 +24,9 @@ VMAX_RANGE = (2.0, 60.0)
 DZ_RANGE = (0.0, 140.0)
 MIN_SAMPLES = 60
 MIN_PWM_SPREAD = 40.0
+# melhora mínima na reprodução para trocar os parâmetros de um pistão
+MIN_GAIN_MM = 0.25
+MIN_GAIN_REL = 0.15
 
 
 def plant_velocity(u: np.ndarray, c_up: float, c_dn: float, dz_up: float, dz_dn: float) -> np.ndarray:
@@ -163,4 +166,48 @@ def fit_step_response(t, sp, resp) -> Optional[dict]:
         "vmax_ret_mm_s": round(c_dn * (MAX_PWM - dz_dn), 1),
         "deadzone_adv_pwm": round(dz_up, 1),
         "deadzone_ret_pwm": round(dz_dn, 1),
+    }
+
+
+def fit_all(t: np.ndarray, Y: np.ndarray, U: np.ndarray, SP: np.ndarray, current: dict) -> dict:
+    """Ajusta os seis pistões e valida reproduzindo os mesmos setpoints no simulador.
+
+    Um pistão só recebe parâmetros novos se a reprodução dele melhorar; senão fica
+    com os atuais (e o motivo aparece em `reason`).
+    """
+    t = np.asarray(t, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+    U = np.asarray(U, dtype=float)
+    SP = np.asarray(SP, dtype=float)
+    stroke = float(current["stroke_mm"])
+    pistons = []
+    proposed = {k: list(current[k]) for k in PARAM_KEYS}
+    for i in range(6):
+        cur = {k: float(current[k][i]) for k in PARAM_KEYS}
+        r = fit_plant(t, Y[:, i], U[:, i], cur, stroke)
+        pistons.append(r)
+        if r["ok"]:
+            for k in PARAM_KEYS:
+                proposed[k][i] = r[k]
+    t_rel = t - t[0]
+    rms_before = rms(replay(current, t_rel, SP, Y[0]), Y)
+    rms_after = rms(replay({**current, **proposed}, t_rel, SP, Y[0]), Y)
+    for i, r in enumerate(pistons):
+        if not r["ok"]:
+            continue
+        gain = rms_before[i] - rms_after[i]
+        # mudança só vale se melhorar de verdade (ruído e jitter de tempo dão ~décimos de mm)
+        if gain < MIN_GAIN_MM or rms_after[i] > rms_before[i] * (1 - MIN_GAIN_REL):
+            for k in PARAM_KEYS:
+                proposed[k][i] = current[k][i]
+            r["ok"] = False
+            r["reason"] = "não melhorou a reprodução" if gain <= 0 else "melhora pequena demais para mudar"
+            rms_after[i] = rms_before[i]
+    return {
+        "samples": int(len(t)),
+        "pistons": pistons,
+        "current": {k: list(current[k]) for k in PARAM_KEYS},
+        "proposed": proposed,
+        "rms_before": rms_before,
+        "rms_after": rms_after,
     }

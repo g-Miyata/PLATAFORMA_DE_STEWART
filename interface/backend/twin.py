@@ -37,20 +37,24 @@ class TwinShadow:
                 pass
             self.sim.clear_output()
 
-    def on_rx(self, t: float, Y: List[float], PWM: List[int]) -> List[float]:
-        """Avança a sombra até o instante da telemetria e devolve as posições simuladas."""
+    def on_rx(self, t_host: float, t_dev: float, Y: List[float], PWM: List[int]) -> List[float]:
+        """Avança a sombra até o instante da telemetria e devolve as posições simuladas.
+
+        t_host: relógio do PC (para localizar trechos); t_dev: relógio do firmware (o
+        campo ms da telemetria), que não sofre com linhas chegando em rajadas.
+        """
         with self.lock:
             if not self.synced:
                 self.sim.sync_positions(Y)
                 self.synced = True
-            elif self.last_t is not None and t > self.last_t:
+            elif self.last_t is not None and t_dev > self.last_t:
                 # lacunas longas (porta pausada) não viram um salto de simulação
-                self.sim.step(min(t - self.last_t, 0.5))
-            self.last_t = t
+                self.sim.step(min(t_dev - self.last_t, 0.5))
+            self.last_t = t_dev
             self.sim.clear_output()
             y_sim = [pz.measured() for pz in self.sim.pistons]
             sp = [pz.sp for pz in self.sim.pistons]
-            self.history.append((t, list(Y), list(PWM), sp, y_sim))
+            self.history.append((t_host, t_dev, list(Y), list(PWM), sp, y_sim))
             return y_sim
 
     def resync(self, Y: List[float]):
@@ -58,15 +62,20 @@ class TwinShadow:
             self.sim.sync_positions(Y)
 
     def arrays(self):
-        """Histórico como arrays: t (N), Y, PWM com sinal, sp, Y_sim (N×6)."""
+        """Histórico como arrays, só com tempos do firmware estritamente crescentes:
+        t_host, t_dev (N), Y, PWM com sinal, sp, Y_sim (N×6)."""
         with self.lock:
             rows = list(self.history)
         if not rows:
             return None
-        t = np.array([r[0] for r in rows])
-        Y = np.array([r[1] for r in rows], dtype=float)
-        pwm = np.array([r[2] for r in rows], dtype=float)
-        sp = np.array([r[3] for r in rows], dtype=float)
-        ysim = np.array([r[4] for r in rows], dtype=float)
+        t_dev = np.array([r[1] for r in rows])
+        keep = np.concatenate([[True], np.diff(t_dev) > 0])
+        rows = [r for r, k in zip(rows, keep) if k]
+        t_host = np.array([r[0] for r in rows])
+        t_dev = np.array([r[1] for r in rows])
+        Y = np.array([r[2] for r in rows], dtype=float)
+        pwm = np.array([r[3] for r in rows], dtype=float)
+        sp = np.array([r[4] for r in rows], dtype=float)
+        ysim = np.array([r[5] for r in rows], dtype=float)
         signed = pwm * np.sign(sp - Y)
-        return t, Y, signed, sp, ysim
+        return t_host, t_dev, Y, signed, sp, ysim

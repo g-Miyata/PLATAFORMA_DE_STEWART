@@ -45,7 +45,7 @@ def test_shadow_follows_the_same_commands():
     real = SimulatedSerial(params=dict(params, noise_mm=0.0), realtime=False, clock=lambda: 0.0, seed=2)
     shadow = TwinShadow(params)
     real.sync_positions([50.0] * 6)
-    shadow.on_rx(0.0, [50.0] * 6, [0] * 6)
+    shadow.on_rx(0.0, 0.0, [50.0] * 6, [0] * 6)
     cmd = "spmm6x=80,80,80,80,80,80"
     real.write((cmd + "\n").encode())
     shadow.on_tx(cmd)
@@ -54,7 +54,7 @@ def test_shadow_follows_the_same_commands():
         real.step(0.025)
         t += 0.025
         Y = [pz.measured() for pz in real.pistons]
-        y_sim = shadow.on_rx(t, Y, [int(pz.pwm) for pz in real.pistons])
+        y_sim = shadow.on_rx(t, t, Y, [int(pz.pwm) for pz in real.pistons])
     assert np.allclose(y_sim, Y, atol=0.2)
     assert all(abs(y - 80) < 3 for y in Y)
 
@@ -100,15 +100,16 @@ def test_params_saves_with_backup(client, tmp_path, monkeypatch):
     assert bad.status_code == 400
 
 
-def test_telemetry_carries_twin_positions(client):
+def test_no_shadow_outside_calibration(client):
+    """A sombra só existe durante a calibração: a telemetria normal não a carrega."""
     client.post("/serial/open", json={"port": "SIMULADOR"})
+    assert backend.serial_mgr.twin is None
     with client.websocket_connect("/ws/telemetry") as ws:
         for _ in range(200):
             msg = ws.receive_json()
-            if msg["type"] == "telemetry" and msg.get("twin"):
+            if msg["type"] == "telemetry":
                 break
-    assert len(msg["twin"]["Y_sim"]) == 6
-    assert client.get("/twin/status").json()["active"] is True
+    assert msg["twin"] is None
 
 
 def test_fit_keeps_direction_without_data():

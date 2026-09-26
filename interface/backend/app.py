@@ -1,10 +1,13 @@
 # server_serial_steweart.py
 # FastAPI + Serial + WebSocket de telemetria com reconstrução de pose (LSQ)
 
+import os
+import re
 import sys
 import threading
 import time
 import json
+from datetime import datetime
 import asyncio
 
 # Os logs usam emoji; sem isto o backend cai ao iniciar quando a saída não é um
@@ -34,6 +37,7 @@ from pydantic import BaseModel, Field
 import sim_fit
 from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
 from twin import TwinShadow
+from calibration import CalibrationRunner
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
@@ -455,7 +459,7 @@ class SerialManager:
         self.loop = None  # Será configurado quando o servidor iniciar
         # memória para LSQ partir de último chute
         self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
-        # gêmeo digital: simulador sombra alimentado com os mesmos comandos
+        # gêmeo digital: simulador sombra, só enquanto a calibração roda
         self.twin: Optional[TwinShadow] = None
 
     def set_event_loop(self, loop):
@@ -472,11 +476,7 @@ class SerialManager:
             else:
                 self.ser = serial.Serial(port, baud, timeout=0.2)
             self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
-            try:
-                self.twin = TwinShadow(load_params(SIM_PARAMS_FILE))
-            except Exception as e:
-                print(f"⚠️ Gêmeo digital indisponível: {e}")
-                self.twin = None
+            self.twin = None
             self.stop_evt.clear()
             self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.reader_thread.start()
@@ -718,7 +718,7 @@ class SerialManager:
             Y = [float(parts[2+i].replace(",", ".")) for i in range(6)]
             PWM = [int(float(parts[8+i].replace(",", "."))) for i in range(6)]
             twin = self.twin
-            y_sim = twin.on_rx(time.monotonic(), Y, PWM) if twin else None
+            y_sim = twin.on_rx(time.monotonic(), ms_esp / 1000.0, Y, PWM) if twin else None
 
             # OTIMIZAÇÃO: Detectar formato (MPU-6050 ou BNO085)
             has_mpu = len(parts) >= 17
@@ -1324,6 +1324,23 @@ class MotionRunner:
 
 motion_runner = MotionRunner(serial_mgr, platform)
 
+# -------------------- Calibração --------------------
+CALIBRATION_DIR = BACKEND_DIR / "calibration_reports"
+calibration_runner = CalibrationRunner(
+    serial_mgr, platform, format_spmm6x,
+    params_file=lambda: SIM_PARAMS_FILE,
+    reports_dir=lambda: CALIBRATION_DIR,
+)
+# modo de teste (e2e): tempos 5× menores e acomodação frouxa → ~1,5 min no simulador
+if os.environ.get("STEWART_CALIBRATION_FAST") == "1":
+    calibration_runner.time_scale = 0.2
+    calibration_runner.settle_tol = 6.0
+
+def ensure_not_calibrating():
+    """Durante a calibração nada mais pode comandar a bancada."""
+    if calibration_runner.is_running():
+        raise HTTPException(status_code=409, detail="Calibração em andamento. Aguarde terminar ou cancele em Ajustes → Calibração.")
+
 # -------------------- Endpoints Serial --------------------
 @app.get("/serial/ports")
 def api_list_ports():
@@ -1370,6 +1387,7 @@ def api_telemetry():
 @app.post("/serial/send")
 def api_send_command(cmd: PIDCommand):
     """Envia comando livre pela serial"""
+    ensure_not_calibrating()
     try:
         serial_mgr.write_line(cmd.command)
         return {"message": "OK", "sent": cmd.command}
@@ -1380,6 +1398,7 @@ def api_send_command(cmd: PIDCommand):
 @app.post("/pid/setpoint")
 def set_pid_setpoint(sp: PIDSetpoint):
     """Define setpoint em mm (global ou individual)"""
+    ensure_not_calibrating()
     try:
         if sp.piston is None:
             # Global
@@ -1397,6 +1416,7 @@ def set_pid_setpoint(sp: PIDSetpoint):
 @app.post("/pid/gains")
 def set_pid_gains(gains: PIDGains):
     """Define ganhos PID para um pistão específico"""
+    ensure_not_calibrating()
     try:
         if not 1 <= gains.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
@@ -1438,6 +1458,7 @@ def get_pid_gains(piston: int):
 @app.post("/pid/gains/all")
 def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None):
     """Define ganhos PID para todos os pistões"""
+    ensure_not_calibrating()
     try:
         if kp is not None:
             serial_mgr.write_line(f"kpall={kp:.4f}")
@@ -1462,6 +1483,7 @@ def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd
 @app.post("/pid/feedforward")
 def set_pid_feedforward(ff: PIDFeedforward):
     """Define feedforward para um pistão específico"""
+    ensure_not_calibrating()
     try:
         if not 1 <= ff.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
@@ -1484,6 +1506,7 @@ def set_pid_feedforward(ff: PIDFeedforward):
 @app.post("/pid/feedforward/all")
 def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[float] = None):
     """Define feedforward para todos os pistões"""
+    ensure_not_calibrating()
     try:
         if u0_adv is not None:
             serial_mgr.write_line(f"u0aall={u0_adv:.2f}")
@@ -1499,6 +1522,7 @@ def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[flo
 @app.post("/pid/settings")
 def set_pid_settings(settings: PIDSettings):
     """Ajusta configurações gerais do PID"""
+    ensure_not_calibrating()
     try:
         if settings.dbmm is not None:
             serial_mgr.write_line(f"dbmm={settings.dbmm:.3f}")
@@ -1521,6 +1545,7 @@ def get_pid_settings():
 @app.post("/pid/manual/{action}")
 def pid_manual_control(action: str):
     """Controle manual: A (avanço), R (recuo), ok (parar)"""
+    ensure_not_calibrating()
     try:
         if action.upper() not in ["A", "R", "OK"]:
             raise ValueError("Ação deve ser A, R ou ok")
@@ -1533,6 +1558,7 @@ def pid_manual_control(action: str):
 @app.post("/pid/select/{piston}")
 def pid_select_piston(piston: int):
     """Seleciona pistão para operações manuais"""
+    ensure_not_calibrating()
     try:
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
@@ -1546,6 +1572,7 @@ def pid_select_piston(piston: int):
 @app.post("/pid/offset")
 def set_pid_offset(piston: int, offset: float):
     """Define offset de calibração para um pistão específico (compensação de erro sistemático)"""
+    ensure_not_calibrating()
     try:
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
@@ -1562,6 +1589,7 @@ def set_pid_offset(piston: int, offset: float):
 @app.post("/pid/offset/all")
 def set_pid_offset_all(offset: float):
     """Define offset de calibração para todos os pistões"""
+    ensure_not_calibrating()
     try:
         serial_mgr.write_line(f"offsetall={offset:.3f}")
         return {"message": f"Offset aplicado para todos = {offset:.3f} mm"}
@@ -1624,6 +1652,7 @@ Exemplos de uso das rotinas de movimento:
 @app.post("/motion/start")
 def motion_start(req: MotionRequest):
     """Inicia uma rotina de movimento"""
+    ensure_not_calibrating()
     try:
         # Validar routine
         valid_routines = ["sine_axis", "circle_xy", "helix", "heave_pitch"]
@@ -1677,6 +1706,7 @@ def motion_trajectory(req: TrajectoryRequest):
     e cinemática inversa de cada amostra. Entre amostras a pose é interpolada
     linearmente a 60 Hz; Parar, Esc e /emergency-stop valem como nas rotinas.
     """
+    ensure_not_calibrating()
     track = np.array(
         [[s.t, s.x, s.y, s.z, s.roll, s.pitch, s.yaw] for s in req.samples], dtype=float
     )
@@ -1741,16 +1771,6 @@ def _check_rows(name: str, rows: List[List[float]], n: int):
     if len(rows) != n or any(len(r) != 6 for r in rows):
         raise HTTPException(status_code=400, detail=f"'{name}' precisa ter {n} linhas de 6 valores.")
 
-@app.get("/twin/status")
-def twin_status():
-    twin = serial_mgr.twin
-    return {
-        "active": twin is not None,
-        "simulated": serial_mgr.simulated,
-        "samples": len(twin.history) if twin else 0,
-        "params": {k: load_params(SIM_PARAMS_FILE)[k] for k in PARAM_RANGES},
-    }
-
 @app.post("/twin/simulate")
 def twin_simulate(req: TwinSimulateRequest):
     """Reproduz setpoints (mm de curso) no simulador, a partir de y0; devolve as posições."""
@@ -1763,56 +1783,20 @@ def twin_simulate(req: TwinSimulateRequest):
 
 @app.post("/twin/fit")
 def twin_fit(req: TwinFitRequest):
-    """Identifica vmax e zona morta de cada pistão (PWM × velocidade) e valida por reprodução."""
+    """Identifica vmax e zona morta de cada pistão a partir de dados (t, Y, PWM com sinal, sp)."""
     if req.t is None:
-        twin = serial_mgr.twin
-        data = twin.arrays() if twin else None
-        if data is None or len(data[0]) < 100:
-            raise HTTPException(status_code=409, detail="Poucos dados ao vivo: conecte a bancada e movimente os pistões por alguns segundos.")
-        t, Y, U, SP, _ = data
-    else:
-        n = len(req.t)
-        for name in ("Y", "PWM", "sp"):
-            if getattr(req, name) is None:
-                raise HTTPException(status_code=400, detail=f"Faltou '{name}'.")
-            _check_rows(name, getattr(req, name), n)
-        t, Y, U, SP = (np.asarray(v, dtype=float) for v in (req.t, req.Y, req.PWM, req.sp))
+        raise HTTPException(status_code=400, detail="Envie os dados (t, Y, PWM, sp) ou use a Calibração.")
+    n = len(req.t)
+    for name in ("Y", "PWM", "sp"):
+        if getattr(req, name) is None:
+            raise HTTPException(status_code=400, detail=f"Faltou '{name}'.")
+        _check_rows(name, getattr(req, name), n)
+    t, Y, U, SP = (np.asarray(v, dtype=float) for v in (req.t, req.Y, req.PWM, req.sp))
+    return sim_fit.fit_all(t, Y, U, SP, load_params(SIM_PARAMS_FILE))
 
-    current = load_params(SIM_PARAMS_FILE)
-    stroke = float(current["stroke_mm"])
-    pistons = []
-    proposed = {k: list(current[k]) for k in PARAM_RANGES}
-    for i in range(6):
-        cur = {k: float(current[k][i]) for k in PARAM_RANGES}
-        r = sim_fit.fit_plant(t, Y[:, i], U[:, i], cur, stroke)
-        pistons.append(r)
-        if r["ok"]:
-            for k in PARAM_RANGES:
-                proposed[k][i] = r[k]
-    # validação: reproduz os mesmos setpoints com os parâmetros atuais e os propostos;
-    # pistão cuja reprodução piora fica com os parâmetros atuais
-    t_rel = t - t[0]
-    rms_before = sim_fit.rms(sim_fit.replay(current, t_rel, SP, Y[0]), Y)
-    rms_after = sim_fit.rms(sim_fit.replay({**current, **proposed}, t_rel, SP, Y[0]), Y)
-    for i, r in enumerate(pistons):
-        if r["ok"] and rms_after[i] > rms_before[i] * 1.02:
-            for k in PARAM_RANGES:
-                proposed[k][i] = current[k][i]
-            r["ok"] = False
-            r["reason"] = "não melhorou a reprodução"
-            rms_after[i] = rms_before[i]
-    return {
-        "samples": int(len(t)),
-        "pistons": pistons,
-        "proposed": proposed,
-        "rms_before": rms_before,
-        "rms_after": rms_after,
-    }
-
-@app.post("/twin/params")
-def twin_params(req: TwinParamsRequest):
-    """Salva vmax/zona morta no sim_params.json (com cópia .bak). Vale para as próximas conexões."""
-    for k, v in req.params.items():
+def save_sim_params(params: Dict[str, List[float]]) -> str:
+    """Valida e salva vmax/zona morta no sim_params.json (cópia .bak). Devolve o nome da cópia."""
+    for k, v in params.items():
         if k not in PARAM_RANGES:
             raise HTTPException(status_code=400, detail=f"Parâmetro desconhecido: {k}")
         lo, hi = PARAM_RANGES[k]
@@ -1822,19 +1806,83 @@ def twin_params(req: TwinParamsRequest):
     data = json.loads(path.read_text(encoding="utf-8"))
     backup = path.with_suffix(".json.bak")
     backup.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    for k, v in req.params.items():
+    for k, v in params.items():
         data[k] = [round(float(x), 2) for x in v]
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    # a sombra passa a usar os novos parâmetros já; o simulador, na próxima conexão
-    if serial_mgr.twin is not None:
-        Y = (serial_mgr.latest or {}).get("Y")
-        serial_mgr.twin = TwinShadow(load_params(path))
-        if Y:
-            serial_mgr.twin.resync(Y)
-    return {"saved": True, "backup": backup.name}
+    return backup.name
+
+@app.post("/twin/params")
+def twin_params(req: TwinParamsRequest):
+    """Salva vmax/zona morta no sim_params.json (com cópia .bak). Vale para as próximas conexões."""
+    return {"saved": True, "backup": save_sim_params(req.params)}
+
+@app.post("/calibration/start")
+def calibration_start():
+    """Interrompe o que estiver rodando e inicia autoteste + recalibração (3 a 4 min)."""
+    if not serial_mgr.is_open:
+        raise HTTPException(status_code=409, detail="Conecte a bancada (ou o simulador) primeiro.")
+    if calibration_runner.is_running():
+        raise HTTPException(status_code=409, detail="A calibração já está em andamento.")
+    motion_runner.stop(go_home=False)
+    FLIGHT_SIMULATION_STATE["enabled"] = False
+    try:
+        serial_mgr.write_line("OK")  # tira o firmware do modo manual
+    except Exception:
+        pass
+    calibration_runner.start()
+    return calibration_runner.status()
+
+@app.get("/calibration/status")
+def calibration_status():
+    return calibration_runner.status()
+
+@app.post("/calibration/cancel")
+def calibration_cancel():
+    calibration_runner.cancel()
+    return calibration_runner.status()
+
+def _report_path(report_id: str) -> Path:
+    if not re.fullmatch(r"\d{8}-\d{6}", report_id):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+    path = CALIBRATION_DIR / f"{report_id}.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+    return path
+
+@app.get("/calibration/reports")
+def calibration_reports():
+    """Relatórios salvos, do mais novo para o mais antigo (resumo)."""
+    items = []
+    if CALIBRATION_DIR.is_dir():
+        for f in sorted(CALIBRATION_DIR.glob("*.json"), reverse=True):
+            try:
+                r = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            items.append({k: r.get(k) for k in ("id", "created_at", "duration_s", "simulated", "alerts", "improvement_pct", "has_changes", "applied", "applied_at")})
+    return {"reports": items}
+
+@app.get("/calibration/reports/{report_id}")
+def calibration_report(report_id: str):
+    return json.loads(_report_path(report_id).read_text(encoding="utf-8"))
+
+@app.post("/calibration/reports/{report_id}/apply")
+def calibration_apply(report_id: str):
+    """Grava no simulador os parâmetros propostos pelo relatório (cópia .bak do anterior)."""
+    ensure_not_calibrating()
+    path = _report_path(report_id)
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if not report.get("has_changes"):
+        raise HTTPException(status_code=400, detail="Este relatório não propõe mudanças.")
+    backup = save_sim_params(report["fit"]["proposed"])
+    report["applied"] = True
+    report["applied_at"] = datetime.now().isoformat(timespec="seconds")
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"applied": True, "backup": backup}
 
 def ensure_manual_allowed():
     """Comandos manuais não podem brigar com uma rotina/trajetória em execução."""
+    ensure_not_calibrating()
     if motion_runner.is_running():
         raise HTTPException(
             status_code=409,
@@ -1857,6 +1905,7 @@ def emergency_stop():
     Interrompe rotina e simulação de voo (sem voltar para HOME), tira o firmware
     do modo manual e congela os atuadores na posição medida mais recente.
     """
+    calibration_runner.abort()
     motion_runner.stop(go_home=False)
     FLIGHT_SIMULATION_STATE["enabled"] = False
     held = None
@@ -2046,6 +2095,7 @@ def mpu_control(req: MPUControlRequest):
 
 @app.post("/flight-simulation/start")
 def flight_simulation_start():
+    ensure_not_calibrating()
     FLIGHT_SIMULATION_STATE["enabled"] = True
     FLIGHT_SIMULATION_STATE["started_at"] = time.time()
     return {
