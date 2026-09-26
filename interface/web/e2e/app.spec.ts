@@ -296,6 +296,9 @@ test.describe('Aula', () => {
     await expect(page.getByText('ΔZ')).toBeVisible();
 
     await page.goto('/aula/cinematica/direta/5');
+    // a pose real é editável: o solver recomeça e converge para ela
+    await page.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('-22');
+    await page.getByRole('spinbutton', { name: 'Yaw (em torno de Z) (graus)' }).fill('-8');
     await page.getByRole('button', { name: 'Rodar' }).click();
     await expect(page.getByText(/Convergiu em \d+ iterações para a pose real/)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('cell', { name: '< 0,01 mm' }).first()).toBeVisible();

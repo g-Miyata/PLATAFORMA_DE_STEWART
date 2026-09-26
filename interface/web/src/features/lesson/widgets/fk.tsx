@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, FlaskConical, Pause, Play, RotateCcw, StepForward, XCircle } from 'lucide-react';
+import { ArrowRight, CheckCircle2, FlaskConical, Pause, Play, RotateCcw, Shuffle, StepForward, XCircle } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Tex, texNum } from '@/components/Tex';
 import { Button } from '@/components/ui/button';
@@ -6,13 +6,13 @@ import { PoseEditor } from '@/features/control/PoseEditor';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { cn } from '@/lib/cn';
 import { forwardKinematics, type FkStep } from '@/lib/forwardKinematics';
-import { zeroPose } from '@/lib/kinematics';
+import { solvePose, zeroPose } from '@/lib/kinematics';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import type { Pose } from '@/lib/types';
 import { legVectors } from '../lessonMath';
 import { useLessonScene } from '../lessonStore';
 import { LegPicker } from './math';
-import { texVec } from './basic';
+import { texVec, WIDE } from './basic';
 
 const ease = (x: number) => x * x * (3 - 2 * x);
 const reduced = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -225,12 +225,21 @@ export function FkConstraints() {
   );
 }
 
-type Guess = 'home' | 'anterior' | 'ruim';
+type Guess = 'home' | 'anterior' | 'ruim' | 'livre';
 const GUESSES: { id: Guess; label: string; description: string }[] = [
   { id: 'home', label: 'Home', description: 'o tampo centrado, sem inclinação' },
   { id: 'anterior', label: 'Pose anterior', description: 'o que o backend usa: a última pose calculada, muito perto da atual' },
   { id: 'ruim', label: 'Chute ruim', description: 'longe da resposta, inclinado para o outro lado' },
+  { id: 'livre', label: 'Escolher o chute', description: 'você define a pose de partida' },
 ];
+
+function randomPose(homeZ: number, geometry: ReturnType<typeof useGeometry>): Pose {
+  for (;;) {
+    const r = (a: number) => Math.round((Math.random() * 2 - 1) * a);
+    const p: Pose = { x: r(30), y: r(30), z: homeZ + r(45), roll: r(9), pitch: r(9), yaw: r(14) };
+    if (solvePose(p, geometry).valid) return p;
+  }
+}
 const FLOW = ['Comprimentos medidos', 'Chute da pose', 'Cinemática inversa', 'Comprimentos estimados', 'Erro', 'Mínimos quadrados', 'Nova pose'];
 const GHOST_COLORS = ['#f5b400', '#f59e0b', '#fb923c', '#f97316', '#ef4444'];
 
@@ -238,18 +247,36 @@ const GHOST_COLORS = ['#f5b400', '#f59e0b', '#fb923c', '#f97316', '#ef4444'];
 export function FkSolver() {
   const geometry = useGeometry();
   const set = useLessonScene((s) => s.set);
-  const real = useMemo(() => realPose(geometry.home_z), [geometry.home_z]);
+  const [real, setRealPose] = useState<Pose>(() => realPose(geometry.home_z));
+  const [custom, setCustomPose] = useState<Pose>(() => zeroPose(geometry.home_z));
+  const [showReal, setShowReal] = useState(true);
   const measured = useMemo(() => legVectors(real, geometry).map((l) => l.length), [real, geometry]);
+  const realValid = solvePose(real, geometry).valid;
   const [guessId, setGuessId] = useState<Guess>('home');
   const [k, setK] = useState(0);
   const [playing, setPlaying] = useState(false);
   const name = useId();
 
+  // mudou a pose real ou o chute: o solver recomeça do zero
+  const restart = () => {
+    setK(0);
+    setPlaying(false);
+  };
+  const setReal = (p: Pose) => {
+    setRealPose(p);
+    restart();
+  };
+  const setCustom = (p: Pose) => {
+    setCustomPose(p);
+    restart();
+  };
+
   const guess = useMemo((): Pose => {
     if (guessId === 'anterior') return { ...real, x: real.x + 1.5, y: real.y - 1, z: real.z + 0.8, roll: real.roll + 0.3, pitch: real.pitch - 0.2, yaw: real.yaw + 0.4 };
     if (guessId === 'ruim') return { x: -60, y: 55, z: geometry.home_z - 100, roll: -18, pitch: 16, yaw: -25 };
+    if (guessId === 'livre') return custom;
     return zeroPose(geometry.home_z);
-  }, [guessId, real, geometry.home_z]);
+  }, [guessId, real, custom, geometry.home_z]);
   const history: FkStep[] = useMemo(() => forwardKinematics(measured, geometry, guess, { history: true, maxIterations: 40 }).history ?? [], [measured, geometry, guess]);
   const last = history.length - 1;
   const cur = history[Math.min(k, last)];
@@ -258,8 +285,9 @@ export function FkSolver() {
     const ghosts = history
       .slice(Math.max(0, k - 4), k)
       .map((h, i, arr) => ({ pose: h.pose, color: GHOST_COLORS[Math.min(GHOST_COLORS.length - 1, arr.length - 1 - i)], label: i === arr.length - 1 ? `iteração ${h.iteration}` : undefined }));
+    if (showReal) ghosts.push({ pose: real, color: '#3fb654', label: 'pose real' });
     set({ pose: cur.pose, ghosts });
-  }, [history, k, cur, set]);
+  }, [history, k, cur, set, showReal, real]);
   useEffect(() => () => set({ ghosts: [] }), [set]);
 
   const done = k >= last;
@@ -284,6 +312,33 @@ export function FkSolver() {
           </li>
         ))}
       </ol>
+      <details className="rounded-lg border border-border p-3" open>
+        <summary className="cursor-pointer text-sm font-semibold">Pose real da plataforma (o que os sensores medem)</summary>
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-muted">
+            Escolha onde o tampo "está de verdade". Dela saem os seis comprimentos medidos, que são a única coisa que o solver recebe.
+          </p>
+          <PoseEditor pose={real} onChange={setReal} />
+          <p className="text-sm tabular-nums text-muted">
+            Medidos: {measured.map((l, i) => `L${i + 1} ${fmt(l, 1)}`).join(' · ')} mm
+          </p>
+          {!realValid && <p className="text-sm font-medium text-warning">Essa pose tira alguma perna do curso: a bancada não chegaria lá, mas a conta ainda funciona.</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={() => setReal(randomPose(geometry.home_z, geometry))}>
+              <Shuffle aria-hidden />
+              Sortear pose real
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setReal(realPose(geometry.home_z))}>
+              <RotateCcw aria-hidden />
+              Pose do exemplo
+            </Button>
+            <label className="ml-auto flex cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" checked={showReal} onChange={(e) => setShowReal(e.target.checked)} className="size-4 accent-[var(--c-brand)]" />
+              Mostrar a pose real no modelo
+            </label>
+          </div>
+        </div>
+      </details>
       <fieldset className="rounded-lg border border-border p-3">
         <legend className="px-1 text-sm font-semibold">Chute inicial</legend>
         <div className="mt-1 space-y-1.5">
@@ -295,8 +350,7 @@ export function FkSolver() {
                 checked={guessId === g.id}
                 onChange={() => {
                   setGuessId(g.id);
-                  setK(0);
-                  setPlaying(false);
+                  restart();
                 }}
                 className="mt-0.5 size-4 accent-[var(--c-brand)]"
               />
@@ -306,6 +360,11 @@ export function FkSolver() {
             </label>
           ))}
         </div>
+        {guessId === 'livre' && (
+          <div className="mt-3 border-t border-border pt-3">
+            <PoseEditor pose={custom} onChange={setCustom} limits={WIDE} />
+          </div>
+        )}
       </fieldset>
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" onClick={() => setK((x) => Math.min(last, x + 1))} disabled={done}>
@@ -318,10 +377,7 @@ export function FkSolver() {
         </Button>
         <Button
           variant="ghost"
-          onClick={() => {
-            setK(0);
-            setPlaying(false);
-          }}
+          onClick={restart}
           disabled={k === 0}
         >
           <RotateCcw aria-hidden />
