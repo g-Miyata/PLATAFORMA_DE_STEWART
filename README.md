@@ -90,12 +90,14 @@ O script:
 
 ### Pelo celular (rede local)
 
+No PC, abra a tela **Celular** (menu ou botão no cabeçalho) e clique em **Ligar o modo rede**: o backend passa a atender também em **HTTPS 8443** na rede, sem reiniciar, e a tela mostra o QR code, o endereço (`https://<IP-do-PC>:8443/celular`) e o **PIN**. Para já abrir ligado:
+
 ```bat
 start.bat rede
 ```
 
-- O backend passa a escutar na rede em **HTTP 8001** e **HTTPS 8443**, no mesmo processo (`interface/backend/serve.py`). O HTTPS usa um certificado autoassinado gerado na primeira vez em `interface/backend/certs/`, e é ele que libera o giroscópio do celular (os navegadores só dão o sensor em HTTPS).
-- No PC, o botão **Celular** do cabeçalho mostra o QR code, o endereço (`https://<IP-do-PC>:8443/celular`) e o **PIN**. No celular, aceite uma vez o aviso de certificado e digite o PIN.
+- Com `start.bat rede`, o backend escuta na rede em **HTTP 8001** e **HTTPS 8443**, no mesmo processo (`interface/backend/serve.py`). O HTTPS usa um certificado autoassinado gerado na primeira vez em `interface/backend/certs/`, e é ele que libera o giroscópio do celular (os navegadores só dão o sensor em HTTPS).
+- No celular, aceite uma vez o aviso de certificado e digite o PIN. **Um celular por vez:** com um já conectado, o PC mostra qual é (aparelho, IP, há quanto tempo) e o botão para desconectá-lo; um segundo celular vê o aviso e só entra depois. No celular, **Desconectar** (no topo) libera a vez. O PC também mostra quem abriu a página e está esperando o PIN, e pode gerar outro PIN.
 - Sem o PIN, o celular só acompanha. O botão **PARAR** funciona sempre, em qualquer aparelho. O próprio PC nunca pede PIN. Um IP que erra o PIN 5 vezes fica bloqueado por um minuto.
 - A tela `/celular` tem **giroscópio** (incline o celular e o tampo acompanha, com zerar, sensibilidade e iniciar/parar), **joystick na tela** (dois sticks, Z e yaw) e **Bancada 3D por toque** (P1–P6 ou tampo, − / + que repetem ao segurar, desfazer e ao vivo). O controle para sozinho se a tela apagar, se o sensor parar ou numa parada de emergência.
 - **Firewall:** na primeira vez, o Windows pergunta se libera o Python; permita em **redes privadas**. Para liberar à mão, num prompt de administrador:
