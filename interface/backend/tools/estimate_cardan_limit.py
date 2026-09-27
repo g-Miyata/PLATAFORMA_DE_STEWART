@@ -1,7 +1,7 @@
 """Estimativa do ângulo máximo das juntas cardã a partir do modelo 3D.
 
-Usa as medidas do cardã desenhado em 3D-drawings-archives/blender/kardan.py (a peça
-real, impressa em PLA, não está no repositório): cada garfo tem um cubo (Ø19 × 12 mm),
+Usa as medidas do cardã desenhado em 3D-drawings-archives/blender/kardan.py (a junta
+real é metálica e não está no repositório; o suporte azul que a prende é impresso): cada garfo tem um cubo (Ø19 × 12 mm),
 um pescoço (Ø14) e duas orelhas (placas 5,5 × 16 × 15 mm com ponta cilíndrica Ø16),
 ligados pela cruzeta. O garfo A gira em torno do braço X da cruzeta e a cruzeta em
 torno do braço Y (preso ao garfo B): a rotação relativa é Ry(β)·Rx(α). Para cada
