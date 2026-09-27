@@ -39,6 +39,23 @@ const VISITOR_SHOT: Shot = { azimuth: -90, elevation: 34, distance: 2800, target
 const PHONE_SHOT: Shot = { azimuth: -90, elevation: 22, distance: 2400, targetZ: 320 };
 const SEND_MS = 100;
 const HOLD_MS = 1800;
+// o operador pediu para a apresentação ligar o modo rede sozinha (QR code do celular)
+const AUTO_LAN_KEY = 'stewart-exhibit-auto-lan';
+function readAutoLan() {
+  try {
+    return localStorage.getItem(AUTO_LAN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function saveAutoLan(on: boolean) {
+  try {
+    localStorage.setItem(AUTO_LAN_KEY, on ? '1' : '0');
+  } catch {
+    // sem armazenamento: vale só nesta sessão
+  }
+}
+
 const KEYS: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 
 /** Anel de contagem regressiva até o show recomeçar. */
@@ -116,6 +133,24 @@ export default function PresentationPage() {
   const [showQr, setShowQr] = useState(true);
   const qrShown = mode === 'show' && !!lan && !phone && showQr && !visitor;
   const lanStart = useLanAction(() => api.lanStart(), 'Modo rede ligado');
+  const [autoLan, setAutoLanState] = useState(readAutoLan);
+  const setAutoLan = (on: boolean) => {
+    setAutoLanState(on);
+    saveAutoLan(on);
+  };
+  // ao abrir (ou se o backend reiniciou), religa o modo rede se o operador pediu
+  const lanOff = lanStatus.data?.local === true && !lanStatus.data.lan;
+  const autoTried = useRef(false);
+  const startLan = lanStart.mutate;
+  useEffect(() => {
+    if (!lanOff) {
+      autoTried.current = false;
+      return;
+    }
+    if (!autoLan || autoTried.current) return;
+    autoTried.current = true;
+    startLan(undefined);
+  }, [autoLan, lanOff, startLan]);
   const kick = useLanAction((id: string) => api.lanKick(id), 'Celular desconectado: o show recomeça');
   const phoneRef = useRef(false);
   useEffect(() => {
@@ -399,7 +434,8 @@ export default function PresentationPage() {
         )}
         {hint && !operator && (
           <span className="scene-enter rounded-full bg-[var(--ex-panel)] px-3 py-1 text-xs text-[var(--ex-muted)]">
-            Tecla <kbd className="rounded border border-[var(--ex-border)] px-1">O</kbd>: painel do operador
+            Letra <kbd className="rounded border border-[var(--ex-border)] px-1 font-sans font-semibold">O</kbd> do teclado: painel do operador
+            {lanOff && ' (liga o QR code do celular)'}
           </span>
         )}
         <button
@@ -513,7 +549,13 @@ export default function PresentationPage() {
           flightName={flight?.name ?? null}
           fgReady={fgReady}
           lan={!!lan}
-          onLanStart={() => lanStart.mutate(undefined)}
+          onLanStart={() => {
+            // quem liga aqui quer o QR na exposição: fica ligado nas próximas vezes (dá para desligar no painel)
+            setAutoLan(true);
+            lanStart.mutate(undefined);
+          }}
+          autoLan={autoLan}
+          onAutoLan={setAutoLan}
           lanStarting={lanStart.isPending}
           showQr={showQr}
           onShowQr={setShowQr}

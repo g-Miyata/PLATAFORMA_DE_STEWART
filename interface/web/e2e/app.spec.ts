@@ -495,6 +495,20 @@ test.describe('Apresentação com celular', () => {
     await expect(page.getByRole('heading', { name: 'Um visitante está no comando' })).toHaveCount(0);
   });
 
+  test('com a opção salva, a apresentação religa o modo rede sozinha', async ({ page }) => {
+    let started = 0;
+    await page.addInitScript(() => localStorage.setItem('stewart-exhibit-auto-lan', '1'));
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: started > 0, local: true, authorized: true, busy: false } }));
+    await page.route('**/lan/info', (r) => r.fulfill({ json: started ? info([]) : { lan: false, mode: null, pin: null, urls: [], https_port: 8443, devices: [], waiting: [] } }));
+    await page.route('**/lan/start', (r) => {
+      started++;
+      return r.fulfill({ json: info([]) });
+    });
+    await page.goto('/apresentacao');
+    await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible({ timeout: 10_000 });
+    expect(started).toBe(1);
+  });
+
   test('painel do operador liga o modo rede', async ({ page }) => {
     let started = false;
     await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: started, local: true, authorized: true, busy: false } }));
