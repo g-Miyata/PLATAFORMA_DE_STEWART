@@ -133,8 +133,8 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         : 'Toque num pistão ou no tampo';
 
   return (
-    <div ref={root} className={cn(full ? 'fixed inset-0 z-50 flex flex-col bg-bg' : 'space-y-3')}>
-      <div className={cn('relative touch-none overflow-hidden', full ? 'min-h-0 flex-1' : 'h-[52dvh] min-h-64 rounded-xl border border-border')}>
+    <div ref={root} className={cn('flex flex-col', full ? 'fixed inset-0 z-50 bg-bg' : 'h-full min-h-0 gap-2')}>
+      <div className={cn('relative min-h-0 flex-1 touch-none overflow-hidden', full ? '' : 'min-h-36 rounded-xl border border-border')}>
         <div className="absolute inset-0" aria-hidden>
           <Canvas
             shadows
@@ -163,13 +163,13 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         <p className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-surface/85 px-2 py-0.5 text-xs text-muted backdrop-blur">fantasma = pose medida</p>
       </div>
       <div
-        className={cn(full ? 'space-y-2 border-t border-border bg-surface/95 px-3 pt-2 backdrop-blur' : 'space-y-3')}
+        className={cn('shrink-0 space-y-2', full && 'border-t border-border bg-surface/95 px-3 pt-2 backdrop-blur')}
         style={full ? { paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' } : undefined}
       >
-      <p role="status" className={cn('min-h-5 text-center text-sm font-medium text-danger', !limit && 'sr-only')}>
+      <p role="status" className={cn('text-center text-sm font-medium text-danger', !limit && 'sr-only')}>
         {limit?.reason}
       </p>
-      <SendStatusBar className="py-1.5" idleText={live ? 'Ao vivo: toque em − ou + para mover a plataforma.' : 'Ao vivo desligado: os botões mexem só o modelo.'} />
+      <SendStatusBar className="py-1 text-xs" idleText={live ? 'Ao vivo: toque em − ou + para mover a plataforma.' : 'Ao vivo desligado: os botões mexem só o modelo.'} />
       <div className="grid grid-cols-7 gap-1.5" role="group" aria-label="O que mover">
         {PISTON_COLORS.map((c, i) => (
           <button
@@ -208,10 +208,10 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         </div>
       )}
       <div className="flex gap-2">
-        <HoldButton label="Diminuir" onStep={() => step(-1)} disabled={selection.kind === 'none'} className={full ? 'h-12' : undefined}>
+        <HoldButton label="Diminuir" onStep={() => step(-1)} disabled={selection.kind === 'none'} className="h-12">
           <Minus aria-hidden />
         </HoldButton>
-        <HoldButton label="Aumentar" onStep={() => step(1)} disabled={selection.kind === 'none'} className={full ? 'h-12' : undefined}>
+        <HoldButton label="Aumentar" onStep={() => step(1)} disabled={selection.kind === 'none'} className="h-12">
           <Plus aria-hidden />
         </HoldButton>
       </div>

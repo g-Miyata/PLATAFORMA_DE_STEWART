@@ -108,9 +108,24 @@ export default function MobilePage() {
     }
   }
 
+  const alerts = (
+    <>
+      <h1 className="text-lg font-semibold max-sm:sr-only">Controle pelo celular</h1>
+      {!online && <Alert tone="danger" title="Sem conexão com o PC">Confira se o celular está no mesmo Wi-Fi e se o backend foi aberto com start.bat rede.</Alert>}
+      {online && lan.isError && !onPc && (
+        <Alert tone="warning" title="O backend não respondeu sobre o modo rede">
+          Ele provavelmente foi aberto antes desta atualização. Feche a janela do backend e abra de novo com <code className="rounded bg-surface-2 px-1">start.bat</code>.
+        </Alert>
+      )}
+    </>
+  );
+  const controls = !(onPc && !showControls) && !needsPin;
+  const bench = controls && tab === 'bancada';
+
+  // como um app: cabeçalho, meio com rolagem própria e abas embaixo (nada fica atrás de barra fixa)
   return (
-    <div className="flex min-h-dvh touch-manipulation flex-col overflow-x-hidden overscroll-none bg-bg text-fg">
-      <header className="sticky top-0 z-20 flex min-w-0 items-center gap-1.5 border-b border-border bg-surface/95 px-2 py-1.5 backdrop-blur">
+    <div className="relative flex h-dvh touch-manipulation flex-col overflow-hidden bg-bg text-fg">
+      <header className="flex min-w-0 shrink-0 items-center gap-1.5 border-b border-border bg-surface px-2 py-1.5">
         <Link to="/" className="mr-auto min-w-0 truncate text-sm font-semibold">
           <span className="hidden min-[560px]:inline">Plataforma de </span>Stewart
         </Link>
@@ -124,65 +139,59 @@ export default function MobilePage() {
         <EmergencyStopButton showShortcut={false} />
       </header>
 
-      <main className="mx-auto w-full min-w-0 max-w-2xl flex-1 space-y-3 px-3 py-3 pb-24">
-        <h1 className="text-lg font-semibold max-sm:sr-only">Controle pelo celular</h1>
-
-        {!online && <Alert tone="danger" title="Sem conexão com o PC">Confira se o celular está no mesmo Wi-Fi e se o backend foi aberto com start.bat rede.</Alert>}
-
-        {online && lan.isError && !onPc && (
-          <Alert tone="warning" title="O backend não respondeu sobre o modo rede">
-            Ele provavelmente foi aberto antes desta atualização. Feche a janela do backend e abra de novo com <code className="rounded bg-surface-2 px-1">start.bat</code>.
-          </Alert>
-        )}
-
-        {onPc && !showControls ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted">Esta é a tela para o celular. Abra-a no celular pelo QR code abaixo (mesmo Wi-Fi do PC):</p>
-            <LanConnectCard />
-            <Button variant="ghost" onClick={() => setShowControls(true)}>
-              Usar os controles aqui no PC mesmo
-            </Button>
-          </div>
-        ) : needsPin ? (
-          <PinGate busy={busy} />
-        ) : (
-          <>
-            {online && !serial.connected && (
-              <Alert tone="warning" title="Nada conectado no PC">
-                <span className="block">Sem simulador nem bancada, os comandos não vão a lugar nenhum. Conecte o simulador daqui (a bancada real se conecta no PC):</span>
-                <Button size="sm" variant="primary" className="mt-2" onClick={connectSim}>
-                  Conectar ao simulador
+      {!controls ? (
+        <main className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div className="mx-auto w-full min-w-0 max-w-2xl space-y-3 px-3 py-3 pb-8">
+            {alerts}
+            {onPc && !showControls ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted">Esta é a tela para o celular. Abra-a no celular pelo QR code abaixo (mesmo Wi-Fi do PC):</p>
+                <LanConnectCard />
+                <Button variant="ghost" onClick={() => setShowControls(true)}>
+                  Usar os controles aqui no PC mesmo
                 </Button>
-              </Alert>
+              </div>
+            ) : (
+              <PinGate busy={busy} />
             )}
-            <Tabs.Root value={tab} onValueChange={(v) => setTab(v as Tab)}>
+          </div>
+        </main>
+      ) : (
+        <Tabs.Root value={tab} onValueChange={(v) => setTab(v as Tab)} className="flex min-h-0 flex-1 flex-col">
+          <main className={cn('relative min-h-0 flex-1 overscroll-contain', bench ? 'overflow-hidden' : 'overflow-y-auto')}>
+            <div className={cn('mx-auto w-full min-w-0 max-w-2xl px-3 py-3', bench ? 'flex h-full flex-col gap-2' : 'space-y-3 pb-6')}>
+              {alerts}
+              {online && !serial.connected && (
+                <Alert tone="warning" title="Nada conectado no PC" className="shrink-0">
+                  <span className="block">Sem simulador nem bancada, os comandos não vão a lugar nenhum. Conecte o simulador daqui (a bancada real se conecta no PC):</span>
+                  <Button size="sm" variant="primary" className="mt-2" onClick={connectSim}>
+                    Conectar ao simulador
+                  </Button>
+                </Alert>
+              )}
               <Tabs.Content value="giroscopio" className="outline-none">
                 <GyroPanel canCommand={canCommand} />
               </Tabs.Content>
               <Tabs.Content value="joystick" className="outline-none">
                 <StickPanel canCommand={canCommand} />
               </Tabs.Content>
-              <Tabs.Content value="bancada" className="outline-none">
+              <Tabs.Content value="bancada" className="min-h-0 flex-1 outline-none">
                 <Suspense fallback={<p className="text-sm text-muted">Carregando o modelo…</p>}>
                   {tab === 'bancada' && <TouchBench canCommand={canCommand} />}
                 </Suspense>
               </Tabs.Content>
-              <Tabs.List aria-label="Modo de controle" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-surface/95 backdrop-blur" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-                {TABS.map(({ id, label, Icon }) => (
-                  <Tabs.Trigger
-                    key={id}
-                    value={id}
-                    className={cn('flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium text-muted data-[state=active]:text-brand-text')}
-                  >
-                    <Icon aria-hidden className="size-5" />
-                    {label}
-                  </Tabs.Trigger>
-                ))}
-              </Tabs.List>
-            </Tabs.Root>
-          </>
-        )}
-      </main>
+            </div>
+          </main>
+          <Tabs.List aria-label="Modo de controle" className="grid shrink-0 grid-cols-3 border-t border-border bg-surface" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+            {TABS.map(({ id, label, Icon }) => (
+              <Tabs.Trigger key={id} value={id} className="flex flex-col items-center gap-0.5 py-2 text-xs font-medium text-muted data-[state=active]:text-brand-text">
+                <Icon aria-hidden className="size-5" />
+                {label}
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+        </Tabs.Root>
+      )}
     </div>
   );
 }
