@@ -9,6 +9,9 @@ set "VENV_DIR=%BACKEND_DIR%\.venv"
 set "PYTHON_EXE=%VENV_DIR%\Scripts\python.exe"
 set "REQ_FILE=%BACKEND_DIR%\requirements.txt"
 
+REM "start.bat rede": abre tambem para o celular no mesmo Wi-Fi (HTTPS 8443 e PIN)
+if /i "%~1"=="rede" set "STEWART_LAN=1"
+
 if not exist "%BACKEND_DIR%" (
 	echo Nao foi possivel localizar a pasta do backend:
 	echo %BACKEND_DIR%
@@ -124,6 +127,10 @@ start "" "%APP_URL%"
 
 echo.
 echo Interface: %APP_URL%
+if defined STEWART_LAN (
+	echo Modo rede local: veja na janela "FastAPI" o endereco para o celular e o PIN.
+	echo Se o Windows perguntar, permita o Python em redes privadas.
+)
 echo Interface antiga: %APP_URL%antigo/
 echo API: %APP_URL%docs
 echo.

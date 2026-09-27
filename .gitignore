@@ -23,3 +23,6 @@ interface/web/playwright-report/
 # Relatórios de calibração (gerados na bancada)
 interface/backend/calibration_reports/
 interface/backend/sim_params.json.bak
+
+# certificado autoassinado do modo rede local (gerado pelo serve.py)
+interface/backend/certs/

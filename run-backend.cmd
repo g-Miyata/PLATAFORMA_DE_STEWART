@@ -26,7 +26,13 @@ cd /d "%BACKEND_DIR%" || (
 	exit /b 1
 )
 
-echo Iniciando FastAPI em http://localhost:8001/docs
-"%PYTHON_EXE%" -m uvicorn app:app --reload --host 127.0.0.1 --port 8001
+if defined STEWART_LAN (
+	REM modo rede local: HTTP 8001 + HTTPS 8443 em 0.0.0.0, PIN para o celular (serve.py)
+	echo Iniciando FastAPI na rede local (celular no mesmo Wi-Fi)...
+	"%PYTHON_EXE%" serve.py
+) else (
+	echo Iniciando FastAPI em http://localhost:8001/docs
+	"%PYTHON_EXE%" -m uvicorn app:app --reload --host 127.0.0.1 --port 8001
+)
 
 pause

@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 import sim_fit
 from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
 from twin import TwinShadow
+from lan import LanGuard, install as install_lan, lan_enabled
 from limits import LIMIT_RANGES, JointLimits, LimitChecker, balanced_home_z, compute_envelope, load_limits, reason_text, save_limits
 from calibration import CalibrationRunner
 from cueing import CueingEngine, create_router as create_cueing_router
@@ -103,6 +104,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Rede local (STEWART_LAN=1, serve.py): PIN para comandos que vêm de fora do PC (lan.py)
+lan_guard = LanGuard(lan_enabled())
+install_lan(app, lan_guard)
 
 BAUD = 115200
 CSV_DELIM = ';'
