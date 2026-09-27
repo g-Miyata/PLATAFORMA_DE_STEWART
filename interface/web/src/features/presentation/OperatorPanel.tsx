@@ -1,10 +1,12 @@
-import { LogOut, Maximize, Minimize, X } from 'lucide-react';
+import { LogOut, Maximize, Minimize, Smartphone, Wifi, X } from 'lucide-react';
 import { useEffect, useId, useRef } from 'react';
 import { Link } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { SelectField, SwitchField } from '@/components/ui/field';
 import { mmss } from '@/features/routines/MotionStatusCard';
+import { deviceName } from '@/features/mobile/lan';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
+import type { LanDevice } from '@/lib/api';
 import type { ExhibitMode } from './theme';
 import type { KioskState } from './useKiosk';
 
@@ -27,6 +29,15 @@ interface OperatorPanelProps {
   onMode: (m: ExhibitMode) => void;
   flightName: string | null;
   fgReady: boolean;
+  /** modo rede ligado (celular do público) */
+  lan: boolean;
+  onLanStart: () => void;
+  lanStarting: boolean;
+  showQr: boolean;
+  onShowQr: (on: boolean) => void;
+  /** celular conectado agora */
+  phone: LanDevice | null;
+  onKick: (id: string) => void;
 }
 
 const MODES: { id: ExhibitMode; label: string; description: string }[] = [
@@ -74,7 +85,7 @@ export function OperatorPanel(p: OperatorPanelProps) {
       ref={ref}
       tabIndex={-1}
       aria-labelledby="operador-titulo"
-      className="glass absolute right-4 top-4 z-30 w-[min(24rem,calc(100%-2rem))] space-y-4 rounded-xl border border-border p-4 shadow-2xl outline-none"
+      className="glass absolute right-4 top-4 z-30 max-h-[calc(100%-2rem)] w-[min(24rem,calc(100%-2rem))] space-y-4 overflow-y-auto rounded-xl border border-border p-4 shadow-2xl outline-none"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between gap-2">
@@ -147,6 +158,37 @@ export function OperatorPanel(p: OperatorPanelProps) {
         ))}
       </SelectField>
       {!p.canCommand && <p className="text-xs text-muted">Conecte o simulador ou a bancada (na interface normal) para mover de verdade.</p>}
+      <div className="space-y-2 border-t border-border pt-3">
+        <p className="flex items-center gap-1.5 text-sm font-semibold">
+          <Smartphone aria-hidden className="size-4" />
+          Celular do público
+        </p>
+        {!p.lan ? (
+          <>
+            <p className="text-xs text-muted">Liga o modo rede: aparece um QR code na tela, e quem estiver no mesmo Wi-Fi controla pelo celular (um por vez).</p>
+            <Button size="sm" variant="secondary" onClick={p.onLanStart} disabled={p.lanStarting}>
+              <Wifi aria-hidden />
+              {p.lanStarting ? 'Ligando…' : 'Ligar o modo rede'}
+            </Button>
+          </>
+        ) : (
+          <>
+            <SwitchField label="Mostrar o QR code na tela" description="O QR já leva o PIN: quem escanear entra direto." checked={p.showQr} onCheckedChange={p.onShowQr} disabled={p.mode !== 'show'} />
+            {p.phone ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span>
+                  <span className="font-medium">{deviceName(p.phone.agent)}</span> no comando <span className="font-mono text-xs text-muted">{p.phone.ip}</span>
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => p.onKick(p.phone!.id)}>
+                  Desconectar
+                </Button>
+              </div>
+            ) : (
+              <p className="text-xs text-muted">Nenhum celular conectado.</p>
+            )}
+          </>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
         <Button size="sm" variant="secondary" onClick={p.onFullscreen} aria-pressed={p.fullscreen}>
           {p.fullscreen ? <Minimize aria-hidden /> : <Maximize aria-hidden />}

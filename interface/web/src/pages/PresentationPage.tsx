@@ -8,11 +8,13 @@ import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate
 import { useFgReady } from '@/features/cueing/FlightGearPanel';
 import { useReleaseOnLeave } from '@/features/cueing/SharedCards';
 import { useGamepad } from '@/features/joystick/gamepad';
+import { useLanAction, useLanInfo, useLanStatus } from '@/features/mobile/lan';
 import { useGeometry } from '@/features/platform3d/geometry';
 import type { ExhibitFrame } from '@/features/presentation/ExhibitCanvas';
 import { prefersReducedMotion, useIdleCursor, useWakeLock } from '@/features/presentation/hooks';
 import { buildPlaylist } from '@/features/presentation/kiosk';
 import { OperatorPanel } from '@/features/presentation/OperatorPanel';
+import { PhoneHud, PhoneQrCard } from '@/features/presentation/PhoneCorner';
 import { FlightHud, SceneHud } from '@/features/presentation/SceneHud';
 import { dofAt, SCENES, sceneAt, sceneStart, type Shot } from '@/features/presentation/scenes';
 import { exhibitPalette, FLIGHT_PROFILE, isFlightMode, type ExhibitMode } from '@/features/presentation/theme';
@@ -33,6 +35,8 @@ import { useUi } from '@/stores/ui';
 const ExhibitCanvas = memo(lazy(() => import('@/features/presentation/ExhibitCanvas').then((m) => ({ default: m.ExhibitCanvas }))));
 
 const VISITOR_SHOT: Shot = { azimuth: -90, elevation: 34, distance: 2800, targetZ: 200 };
+// celular no comando: a bancada no centro, mais perto
+const PHONE_SHOT: Shot = { azimuth: -90, elevation: 22, distance: 2400, targetZ: 320 };
 const SEND_MS = 100;
 const HOLD_MS = 1800;
 const KEYS: Record<string, [number, number]> = { ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
@@ -103,8 +107,25 @@ export default function PresentationPage() {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const playlist = useMemo(() => buildPlaylist(geometry, recordings), [geometry, recordings]);
-  const visitorDrivesReal = real && publicReal && visitor;
-  const kiosk = useKiosk(real && mode === 'show' && !visitorDrivesReal, playlist, sessionMin, () => setReal(false));
+  // celular do público (modo rede): QR code na tela e, com um celular conectado, foco na bancada
+  const lanStatus = useLanStatus();
+  const lanInfo = useLanInfo(!!lanStatus.data?.local && !!lanStatus.data.lan);
+  const lan = lanInfo.data?.lan ? lanInfo.data : null;
+  const phone = lan?.devices.find((d) => d.active) ?? null;
+  const phoneActive = !!phone && mode === 'show';
+  const [showQr, setShowQr] = useState(true);
+  const qrShown = mode === 'show' && !!lan && !phone && showQr && !visitor;
+  const lanStart = useLanAction(() => api.lanStart(), 'Modo rede ligado');
+  const kick = useLanAction((id: string) => api.lanKick(id), 'Celular desconectado: o show recomeça');
+  const phoneRef = useRef(false);
+  useEffect(() => {
+    phoneRef.current = phoneActive;
+    // o celular manda na plataforma: para o que o quiosque estiver tocando
+    if (phoneActive) void api.motionStop().catch(() => undefined);
+  }, [phoneActive]);
+
+  const visitorDrivesReal = real && publicReal && visitor && !phoneActive;
+  const kiosk = useKiosk(real && mode === 'show' && !visitorDrivesReal && !phoneActive, playlist, sessionMin, () => setReal(false));
   const fgReady = useFgReady();
   const flight = useExhibitFlight(flightMode, isFlightMode(mode) ? FLIGHT_PROFILE[mode] : 'washout', real, fgReady, () => setReal(false));
   useReleaseOnLeave('washout');
@@ -155,8 +176,8 @@ export default function PresentationPage() {
   const tilt = useRef({ roll: 0, pitch: 0 });
 
   const touch = useCallback(() => {
-    // no simulador de voo quem pilota é o voo gravado: o toque não assume o controle
-    if (modeRef.current !== 'show') return;
+    // no simulador de voo quem pilota é o voo gravado; com o celular conectado, é o celular
+    if (modeRef.current !== 'show' || phoneRef.current) return;
     lastInput.current = performance.now();
     firstScene.current = 0;
     setVisitor(true);
@@ -261,6 +282,19 @@ export default function PresentationPage() {
   const frame = useRef<ExhibitFrame>({ pose: zeroPose(home), shot: SCENES[0].shot[0], legs: null, axis: null });
   const onFrame = useCallback(
     (dt: number) => {
+      if (phoneActive) {
+        // o que o celular fez na plataforma (simulador ou bancada), com a câmera parada nela
+        const t = useTelemetry.getState().telemetry;
+        const fresh = t?.pose_live && Date.now() / 1000 - t.ts < 1.5 ? t.pose_live : null;
+        const s = performance.now() / 1000;
+        frame.current = {
+          pose: fresh ?? zeroPose(home),
+          shot: { ...PHONE_SHOT, azimuth: PHONE_SHOT.azimuth + 12 * Math.sin(s * 0.08) },
+          legs: 'all',
+          axis: null,
+        };
+        return;
+      }
       const live = real ? useTelemetry.getState().telemetry?.pose_live : null;
       if (isFlightMode(mode)) {
         // pose calculada pelo washout (a mesma que vai para a bancada quando engatada)
@@ -293,8 +327,9 @@ export default function PresentationPage() {
         axis: id === 'gdl' && !live ? dofAt(st.u).axis : null,
       };
     },
-    [mode, visitor, real, publicReal, home],
+    [mode, visitor, real, publicReal, home, phoneActive],
   );
+  const getPhonePose = useCallback(() => frame.current.pose, []);
   const getFrame = useCallback(() => frame.current, []);
   const getTick = useCallback(() => useCueing.getState().tick, []);
   const getHudState = useCallback(() => {
@@ -388,7 +423,9 @@ export default function PresentationPage() {
 
       {/* texto da cena ou HUD do visitante */}
       <div className="pointer-events-none absolute inset-x-5 bottom-20 sm:inset-x-10 sm:bottom-24 lg:right-auto lg:max-w-[64rem]" aria-live="polite">
-        {flightMode ? (
+        {phoneActive && phone ? (
+          <PhoneHud device={phone} getPose={getPhonePose} onDisconnect={() => kick.mutate(phone.id)} />
+        ) : flightMode ? (
           <FlightHud key={mode} getTick={getTick} flightName={flight?.name ?? null} attitude={mode === 'orientacao'} />
         ) : visitor ? (
           <section aria-labelledby="visitante-titulo" className="scene-enter flex items-end gap-5">
@@ -419,6 +456,13 @@ export default function PresentationPage() {
         </figure>
       )}
 
+      {/* convite para o celular (modo rede ligado, nenhum celular conectado): embaixo do logo, acima dos títulos */}
+      {qrShown && lan && (
+        <div className="absolute left-5 top-24 hidden sm:left-8 sm:top-28 lg:block [@media(max-height:760px)]:hidden">
+          <PhoneQrCard info={lan} />
+        </div>
+      )}
+
       {/* joystick virtual no ponto do toque */}
       {stick && (
         <div aria-hidden className="pointer-events-none absolute size-40 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[var(--ex-border)] bg-[var(--ex-panel)]" style={{ left: stick.ox, top: stick.oy }}>
@@ -431,7 +475,7 @@ export default function PresentationPage() {
 
       {/* rodapé: progresso das cenas e convite */}
       <div className="pointer-events-none absolute inset-x-5 bottom-6 flex items-center justify-between gap-4 sm:inset-x-10 sm:bottom-8">
-        <ol className={cn('flex gap-2', flightMode && 'invisible')} aria-label="Cenas" aria-hidden={flightMode || undefined}>
+        <ol className={cn('flex gap-2', (flightMode || phoneActive) && 'invisible')} aria-label="Cenas" aria-hidden={flightMode || phoneActive || undefined}>
           {SCENES.map((s, i) => (
             <li
               key={s.id}
@@ -442,7 +486,7 @@ export default function PresentationPage() {
             </li>
           ))}
         </ol>
-        {!visitor && mode === 'show' && <p className="text-sm font-medium text-[var(--ex-muted)]">Toque e arraste para controlar</p>}
+        {!visitor && !phoneActive && mode === 'show' && <p className="text-sm font-medium text-[var(--ex-muted)]">Toque e arraste para controlar</p>}
       </div>
 
       {operator && (
@@ -468,6 +512,13 @@ export default function PresentationPage() {
           }}
           flightName={flight?.name ?? null}
           fgReady={fgReady}
+          lan={!!lan}
+          onLanStart={() => lanStart.mutate(undefined)}
+          lanStarting={lanStart.isPending}
+          showQr={showQr}
+          onShowQr={setShowQr}
+          phone={phone}
+          onKick={(id) => kick.mutate(id)}
         />
       )}
     </div>

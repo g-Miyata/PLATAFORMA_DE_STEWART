@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Tex, texNum } from '@/components/Tex';
 import { cn } from '@/lib/cn';
 import { solvePose } from '@/lib/kinematics';
+import { uiLimits } from '@/lib/limits';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import type { CueingTickMessage, PlatformGeometry, Pose } from '@/lib/types';
 import { dofAt, SCENES, type SceneId } from './scenes';
@@ -21,12 +22,15 @@ export function usePolled<T>(read: () => T, ms = 100): T {
 
 const panel = 'rounded-2xl border border-[var(--ex-border)] bg-[var(--ex-panel)] backdrop-blur-md shadow-2xl';
 
-const STATS = [
-  ['6', 'graus de liberdade'],
-  ['180 mm', 'de curso por pistão'],
-  ['30 Hz', 'de telemetria'],
-  ['±15°', 'de inclinação'],
-] as const;
+/** Números da cena de título, tirados dos limites reais (limits.json) */
+function titleStats(geometry: PlatformGeometry): [string, string][] {
+  return [
+    ['6', 'graus de liberdade'],
+    [`${fmt(geometry.stroke_max - geometry.stroke_min, 0)} mm`, 'de curso por pistão'],
+    ['30 Hz', 'de telemetria'],
+    [`±${fmt(uiLimits(geometry).tilt, 0)}°`, 'de inclinação'],
+  ];
+}
 
 /** Instrumento de atitude (horizonte artificial) com o roll e o pitch do tampo. */
 export function AttitudeIndicator({ roll, pitch }: { roll: number; pitch: number }) {
@@ -60,7 +64,7 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
   if (id === 'titulo')
     return (
       <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {STATS.map(([v, l]) => (
+        {titleStats(geometry).map(([v, l]) => (
           <div key={l} className={cn(panel, 'px-4 py-3')}>
             <dt className="sr-only">{l}</dt>
             <dd>
