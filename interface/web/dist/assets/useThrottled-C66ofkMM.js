@@ -1,0 +1,1 @@
+import{G as e,H as t}from"./geometry-BXmq4K0H.js";import{t as n}from"./telemetry-C6wmKtCJ.js";var r=e(t(),1);function i(e,t=200){let[i,a]=(0,r.useState)(()=>e(n.getState()));return(0,r.useEffect)(()=>{let r=setInterval(()=>a(e(n.getState())),t);return()=>clearInterval(r)},[t]),i}export{i as t};
