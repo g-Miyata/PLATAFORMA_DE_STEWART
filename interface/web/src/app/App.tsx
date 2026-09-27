@@ -23,6 +23,7 @@ const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage'));
 const LimitsPage = lazy(() => import('@/pages/LimitsPage'));
+const WedgeLabPage = lazy(() => import('@/pages/WedgeLabPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -68,6 +69,8 @@ export const routes = [
       { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
       { path: '/calibracao', element: page(CalibrationPage) },
       { path: '/limites', element: page(LimitsPage) },
+      // laboratório (fora do menu): simulações que não mudam a bancada
+      { path: '/laboratorio/calco', element: page(WedgeLabPage) },
       // o gêmeo digital passou a fazer parte da Calibração
       { path: '/gemeo-digital', element: <Navigate to="/calibracao" replace /> },
       { path: '*', element: page(NotFoundPage) },

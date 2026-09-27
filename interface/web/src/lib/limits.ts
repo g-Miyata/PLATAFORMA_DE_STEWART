@@ -141,6 +141,12 @@ export interface LimitGeometry {
   base_points: readonly Vec3[];
   platform_points_local: readonly Vec3[];
   limits?: LimitsInfo;
+  /**
+   * Eixo do assento de cada cardã do tampo, no referencial do tampo (unitário, "para cima").
+   * Sem ele, o cardã é medido contra a normal do tampo (montagem de hoje); o laboratório
+   * do calço usa para simular um assento inclinado.
+   */
+  top_seat_normals_local?: readonly Vec3[];
 }
 
 interface Resolved {
@@ -203,7 +209,9 @@ export function measurePose(pose: Pose, geom: LimitGeometry): PoseMeasure {
     lengths.push(L);
     const n = normals[i];
     base.push(Math.acos(Math.max(-1, Math.min(1, u[0] * n[0] + u[1] * n[1] + u[2] * n[2]))) * DEG);
-    topDeg.push(Math.acos(Math.max(-1, Math.min(1, u[0] * nz[0] + u[1] * nz[1] + u[2] * nz[2]))) * DEG);
+    const sl = geom.top_seat_normals_local?.[i];
+    const t: Vec3 = sl ? [m[0] * sl[0] + m[1] * sl[1] + m[2] * sl[2], m[3] * sl[0] + m[4] * sl[1] + m[5] * sl[2], m[6] * sl[0] + m[7] * sl[1] + m[8] * sl[2]] : nz;
+    topDeg.push(Math.acos(Math.max(-1, Math.min(1, u[0] * t[0] + u[1] * t[1] + u[2] * t[2]))) * DEG);
     a.push([B[0] + u[0] * zone, B[1] + u[1] * zone, B[2] + u[2] * zone]);
     b.push([top[i][0] - u[0] * zone, top[i][1] - u[1] * zone, top[i][2] - u[2] * zone]);
   });

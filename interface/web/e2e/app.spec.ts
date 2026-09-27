@@ -20,6 +20,7 @@ const ROUTES = [
   ['/espaco-de-trabalho', 'Espaço de trabalho'],
   ['/calibracao', 'Calibração'],
   ['/limites', 'Limites da mecânica'],
+  ['/laboratorio/calco', 'Laboratório: calço do cardã do tampo'],
   ['/celular', 'Controle pelo celular'],
 ] as const;
 
@@ -544,6 +545,23 @@ test.describe('Apresentação com celular', () => {
     await page.getByRole('button', { name: 'Ligar o modo rede' }).click();
     await expect.poll(() => started).toBe(true);
     await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible();
+  });
+});
+
+test.describe('Laboratório do calço', () => {
+  test('compara hoje × calço, testa uma pose e baixa o STL (fora do menu)', async ({ page }) => {
+    await page.goto('/laboratorio/calco');
+    await expect(page.getByRole('heading', { level: 1, name: 'Laboratório: calço do cardã do tampo' })).toBeVisible();
+    // não aparece no menu
+    await expect(page.getByRole('navigation').getByRole('link', { name: /calço/i })).toHaveCount(0);
+    const table = page.getByRole('region', { name: 'Comparação da montagem de hoje com o calço' });
+    await expect(table.getByRole('columnheader', { name: 'Com calço de 12°' })).toBeVisible();
+    await expect(table.getByText('cardã do tampo no limite')).toBeVisible();
+    // a pose de 16° de roll: recusada hoje, aceita com o calço
+    await expect(page.getByText(/Hoje: recusada: cardã do tampo no limite · Com calço: aceita/)).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Baixar calço (STL)' }).click();
+    expect((await download).suggestedFilename()).toBe('calco-cardan-12graus-M8.stl');
   });
 });
 
