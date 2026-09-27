@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { StatusPill } from '@/components/ui/status';
 import { useThrottledTelemetry } from '@/features/control/useThrottled';
 import { cn } from '@/lib/cn';
-import { legStatus, solvePose, type LegStatus } from '@/lib/kinematics';
+import { solvePose, strokeStatus, type LegStatus } from '@/lib/kinematics';
+import { uiLimits } from '@/lib/limits';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import type { PlatformGeometry, Pose } from '@/lib/types';
 import { useTelemetry } from '@/stores/telemetry';
@@ -65,7 +66,8 @@ export function ViewerDetails({ source, target, reference, geometry }: ViewerDet
   const solved = pose ? solvePose(pose, geometry) : null;
   // na real, os comprimentos vêm da medida (telemetria); a pose é a estimativa por cinemática direta
   const lengths = isLive && telemetry ? telemetry.actuator_lengths_abs : (solved?.lengths ?? null);
-  const status = lengths?.map((l) => legStatus(l, geometry.stroke_min, geometry.stroke_max));
+  // na real só há os comprimentos medidos: curso de operação; na prevista, a checagem completa
+  const status = isLive ? lengths?.map((l) => strokeStatus(l, geometry)) : solved?.status;
   const refLengths = isLive && reference ? solvePose(reference, geometry).lengths : null;
   const range = geometry.stroke_max - geometry.stroke_min;
   const legErrors = lengths && refLengths ? lengths.map((l, i) => l - refLengths[i]) : null;
@@ -133,7 +135,8 @@ export function ViewerDetails({ source, target, reference, geometry }: ViewerDet
             <tbody>
               {lengths.map((l, i) => {
                 const stroke = l - geometry.stroke_min;
-                const margin = Math.min(l - geometry.stroke_min, geometry.stroke_max - l);
+                const [opLo, opHi] = uiLimits(geometry).stroke;
+                const margin = Math.min(l - opLo, opHi - l);
                 return (
                   <tr key={i} className="border-t border-border">
                     <th scope="row" className="py-1.5 pr-2 text-left font-medium">
@@ -156,7 +159,7 @@ export function ViewerDetails({ source, target, reference, geometry }: ViewerDet
           </table>
         </div>
         <p className="mt-2 text-xs text-muted">
-          Curso útil de {geometry.stroke_min} a {geometry.stroke_max} mm. Folga é a distância até o batente mais próximo.
+          Curso do atuador de {geometry.stroke_min} a {geometry.stroke_max} mm; com a margem de segurança, a operação usa de {uiLimits(geometry).stroke[0]} a {uiLimits(geometry).stroke[1]} mm. Folga é a distância até esse limite; a situação também considera o ângulo dos cardãs e a distância entre as pernas.
           {legErrors && ' Erro = comprimento real − calculado.'}
         </p>
       </Section>

@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 import sim_fit
 from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
 from twin import TwinShadow
+from limits import LIMIT_RANGES, JointLimits, LimitChecker, balanced_home_z, compute_envelope, load_limits, reason_text, save_limits
 from calibration import CalibrationRunner
 from cueing import CueingEngine, create_router as create_cueing_router
 from flightgear import FlightGearManager, VISUAL_PORT, create_router as create_fg_router
@@ -55,12 +56,30 @@ CORS_ORIGINS = [
     "null",
 ]
 
-# Geometria/limites da bancada (fonte única de verdade para backend e frontend)
-STROKE_MIN_MM = 500.0
-STROKE_MAX_MM = 680.0
-# Altura de repouso: meio da faixa válida com a plataforma nivelada (433..631 mm),
-# o que deixa ~90 mm de curso para cada lado em todos os atuadores.
-HOME_Z_MM = 530.0
+# Geometria da bancada (fonte única de verdade para backend e frontend)
+BASE_POINTS = np.array([
+    [305.5, -17, 0],
+    [305.5,  17, 0],
+    [-137.7, 273.23, 0],
+    [-168,   255.7, 0],
+    [-167.2, -256.2, 0],
+    [-136.8, -273.6, 0],
+])
+PLATFORM_POINTS = np.array([
+    [191.1, -241.5, 0],
+    [191.1,  241.5, 0],
+    [113.6,  286.2, 0],
+    [-304.7,  44.8, 0],
+    [-304.7, -44.8, 0],
+    [113.1, -286.4, 0],
+])
+# Limites reais (curso de 250 mm, cardãs e folga entre pernas) e margem de operação: limits.json
+JOINT_LIMITS = load_limits()
+STROKE_MIN_MM = JOINT_LIMITS.stroke_min
+STROKE_MAX_MM = JOINT_LIMITS.stroke_max
+# Altura de repouso: centro do curso de operação com o tampo nivelado (mesma folga para
+# subir e para descer), a menos que limits.json fixe outra.
+HOME_Z_MM = float(JOINT_LIMITS.home_z) if JOINT_LIMITS.home_z else balanced_home_z(BASE_POINTS, PLATFORM_POINTS, JOINT_LIMITS)
 
 BACKEND_DIR = Path(__file__).resolve().parent
 WEB_DIST_DIR = BACKEND_DIR.parent / "web" / "dist"
@@ -109,6 +128,10 @@ class ActuatorData(BaseModel):
     length: float
     percentage: float
     valid: bool
+    #: motivos de recusa desta perna: curso, cardan_base, cardan_topo, folga
+    reasons: List[str] = []
+    cardan_base_deg: Optional[float] = None
+    cardan_top_deg: Optional[float] = None
 
 class PlatformResponse(BaseModel):
     pose: PoseInput
@@ -116,6 +139,10 @@ class PlatformResponse(BaseModel):
     valid: bool
     base_points: List[List[float]]
     platform_points: List[List[float]]
+    #: frase com o primeiro motivo de recusa
+    reason: Optional[str] = None
+    #: folgas até cada limite de operação e o par de pernas mais próximo
+    limits: Optional[dict] = None
 
 class PlatformConfig(BaseModel):
     h0: float = Field(..., gt=0, le=1000)
@@ -127,6 +154,8 @@ class PlatformGeometry(PlatformConfig):
     home_z: float
     base_points: List[List[float]]
     platform_points_local: List[List[float]]
+    #: limites físicos, de operação e o alcance de cada eixo (envelope)
+    limits: Optional[dict] = None
 
 class SerialOpenRequest(BaseModel):
     port: str
@@ -196,30 +225,84 @@ class JoystickPoseRequest(BaseModel):
     rt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # right trigger
     apply: bool = False  # Se True, envia comando serial para ESP32
     z_base: Optional[float] = None  # Z base (default = platform.h0)
+    #: sensibilidade: fração do alcance de operação que o curso total do stick cobre
+    scale: float = Field(1.0, ge=0.1, le=1.0)
 
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
-    def __init__(self, h0=HOME_Z_MM, stroke_min=STROKE_MIN_MM, stroke_max=STROKE_MAX_MM):
+    def __init__(self, h0=HOME_Z_MM, stroke_min=STROKE_MIN_MM, stroke_max=STROKE_MAX_MM, limits: Optional[JointLimits] = None):
         self.h0 = h0
+        # stroke_min/max: curso FÍSICO (converte comprimento ↔ curso do atuador, Y = L − stroke_min)
         self.stroke_min = stroke_min
         self.stroke_max = stroke_max
+        self.B = BASE_POINTS.copy()
+        self.P0 = PLATFORM_POINTS.copy()
+        # validade de uma pose: curso de operação, cardãs e folga entre pernas (limits.py)
+        self.checker = LimitChecker(self.B, self.P0, limits or JOINT_LIMITS)
+        self._envelope: Optional[dict] = None
 
-        self.B = np.array([
-            [305.5, -17, 0],
-            [305.5,  17, 0],
-            [-137.7, 273.23, 0],
-            [-168,   255.7, 0],
-            [-167.2, -256.2, 0],
-            [-136.8, -273.6, 0],
-        ])
-        self.P0 = np.array([
-            [191.1, -241.5, 0],
-            [191.1,  241.5, 0],
-            [113.6,  286.2, 0],
-            [-304.7,  44.8, 0],
-            [-304.7, -44.8, 0],
-            [113.1, -286.4, 0],
-        ])
+    def set_limits(self, limits: JointLimits):
+        self.checker.set_limits(limits)
+        self.stroke_min = limits.stroke_min
+        self.stroke_max = limits.stroke_max
+        self._envelope = None
+
+    def _arrays(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0):
+        z = self.h0 if z is None else z
+        Rm = R.from_euler('ZYX', [yaw, pitch, roll], degrees=True).as_matrix()
+        return (self.P0 @ Rm.T) + np.array([x, y, z]), Rm
+
+    def check_pose(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0) -> dict:
+        """Medidas e motivos de recusa de uma pose (curso, cardãs, folga entre pernas)."""
+        P, Rm = self._arrays(x, y, z, roll, pitch, yaw)
+        return self.checker.detail(P, Rm)
+
+    def validate_batch(self, poses: np.ndarray) -> np.ndarray:
+        """Máscara de poses aceitas (N×6: x, y, z, roll, pitch, yaw)."""
+        Rm = R.from_euler('ZYX', poses[:, [5, 4, 3]], degrees=True).as_matrix()
+        P = np.einsum('nij,kj->nki', Rm, self.P0) + poses[:, None, :3]
+        return self.checker.valid(P, Rm)
+
+    def limit_pose(self, pose: dict, neutral: Optional[dict] = None, steps: int = 14):
+        """Traz a pose para dentro dos limites ao longo da reta até o neutro (controles ao vivo).
+        Devolve (pose, limitada?). Se nem o neutro for válido, devolve None."""
+        keys = ("x", "y", "z", "roll", "pitch", "yaw")
+        neutral = neutral or {"x": 0.0, "y": 0.0, "z": pose.get("z", self.h0), "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+        if self.inverse_kinematics(**pose)[1]:
+            return pose, False
+        if not self.inverse_kinematics(**neutral)[1]:
+            return None, True
+        lo, hi = 0.0, 1.0
+        for _ in range(steps):
+            m = (lo + hi) / 2
+            cand = {k: neutral[k] + (pose[k] - neutral[k]) * m for k in keys}
+            if self.inverse_kinematics(**cand)[1]:
+                lo = m
+            else:
+                hi = m
+        return {k: neutral[k] + (pose[k] - neutral[k]) * lo for k in keys}, True
+
+    def envelope(self) -> dict:
+        """Alcance de operação de cada eixo a partir do home e a inclinação máxima."""
+        if self._envelope is None:
+            home = {"x": 0.0, "y": 0.0, "z": float(self.h0), "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+            self._envelope = compute_envelope(lambda p: self.inverse_kinematics(**p)[1], home)
+        return self._envelope
+
+    def limits_info(self) -> dict:
+        """O que vai para o frontend: físico, operação, alcance e as faixas editáveis."""
+        lim = self.checker.limits
+        env = self.envelope()
+        return {
+            "physical": lim.physical(),
+            "operational": self.checker.op,
+            "values": lim.to_dict(),
+            "ranges": {k: list(v) for k, v in LIMIT_RANGES.items()},
+            "reach": env["reach"],
+            "tilt_deg": env["tilt_deg"],
+            "home_z": float(self.h0),
+            "seat_normals": self.checker.normals.tolist(),
+        }
 
     def inverse_kinematics(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0):
         # Define altura padrão se 'z' não for passado
@@ -259,8 +342,8 @@ class StewartPlatform:
         # Norma Euclidiana do vetor s_i
         # -------------------------------
         L = np.linalg.norm(Lvec, axis=1)
-        # Verifica se todos os comprimentos respeitam os limites mecânicos
-        valid = np.all((L >= self.stroke_min) & (L <= self.stroke_max))
+        # Limites reais (limits.py): curso de operação, cardãs da base e do tampo e folga entre pernas
+        valid = self.checker.valid(P, Rm)
         # 🐛 DEBUG: Log detalhado da validação
         # print(f"\n🔍 VALIDAÇÃO - Pose: x={x}, y={y}, z={z}, roll={roll}, pitch={pitch}, yaw={yaw}")
         # print(f"   Limites: {self.stroke_min}mm <= L <= {self.stroke_max}mm")
@@ -407,7 +490,7 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform()  # 180 mm de curso útil
+platform = StewartPlatform()  # 250 mm de curso; limites reais em limits.json
 
 
 def format_spmm6x(course_mm) -> str:
@@ -890,8 +973,9 @@ class MotionRunner:
         # print(f"📏 Comprimentos L0 na HOME: {L0}")
         # print(f"📏 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
         
-        up_margin  = float(np.min(self.platform.stroke_max - L0))   # mm até batente superior
-        down_margin = float(np.min(L0 - self.platform.stroke_min))  # mm até batente inferior
+        op = self.platform.checker.op
+        up_margin  = float(np.min(op["stroke_max"] - L0))   # mm até o limite de operação superior
+        down_margin = float(np.min(L0 - op["stroke_min"]))  # mm até o limite de operação inferior
         
         # print(f"📏 Margens brutas: up_margin={up_margin:.2f}mm, down_margin={down_margin:.2f}mm")
 
@@ -1237,32 +1321,24 @@ class MotionRunner:
             return {"x": 0, "y": 0, "z": z_base, "roll": 0, "pitch": 0, "yaw": 0}
     
     def _clamp_pose(self, pose: dict) -> dict:
-        """Limita a pose para valores seguros.
-           OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
-        """
+        """Prende cada eixo no alcance de operação a partir do home (limits.py): o mesmo
+        clamp de routinePose no frontend. Combinações de eixos são conferidas no envio."""
         z_base = self._home_z_mm  # Altura base do HOME
         
         z_original = pose.get("z", z_base)
         
-        pose["x"] = float(np.clip(pose["x"], -50.0, 50.0))
-        pose["y"] = float(np.clip(pose["y"], -50.0, 50.0))
+        # alcance de operação de cada eixo a partir do home (limites reais, não números fixos)
+        reach = self.platform.envelope()["reach"]
+        pose["x"] = float(np.clip(pose["x"], *reach["x"]))
+        pose["y"] = float(np.clip(pose["y"], *reach["y"]))
 
-        # Z: usar limites dinâmicos calculados a partir da HOME quando disponíveis
-        if self._z_limits_mm is not None:
-            z_min, z_max = self._z_limits_mm
-            pose["z"] = float(np.clip(z_original, z_min, z_max))
-            if abs(pose["z"] - z_original) > 0.1:  # Se clipou mais de 0.1mm
-                print(f"⚠️ Z clipado: {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_min:.2f}, {z_max:.2f}])")
-        else:
-            # Fallback: permite oscilação razoável em torno da altura base (±30mm)
-            pose["z"] = float(np.clip(z_original, z_base - 30.0, z_base + 30.0))
-            if abs(pose["z"] - z_original) > 0.1:
-                print(f"⚠️ Z clipado (fallback): {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_base-30:.2f}, {z_base+30:.2f}])")
+        # Z: alcance de operação a partir do home (curso com margem, cardãs e folga entre pernas)
+        pose["z"] = float(np.clip(z_original, z_base + reach["z"][0], z_base + reach["z"][1]))
 
-        pose["roll"]  = float(np.clip(pose["roll"],  -10.0, 10.0))
-        pose["pitch"] = float(np.clip(pose["pitch"], -10.0, 10.0))
-        pose["yaw"]   = float(np.clip(pose["yaw"],   -10.0, 10.0))
-        
+        pose["roll"]  = float(np.clip(pose["roll"],  *reach["roll"]))
+        pose["pitch"] = float(np.clip(pose["pitch"], *reach["pitch"]))
+        pose["yaw"]   = float(np.clip(pose["yaw"],   *reach["yaw"]))
+
         return pose
     
     def _go_home_smooth(self, duration: float = 1.5):
@@ -1397,10 +1473,33 @@ def api_send_command(cmd: PIDCommand):
         raise HTTPException(status_code=400, detail=str(e))
 
 # -------------------- Endpoints PID Control --------------------
+def check_manual_courses(piston: Optional[int], value: float):
+    """Setpoint manual (um pistão ou todos): o curso precisa estar na faixa de operação e a
+    pose que resulta (cinemática direta, com os outros pistões onde estão) nos limites."""
+    op = platform.checker.op
+    lo, hi = op["stroke_min"] - platform.stroke_min, op["stroke_max"] - platform.stroke_min
+    if not lo <= value <= hi:
+        raise HTTPException(status_code=400, detail=f"Curso de operação: {lo:.0f} a {hi:.0f} mm.")
+    Y = (serial_mgr.latest or {}).get("Y")
+    home_L, _, _ = platform.inverse_kinematics(z=platform.h0)
+    L = np.array([platform.stroke_min + float(y) for y in Y], dtype=float) if Y and len(Y) == 6 else np.asarray(home_L, dtype=float)
+    if piston is None:
+        L[:] = platform.stroke_min + value
+    elif 1 <= piston <= 6:
+        L[piston - 1] = platform.stroke_min + value
+    pose, _ = platform.estimate_pose_from_lengths(L)
+    if pose is None:
+        raise HTTPException(status_code=400, detail="Esses cursos não fecham a geometria da bancada.")
+    detail = platform.check_pose(**{k: pose[k] for k in ("x", "y", "z", "roll", "pitch", "yaw")})
+    if not detail["valid"]:
+        raise HTTPException(status_code=400, detail=f"A pose resultante passa dos limites: {reason_text(detail)}.")
+
+
 @app.post("/pid/setpoint")
 def set_pid_setpoint(sp: PIDSetpoint):
     """Define setpoint em mm (global ou individual)"""
     ensure_not_calibrating()
+    check_manual_courses(sp.piston, sp.value)
     try:
         if sp.piston is None:
             # Global
@@ -1723,12 +1822,13 @@ def motion_trajectory(req: TrajectoryRequest):
         raise HTTPException(status_code=400, detail=f"Duração máxima: {MAX_TRAJECTORY_S:.0f} s.")
 
     L = platform.leg_lengths_batch(track[:, 1:])
-    out = ~np.all((L >= platform.stroke_min) & (L <= platform.stroke_max), axis=1)
+    out = ~platform.validate_batch(track[:, 1:])
     if out.any():
         i = int(np.nonzero(out)[0][0])
+        why = reason_text(platform.check_pose(**dict(zip(("x", "y", "z", "roll", "pitch", "yaw"), map(float, track[i, 1:]))))) or "fora dos limites"
         raise HTTPException(
             status_code=400,
-            detail=f"Amostra {i} (t={times[i]:.2f} s) fora do curso dos pistões.",
+            detail=f"Amostra {i} (t={times[i]:.2f} s) fora dos limites da bancada: {why}.",
         )
     # velocidade de pico das pernas (mm/s), já considerando o fator de velocidade
     peak = float(np.max(np.abs(np.diff(L, axis=0)) / np.diff(times)[:, None])) * req.speed
@@ -1942,23 +2042,48 @@ def get_config():
         home_z=motion_runner._home_z_mm,
         base_points=platform.B.tolist(),
         platform_points_local=platform.P0.tolist(),
+        limits=platform.limits_info(),
     )
 
 @app.post("/config")
 def set_config(cfg: PlatformConfig):
     if cfg.stroke_max <= cfg.stroke_min:
         raise HTTPException(status_code=400, detail="stroke_max deve ser maior que stroke_min")
-    # Não permite ampliar o curso além do limite mecânico da bancada
-    if cfg.stroke_min < STROKE_MIN_MM or cfg.stroke_max > STROKE_MAX_MM:
+    # Não permite ampliar o curso além do limite mecânico (limits.json)
+    phys = platform.checker.limits
+    if cfg.stroke_min < phys.stroke_min or cfg.stroke_max > phys.stroke_max:
         raise HTTPException(
             status_code=400,
-            detail=f"Curso deve ficar dentro de {STROKE_MIN_MM:.0f}..{STROKE_MAX_MM:.0f} mm",
+            detail=f"Curso deve ficar dentro de {phys.stroke_min:.0f}..{phys.stroke_max:.0f} mm",
         )
     # Atualiza no lugar: motion_runner e serial_mgr guardam a mesma instância
     platform.h0 = cfg.h0
-    platform.stroke_min = cfg.stroke_min
-    platform.stroke_max = cfg.stroke_max
+    platform.set_limits(JointLimits.from_dict({**phys.to_dict(), "stroke_min": cfg.stroke_min, "stroke_max": cfg.stroke_max}))
     return {"message": "Configuração atualizada"}
+
+
+@app.get("/limits")
+def get_limits():
+    """Limites reais da mecânica (físico), com a margem de operação e o alcance de cada eixo."""
+    return platform.limits_info()
+
+
+@app.post("/limits")
+def set_limits(values: dict):
+    """Atualiza limits.json (cópia .bak) e recalcula o envelope. Não mexe durante a calibração."""
+    ensure_not_calibrating()
+    current = platform.checker.limits.to_dict()
+    try:
+        lim = JointLimits.from_dict({**current, **{k: v for k, v in values.items() if k in current}})
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    probe = StewartPlatform(h0=platform.h0, stroke_min=lim.stroke_min, stroke_max=lim.stroke_max, limits=lim)
+    if not probe.inverse_kinematics(z=platform.h0)[1]:
+        raise HTTPException(status_code=400, detail="Com esses limites nem o home é válido.")
+    backup = save_limits(lim)
+    platform.set_limits(lim)
+    motion_runner._calibrate_limits_from_home()
+    return {**platform.limits_info(), "backup": backup}
 
 
 def model_to_dict(model):
@@ -1976,12 +2101,16 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
         roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw,
     )
     perc = platform.stroke_percentages(L)
+    detail = platform.check_pose(x=pose.x, y=pose.y, z=z_value, roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw)
     actuators = [
         ActuatorData(
             id=i + 1,
             length=float(L[i]),
             percentage=float(perc[i]),
-            valid=platform.stroke_min <= L[i] <= platform.stroke_max,
+            valid=not detail["legs"][i]["reasons"],
+            reasons=detail["legs"][i]["reasons"],
+            cardan_base_deg=detail["legs"][i]["cardan_base_deg"],
+            cardan_top_deg=detail["legs"][i]["cardan_top_deg"],
         )
         for i in range(6)
     ]
@@ -1998,6 +2127,8 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
         valid=bool(valid),
         base_points=platform.B.tolist(),
         platform_points=P.tolist(),
+        reason=reason_text(detail),
+        limits={"margins": detail["margins"], "closest_pair": detail["closest_pair"], "closest_distance_mm": detail["closest_distance_mm"], "physical_ok": detail["physical_ok"]},
     )
 
 
@@ -2015,8 +2146,8 @@ def apply_pose(req: ApplyPoseRequest):
         roll=req.roll, pitch=req.pitch, yaw=req.yaw
     )
     if not valid:
-        print("❌ Pose inválida")
-        return {"applied": False, "valid": False, "message": "Pose inválida."}
+        why = reason_text(platform.check_pose(x=req.x, y=req.y, z=z_value, roll=req.roll, pitch=req.pitch, yaw=req.yaw))
+        return {"applied": False, "valid": False, "message": f"Pose fora dos limites da bancada: {why}." if why else "Pose inválida."}
     course_mm = platform.lengths_to_stroke_mm(L)
     #print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
@@ -2050,25 +2181,27 @@ def mpu_control(req: MPUControlRequest):
     #print(f"   scale={req.scale}")
     
     # Aplica escala aos ângulos (para suavizar movimento se necessário)
-    roll_scaled = req.roll * req.scale
-    pitch_scaled = req.pitch * req.scale
-    yaw_scaled = req.yaw * req.scale
-    
+    reach = platform.envelope()["reach"]
+    roll_scaled = float(np.clip(req.roll * req.scale, *reach["roll"]))
+    pitch_scaled = float(np.clip(req.pitch * req.scale, *reach["pitch"]))
+    yaw_scaled = float(np.clip(req.yaw * req.scale, *reach["yaw"]))
+
     z_value = req.z if req.z is not None else platform.h0
-    
-    # Calcula cinemática inversa
-    L, valid, P = platform.inverse_kinematics(
-        x=req.x, y=req.y, z=z_value,
-        roll=roll_scaled, pitch=pitch_scaled, yaw=yaw_scaled
-    )
-    
+
+    # combinações (roll e pitch juntos, com translação) podem passar do limite: aproxima do neutro
+    target = {"x": req.x, "y": req.y, "z": z_value, "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled}
+    limited_pose, clipped = platform.limit_pose(target)
+    if limited_pose is None:
+        return {"applied": False, "valid": False, "message": "Pose inválida (fora dos limites da plataforma)"}
+    roll_scaled, pitch_scaled, yaw_scaled = limited_pose["roll"], limited_pose["pitch"], limited_pose["yaw"]
+    L, valid, P = platform.inverse_kinematics(**limited_pose)
     if not valid:
         return {
-            "applied": False, 
-            "valid": False, 
+            "applied": False,
+            "valid": False,
             "message": "Pose inválida (fora dos limites da plataforma)"
         }
-    
+
     course_mm = platform.lengths_to_stroke_mm(L)
     
     # Platform_points já vem do inverse_kinematics (terceiro retorno)
@@ -2088,9 +2221,10 @@ def mpu_control(req: MPUControlRequest):
         "valid": True,
         "setpoints_mm": course_mm.tolist(),
         "pose": {
-            "x": req.x, "y": req.y, "z": z_value,
+            "x": limited_pose["x"], "y": limited_pose["y"], "z": limited_pose["z"],
             "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
         },
+        "limited": clipped,
         "lengths_abs": L.tolist(),
         "base_points": platform.B.tolist(),
         "platform_points": platform_points
@@ -2209,36 +2343,34 @@ def joystick_pose(req: JoystickPoseRequest):
     """
 
     
-    # Constantes de mapeamento (limites físicos da plataforma)
-    MAX_TRANS_MM = 30.0   # ±30mm em X e Y
-    MAX_ANGLE_DEG = 8.0  # ±8° em roll, pitch
-    
-    # Mapear eixos normalizados para valores físicos
-    # lx -> X (direita positivo)
-    # ly -> Y (para frente negativo, por isso inverte)
-    x = np.clip(req.lx * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    y = np.clip(-req.ly * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    
-    # Z usa valor base fornecido ou a altura de repouso
-    z = req.z_base if req.z_base is not None else HOME_Z_MM
-    
-    # rx -> Pitch (stick direito horizontal)
-    # ry -> Roll (stick direito vertical, invertido)
-    roll = np.clip(-req.ry * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    pitch = np.clip(req.rx * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    
-    # Yaw por enquanto em 0 (pode usar lt/rt no futuro)
+    # Curso total do stick = alcance de operação de cada eixo (limites reais, envelope),
+    # vezes a sensibilidade. O alcance pode ser assimétrico: cada lado usa o seu.
+    reach = platform.envelope()["reach"]
+
+    def span(v: float, axis: str) -> float:
+        lo, hi = reach[axis]
+        return float(v * req.scale * (hi if v >= 0 else -lo))
+
+    # lx -> X (direita positivo); ly -> Y (para frente negativo, por isso inverte)
+    x = span(req.lx, "x")
+    y = span(-req.ly, "y")
+    # Z usa valor base fornecido ou a altura de repouso, dentro do alcance
+    z = req.z_base if req.z_base is not None else platform.h0
+    z = float(np.clip(z, platform.h0 + reach["z"][0], platform.h0 + reach["z"][1]))
+    # rx -> Pitch (stick direito horizontal); ry -> Roll (stick direito vertical, invertido)
+    roll = span(-req.ry, "roll")
+    pitch = span(req.rx, "pitch")
     yaw = 0.0
-    # Exemplo futuro: yaw = (rt - lt) * MAX_ANGLE_DEG se ambos forem fornecidos
-    
-    #print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
-    
-    # Calcular cinemática inversa
+
+    # os eixos juntos podem passar do limite: aproxima do neutro até caber
+    limited_pose, clipped = platform.limit_pose({"x": x, "y": y, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw})
+    if limited_pose is not None:
+        x, y, z, roll, pitch, yaw = (limited_pose[k] for k in ("x", "y", "z", "roll", "pitch", "yaw"))
     L, valid, P = platform.inverse_kinematics(
         x=x, y=y, z=z,
         roll=roll, pitch=pitch, yaw=yaw
     )
-    
+
     # Se inválido, retornar imediatamente
     if not valid:
         #print("❌ Pose de joystick inválida")
@@ -2269,6 +2401,7 @@ def joystick_pose(req: JoystickPoseRequest):
     return {
         "valid": True,
         "applied": applied,
+        "limited": clipped,
         "pose": {
             "x": float(x),
             "y": float(y),

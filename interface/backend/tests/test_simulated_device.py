@@ -59,9 +59,9 @@ def test_step_is_not_instantaneous(dev):
 
 
 def test_mechanical_end_stop(dev):
-    send(dev, "spmm=250")  # firmware aceita até Lmm=250, a mecânica para em 180
-    dev.step(30.0)
-    assert all(pz.pos == pytest.approx(180.0) for pz in dev.pistons)
+    send(dev, "spmm=260")  # além do curso do atuador (Lmm = 250): para no batente
+    dev.step(60.0)
+    assert all(pz.pos <= 250.0 and pz.pos == pytest.approx(250.0, abs=1.0) for pz in dev.pistons)
 
 
 def test_individual_setpoint_and_select_gains(dev):

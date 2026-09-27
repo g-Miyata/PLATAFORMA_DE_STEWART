@@ -81,12 +81,12 @@ class CueingParams(BaseModel):
     roll_max: float = Field(10, ge=0, le=15)
     pitch_max: float = Field(10, ge=0, le=15)
     yaw_max: float = Field(8, ge=0, le=15)
-    z0: float = Field(530, ge=480, le=580, description="Altura neutra (mm)")
+    z0: float = Field(570, ge=450, le=700, description="Altura neutra (mm)")
     leg_speed_max: float = Field(9.0, ge=1, le=100, description="Velocidade máxima das pernas (mm/s)")
     invert_pitch: bool = Field(False, description="Inverte o pitch (se a frente física da cadeira for o lado −X)")
     att_scale: float = Field(1.0, ge=0, le=1.5, description="Orientação do avião: escala de roll/pitch")
     att_limit: float = Field(12.0, ge=0, le=15, description="Orientação do avião: limite de roll/pitch (°)")
-    att_z: float = Field(540, ge=480, le=580, description="Orientação do avião: altura (mm)")
+    att_z: float = Field(570, ge=450, le=700, description="Orientação do avião: altura (mm)")
 
 
 def _clip(v: float, lim: float) -> float:

@@ -3,6 +3,7 @@
 // /apply_pose). Mesma convenção de app.py:
 //   R = Rz(yaw) · Ry(pitch) · Rx(roll)   (scipy 'ZYX', graus)
 //   P_i = R · P0_i + [x, y, z]            L_i = ‖P_i − B_i‖
+import { checkPose, resolveLimits, type LegReason, type LimitGeometry, type PoseCheck } from './limits';
 import type { Pose, Vec3 } from './types';
 
 export type Mat3 = [number, number, number, number, number, number, number, number, number];
@@ -43,21 +44,52 @@ export function legStatus(length: number, min: number, max: number, marginMm = 1
   return 'ok';
 }
 
+/** Situação de uma perna só pelo curso de OPERAÇÃO (quando só o comprimento é conhecido). */
+export function strokeStatus(length: number, geom: LimitGeometry): LegStatus {
+  const { op } = resolveLimits(geom);
+  return legStatus(length, op.stroke_min, op.stroke_max);
+}
+
 export interface PlatformState {
   top: Vec3[];
   lengths: number[];
   status: LegStatus[];
   valid: boolean;
+  /** motivos de recusa de cada perna (curso, cardãs, folga entre pernas) */
+  reasons: LegReason[][];
+  check: PoseCheck;
 }
 
-export function solvePose(
-  pose: Pose,
-  geom: { base_points: Vec3[]; platform_points_local: Vec3[]; stroke_min: number; stroke_max: number },
-): PlatformState {
-  const top = transformPoints(pose, geom.platform_points_local);
-  const lengths = legLengths(geom.base_points, top);
-  const status = lengths.map((l) => legStatus(l, geom.stroke_min, geom.stroke_max));
-  return { top, lengths, status, valid: status.every((s) => s !== 'invalid') };
+/** "near" também perto do limite do cardã (3°) ou da folga entre pernas (5 mm). */
+function statusOf(c: PoseCheck, i: number, geom: LimitGeometry): LegStatus {
+  if (c.reasons[i].length) return 'invalid';
+  const { op } = resolveLimits(geom);
+  const nearPair = c.dist.some((d, k) => d - op.min_axis_distance_mm < 5 && (PAIR_OF[k][0] === i || PAIR_OF[k][1] === i));
+  if (legStatus(c.lengths[i], op.stroke_min, op.stroke_max) === 'near' || op.cardan_base_max_deg - c.base[i] < 3 || op.cardan_top_max_deg - c.topDeg[i] < 3 || nearPair) return 'near';
+  return 'ok';
+}
+
+const PAIR_OF: [number, number][] = [];
+for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) PAIR_OF.push([i, j]);
+
+/**
+ * Cinemática inversa com os limites reais: curso de operação, ângulo dos cardãs e folga
+ * entre pernas (lib/limits.ts, igual ao backend).
+ */
+export function solvePose(pose: Pose, geom: LimitGeometry): PlatformState {
+  const check = checkPose(pose, geom);
+  const status = check.lengths.map((_, i) => statusOf(check, i, geom));
+  return { top: check.top, lengths: check.lengths, status, valid: check.valid, reasons: check.reasons, check };
+}
+
+let lastStatus: { pose: Pose; geom: LimitGeometry; status: LegStatus[] } | null = null;
+
+/** Situação das seis pernas, com cache da última pose (o 3D pergunta uma vez por perna por quadro). */
+export function poseStatus(pose: Pose, geom: LimitGeometry): LegStatus[] {
+  if (lastStatus && lastStatus.pose === pose && lastStatus.geom === geom) return lastStatus.status;
+  const status = solvePose(pose, geom).status;
+  lastStatus = { pose, geom, status };
+  return status;
 }
 
 export const zeroPose = (z: number): Pose => ({ x: 0, y: 0, z, roll: 0, pitch: 0, yaw: 0 });

@@ -3,7 +3,7 @@ import { Camera, Maximize2, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
-import { legStatus, solvePose, zeroPose, type LegStatus } from '@/lib/kinematics';
+import { solvePose, zeroPose, type LegStatus } from '@/lib/kinematics';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import type { Pose } from '@/lib/types';
 import { useConnection } from '@/stores/connection';
@@ -237,7 +237,7 @@ export function PlatformViewer({
             </thead>
             <tbody>
               {shownState.lengths.map((l, i) => {
-                const st = targetState ? targetState.status[i] : legStatus(l, geometry.stroke_min, geometry.stroke_max);
+                const st = targetState ? targetState.status[i] : shownState.status[i];
                 return (
                   <tr key={i} className="border-t border-border">
                     <th scope="row" className="py-1.5 pr-2 text-left font-medium">

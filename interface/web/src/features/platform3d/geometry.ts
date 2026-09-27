@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { uiLimits, type UiLimits } from '@/lib/limits';
 import type { PlatformGeometry, Vec3 } from '@/lib/types';
 
 /** Mesma geometria do backend: usada enquanto /config não responde (ou offline). */
 export const DEFAULT_GEOMETRY: PlatformGeometry = {
-  h0: 530,
+  h0: 570,
   stroke_min: 500,
-  stroke_max: 680,
-  home_z: 530,
+  stroke_max: 750,
+  home_z: 570,
   base_points: [
     [305.5, -17, 0], [305.5, 17, 0], [-137.7, 273.23, 0],
     [-168, 255.7, 0], [-167.2, -256.2, 0], [-136.8, -273.6, 0],
@@ -21,6 +22,11 @@ export const DEFAULT_GEOMETRY: PlatformGeometry = {
 export function useGeometry(): PlatformGeometry {
   const { data } = useQuery({ queryKey: ['geometry'], queryFn: api.geometry, staleTime: Infinity, retry: 1 });
   return data ?? DEFAULT_GEOMETRY;
+}
+
+/** Limites reais para a interface: curso de operação, alcance de cada eixo e inclinação máxima. */
+export function useLimits(): UiLimits {
+  return uiLimits(useGeometry());
 }
 
 // ---------------- polígonos 2D (plano XY) ----------------

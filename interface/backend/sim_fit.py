@@ -49,7 +49,7 @@ def _smooth(v: np.ndarray, n: int = 5) -> np.ndarray:
     return np.convolve(v, k, mode="same")
 
 
-def fit_plant(t: np.ndarray, y: np.ndarray, u: np.ndarray, current: Dict[str, float], stroke: float = 180.0) -> Dict[str, object]:
+def fit_plant(t: np.ndarray, y: np.ndarray, u: np.ndarray, current: Dict[str, float], stroke: float = 250.0) -> Dict[str, object]:
     """Ajusta vmax e zona morta de um pistão. `current` = parâmetros atuais do mesmo pistão.
 
     Descarta amostras perto dos batentes (a velocidade é cortada ali). Se faltar
@@ -139,7 +139,7 @@ KP_STEP = 5.0
 STEP_S = 0.005
 
 
-def simulate_p_step(params, t, sp, y0, stroke: float = 180.0):
+def simulate_p_step(params, t, sp, y0, stroke: float = 250.0):
     c_up, c_dn, dz_up, dz_dn = params
     y, tt = y0, t[0]
     out = np.empty_like(t)

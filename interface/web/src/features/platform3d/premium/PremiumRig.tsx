@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { legStatus, transformPoints } from '@/lib/kinematics';
+import { poseStatus, transformPoints } from '@/lib/kinematics';
 import { PISTON_COLORS } from '@/lib/pistons';
 import type { PlatformGeometry, Pose } from '@/lib/types';
 import { DIM } from '../geometry';
@@ -22,11 +22,12 @@ function RigActuator({ index, geometry, getPose }: { index: number; geometry: Pl
 
   useFrame(() => {
     if (!group.current || !rod.current || !top.current) return;
-    const p = transformPoints(getPose(), geometry.platform_points_local)[index];
+    const pose = getPose();
+    const p = transformPoints(pose, geometry.platform_points_local)[index];
     const L = applyLegFrame(group.current, geometry.base_points[index], p);
     rod.current.position.set(0, L - ACT.joint - ACT.rodLength / 2, 0);
     top.current.position.set(0, L, 0);
-    tubeMat.emissive.copy(STATUS_EMISSIVE[legStatus(L, geometry.stroke_min, geometry.stroke_max)]);
+    tubeMat.emissive.copy(STATUS_EMISSIVE[poseStatus(pose, geometry)[index]]);
   });
 
   return (

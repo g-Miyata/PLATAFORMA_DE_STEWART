@@ -4,7 +4,7 @@ import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react
 import { ToneMappingMode } from 'postprocessing';
 import { useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { legStatus, transformPoints } from '@/lib/kinematics';
+import { poseStatus, transformPoints } from '@/lib/kinematics';
 import { PISTON_COLORS } from '@/lib/pistons';
 import type { PlatformGeometry } from '@/lib/types';
 import { useTelemetry } from '@/stores/telemetry';
@@ -58,7 +58,7 @@ function BenchActuator({ index, hovered, selected, onHover }: { index: number; h
       tubeMat.emissive.copy(GLOW.invalid).multiplyScalar(0.4 + k);
       invalidate(); // mantém a animação do pisca rodando no modo sob demanda
     } else {
-      tubeMat.emissive.copy(GLOW[legStatus(L, geometry.stroke_min, geometry.stroke_max)]);
+      tubeMat.emissive.copy(GLOW[poseStatus(pose, geometry)[index]]);
     }
   });
 

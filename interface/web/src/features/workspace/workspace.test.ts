@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
 import { solvePose, zeroPose } from '@/lib/kinematics';
-import { axisReach, gridExtent, makeMargin, positionField, SWEEP, tiltField, volumeLiters } from './workspace';
+import { axisReach, gridExtent, makeLimiter, makeMargin, positionField, SWEEP, tiltField, volumeLiters } from './workspace';
 
 const g = DEFAULT_GEOMETRY;
 const margin = makeMargin(g);
@@ -14,19 +14,29 @@ const rnd = (a: number, b: number) => {
 };
 
 describe('espaço de trabalho', () => {
-  it('o sinal da margem bate com solvePose().valid', () => {
+  it('o sinal da margem bate com solvePose().valid (curso, cardãs e folga entre pernas)', () => {
+    let valid = 0;
     for (let i = 0; i < 1000; i++) {
-      const p = { x: rnd(-90, 90), y: rnd(-90, 90), z: rnd(420, 660), roll: rnd(-20, 20), pitch: rnd(-20, 20), yaw: rnd(-25, 25) };
+      const p = { x: rnd(-120, 120), y: rnd(-120, 120), z: rnd(470, 670), roll: rnd(-14, 14), pitch: rnd(-14, 14), yaw: rnd(-35, 35) };
       const m = margin(p.x, p.y, p.z, p.roll, p.pitch, p.yaw);
-      // longe da fronteira (a margem de 10 mm do legStatus não conta como inválido)
       if (Math.abs(m) < 1e-6) continue;
-      const lengths = solvePose(p, g).lengths;
-      expect(m >= 0).toBe(lengths.every((l) => l >= g.stroke_min && l <= g.stroke_max));
+      const ok = solvePose(p, g).valid;
+      expect(m >= 0).toBe(ok);
+      if (ok) valid++;
     }
+    expect(valid).toBeGreaterThan(50);
+  });
+
+  it('diz qual limite está mais perto', () => {
+    const { margin: mg, lastLimit } = makeLimiter(g);
+    mg(0, 0, g.home_z + 200, 0, 0, 0);
+    expect(lastLimit()).toBe(0); // alto demais: curso
+    mg(0, 0, g.home_z, 0, 0, 40);
+    expect([1, 2]).toContain(lastLimit()); // yaw grande: cardã
   });
 
   it('o home está dentro, com folga', () => {
-    expect(margin(0, 0, g.home_z, 0, 0, 0)).toBeGreaterThan(20);
+    expect(margin(0, 0, g.home_z, 0, 0, 0)).toBeGreaterThan(10);
   });
 
   it('alcance por eixo: logo dentro é válido e logo fora não', () => {

@@ -222,7 +222,8 @@ class CalibrationRunner:
 
     def _feasible(self, L: np.ndarray) -> bool:
         """Os comprimentos existem de fato? (cinemática direta converge e reproduz L)."""
-        if np.any(L < self.platform.stroke_min + 3) or np.any(L > self.platform.stroke_max - 3):
+        op = self.platform.checker.op
+        if np.any(L < op["stroke_min"] + 3) or np.any(L > op["stroke_max"] - 3):
             return False
         pose, _ = self.platform.estimate_pose_from_lengths(L)
         if pose is None:
@@ -273,7 +274,8 @@ class CalibrationRunner:
             while True:
                 L, ok, _ = self.platform.inverse_kinematics(x=0, y=0, z=z + direction)
                 L = np.asarray(L)
-                if not ok or np.min(L - self.platform.stroke_min) < Z_MARGIN_MM or np.min(self.platform.stroke_max - L) < Z_MARGIN_MM:
+                op = self.platform.checker.op
+                if not ok or np.min(L - op["stroke_min"]) < Z_MARGIN_MM or np.min(op["stroke_max"] - L) < Z_MARGIN_MM:
                     return z
                 z += direction
 

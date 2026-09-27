@@ -49,7 +49,10 @@ def test_config_exposes_geometry(client):
     cfg = client.get("/config").json()
     assert cfg["home_z"] == backend.HOME_Z_MM
     assert len(cfg["base_points"]) == 6 and len(cfg["platform_points_local"]) == 6
-    assert cfg["stroke_min"] == 500 and cfg["stroke_max"] == 680
+    assert cfg["stroke_min"] == 500 and cfg["stroke_max"] == 750
+    lim = cfg["limits"]
+    assert lim["operational"]["stroke_min"] == 525 and lim["operational"]["stroke_max"] == 725
+    assert lim["reach"]["roll"][0] < 0 < lim["reach"]["roll"][1]
 
 
 def test_config_rejects_widening_the_stroke(client):
@@ -151,7 +154,8 @@ def test_emergency_stop_holds_position_and_stops_routine(client):
     assert all(abs(pz.sp - h) < 1e-3 for pz, h in zip(sim.pistons, r["held_mm"]))
 
 
-@pytest.mark.parametrize("z", [440.0, 600.0, 625.0])
+# faixa de altura de operação (curso 525–725 mm com o tampo nivelado)
+@pytest.mark.parametrize("z", [470.0, 570.0, 670.0])
 def test_forward_kinematics_covers_full_height_range(z):
     L, valid, _ = backend.platform.inverse_kinematics(z=z)
     assert valid

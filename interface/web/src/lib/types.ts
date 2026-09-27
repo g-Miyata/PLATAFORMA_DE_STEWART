@@ -1,3 +1,4 @@
+import type { LimitsInfo } from './limits';
 // Contratos da API FastAPI (interface/backend/app.py) e das mensagens do WebSocket.
 
 export type Vec3 = [number, number, number];
@@ -29,11 +30,14 @@ export interface PlatformResponse {
 
 export interface PlatformGeometry {
   h0: number;
+  /** curso FÍSICO (Y = L − stroke_min); a validade usa os limites de operação em `limits` */
   stroke_min: number;
   stroke_max: number;
   home_z: number;
   base_points: Vec3[];
   platform_points_local: Vec3[];
+  /** limites reais (físico, operação e alcance de cada eixo), vindos do /config */
+  limits?: LimitsInfo;
 }
 
 export interface SerialPortInfo {

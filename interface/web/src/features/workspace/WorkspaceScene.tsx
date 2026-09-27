@@ -46,10 +46,18 @@ function ReachSurface({ grid }: { grid: Grid }) {
   return <primitive object={mc} />;
 }
 
-/** Corte horizontal em Z com a margem em cores: verde longe do limite, amarelo perto, vermelho no limite. */
+/** Cor de cada limite no corte (a mesma da legenda da página). */
+export const LIMIT_COLORS: [number, number, number][] = [
+  [240, 180, 40], // curso do atuador
+  [70, 150, 240], // cardã da base
+  [180, 90, 240], // cardã do tampo
+  [230, 70, 70], // folga entre pernas
+];
+
+/** Corte horizontal em Z: verde longe dos limites; perto, a cor do limite que está mais perto. */
 function Slice({ grid, z }: { grid: Grid; z: number }) {
   const { texture, w, h, cx, cy, zz } = useMemo(() => {
-    const { size, steps, origin, data } = grid;
+    const { size, steps, origin, data, limit } = grid;
     const iz = Math.max(0, Math.min(size - 1, Math.round((z - origin[2]) / steps[2])));
     const px = new Uint8Array(size * size * 4);
     for (let iy = 0; iy < size; iy++)
@@ -57,13 +65,12 @@ function Slice({ grid, z }: { grid: Grid; z: number }) {
         const m = data[ix + size * (iy + size * iz)];
         const k = (ix + size * iy) * 4;
         if (m < 0) continue;
-        const t = Math.min(1, m / 30);
-        // vermelho → amarelo → verde
-        const r = t < 0.5 ? 229 : Math.round(229 - (t - 0.5) * 2 * 182);
-        const gr = t < 0.5 ? Math.round(72 + t * 2 * 128) : Math.round(200 - (t - 0.5) * 2 * 42);
-        px[k] = r;
-        px[k + 1] = gr;
-        px[k + 2] = 60;
+        // mistura a cor do limite mais perto (m = 0) com o verde (m ≥ 40 mm)
+        const t = Math.min(1, m / 40);
+        const [lr, lg, lb] = LIMIT_COLORS[limit[ix + size * (iy + size * iz)]];
+        px[k] = Math.round(lr + (47 - lr) * t);
+        px[k + 1] = Math.round(lg + (158 - lg) * t);
+        px[k + 2] = Math.round(lb + (65 - lb) * t);
         px[k + 3] = 200;
       }
     const tex = new THREE.DataTexture(px, size, size, THREE.RGBAFormat);

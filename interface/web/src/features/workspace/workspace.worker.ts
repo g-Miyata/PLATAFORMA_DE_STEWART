@@ -11,7 +11,7 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   if (req.kind === 'position') {
     const grid = positionField(req.geom, req.orient, req.size);
     const msg = { id: req.id, kind: req.kind, grid, volume: volumeLiters(grid), extent: gridExtent(grid) };
-    self.postMessage(msg, { transfer: [grid.data.buffer] });
+    self.postMessage(msg, { transfer: [grid.data.buffer, grid.limit.buffer] });
   } else {
     self.postMessage({ id: req.id, kind: req.kind, tilt: tiltField(req.geom, req.pos, req.yaw) });
   }

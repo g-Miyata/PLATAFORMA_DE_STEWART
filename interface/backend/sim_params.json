@@ -1,6 +1,6 @@
 {
   "_comment": "Parâmetros do dispositivo virtual (simulated_device.py). vmax/deadzone ajustados por tools/fit_sim_params.py aos ensaios de degrau de MATLAB/workspace1-6.mat (P puro, Kp=5; fit ~90% por pistão).",
-  "stroke_mm": 180.0,
+  "stroke_mm": 250.0,
   "initial_pos_mm": 0.0,
   "vmax_adv_mm_s": [12.0, 12.4, 9.8, 13.0, 12.0, 13.2],
   "vmax_ret_mm_s": [16.2, 16.0, 15.9, 14.0, 13.9, 15.6],
