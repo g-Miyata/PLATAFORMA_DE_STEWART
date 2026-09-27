@@ -26,6 +26,8 @@ import { useGeometry } from '@/features/platform3d/geometry';
 import { refreshSerialStatus } from '@/features/serial/status';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import { uiLimits } from '@/lib/limits';
+import type { PlatformGeometry } from '@/lib/types';
 import { useConnection } from '@/stores/connection';
 import { useUi } from '@/stores/ui';
 
@@ -34,18 +36,19 @@ const ShowcaseCanvas = lazy(() => import('@/features/landing/ShowcaseCanvas').th
 
 const prefersReducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const STATS = [
+/** Números da capa, tirados dos limites reais (limits.json) */
+const stats = (g: PlatformGeometry) => [
   { value: '6', label: 'graus de liberdade' },
-  { value: '180 mm', label: 'de curso por atuador' },
+  { value: `${Math.round(g.stroke_max - g.stroke_min)} mm`, label: 'de curso por atuador' },
   { value: '30 Hz', label: 'de telemetria' },
-  { value: '±15°', label: 'de inclinação' },
+  { value: `±${Math.round(uiLimits(g).tilt)}°`, label: 'de inclinação' },
 ];
 
 const FLOW: { Icon: LucideIcon; title: string; text: string }[] = [
   { Icon: Globe, title: 'Interface web', text: 'React e modelo 3D. Você monta a pose, dirige pelo joystick ou dispara rotinas.' },
   { Icon: Server, title: 'Backend FastAPI', text: 'Cinemática inversa e direta, validação do curso e rotinas a 60 Hz.' },
   { Icon: Cpu, title: 'ESP32-S3', text: 'PID de cada pistão com feedforward e filtro anti-spike; telemetria a 30 Hz.' },
-  { Icon: MoveVertical, title: 'Atuadores lineares', text: 'Seis pistões de 180 mm com realimentação por potenciômetro.' },
+  { Icon: MoveVertical, title: 'Atuadores lineares', text: 'Seis pistões de 250 mm com realimentação por potenciômetro.' },
 ];
 
 const SIDE_FLOW: { Icon: LucideIcon; title: string; text: string }[] = [
@@ -218,7 +221,7 @@ export default function HomePage() {
             </a>
           </div>
           <dl className="grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
-            {STATS.map((s) => (
+            {stats(geometry).map((s) => (
               <div key={s.label} className="glass rounded-xl border border-border px-3 py-2.5">
                 <dt className="sr-only">{s.label}</dt>
                 <dd>

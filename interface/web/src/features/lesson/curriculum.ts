@@ -117,7 +117,7 @@ const moduloPlataforma: Lesson[] = [
         body: [
           'Cada perna é um **atuador linear elétrico**: um motor DC de 12 V com caixa de redução gira um fuso; a porca do fuso anda e empurra a haste para fora ou para dentro. Um **potenciômetro** mede a posição e o ESP32 fecha a malha com um PID.',
           'O comprimento total da perna, de junta a junta, é $L_i$. Com a haste toda recolhida ele vale $L_{\\min}$, e o que o atuador realmente controla é o **curso**:',
-          { eq: t`\Delta_i = L_i - L_{\min}, \qquad 0 \le \Delta_i \le 180\ \text{mm}`, label: 'Delta i igual a L i menos L mínimo, entre 0 e 180 milímetros' },
+          { eq: t`\Delta_i = L_i - L_{\min}, \qquad 0 \le \Delta_i \le 250\ \text{mm}`, label: 'Delta i igual a L i menos L mínimo, entre 0 e 250 milímetros' },
           'Mexa só no pistão 1. O tampo inteiro se move, e não só aquele canto: descobrir para onde ele vai é a cinemática direta, assunto da aula 2.4.',
         ],
         widgets: ['actuator'],
@@ -386,13 +386,13 @@ const moduloCinematica: Lesson[] = [
         title: 'Conferindo o curso',
         body: [
           'A conta sempre dá um número, mas nem todo número é possível. Depois de calcular, o sistema confere as seis pernas:',
-          { eq: t`L_{\min} \le L_i \le L_{\max} \iff 0 \le \Delta_i \le 180\ \text{mm}`, label: 'L mínimo menor ou igual a L i menor ou igual a L máximo' },
+          { eq: t`L_{\min} \le L_i \le L_{\max} \iff 0 \le \Delta_i \le 250\ \text{mm}`, label: 'L mínimo menor ou igual a L i menor ou igual a L máximo' },
           'Se uma perna sair do curso, a pose é recusada antes de ir para a bancada. Exagere nos controles para ver.',
         ],
         widgets: ['pose-wide'],
         scene: { show: 'stewart', overlays: { legs: 'all' }, camera: 'iso' },
         sceneSummary: 'As pernas que saem do curso ficam vermelhas.',
-        quiz: [{ q: 'Se Δ₄ = 195 mm, a pose...', options: ['é aplicada normalmente', 'é recusada (fora do curso)'], correct: 1, explain: 'O curso vai de 0 a 180 mm.' }],
+        quiz: [{ q: 'Se Δ₄ = 240 mm, a pose...', options: ['é aplicada normalmente', 'é recusada (fora do curso)'], correct: 1, explain: 'O atuador vai de 0 a 250 mm, mas a operação guarda 10% de folga em cada ponta: de 25 a 225 mm.' }],
       },
       {
         id: 'na-bancada',
