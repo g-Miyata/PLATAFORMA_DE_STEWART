@@ -93,6 +93,7 @@ async def lifespan(_app: FastAPI):
     serial_mgr.set_event_loop(asyncio.get_running_loop())
     print("✅ FastAPI startup: event loop configurado")
     yield
+    await lan_guard.stop_server()
     serial_mgr.close()
 
 
