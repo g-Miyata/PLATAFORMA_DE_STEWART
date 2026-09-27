@@ -36,7 +36,8 @@ export interface WedgeParams {
   jointMm: number;
 }
 
-export const DEFAULT_WEDGE: WedgeParams = { angleDeg: 12, margin: 0.2, screwMm: 8, outerMm: 32, minMm: 2.5, plateMm: 6, jointMm: 23 };
+// tampo de 8 mm e face do cubo do cardã a 23 mm do centro da cruzeta (modelo 3D da bancada)
+export const DEFAULT_WEDGE: WedgeParams = { angleDeg: 12, margin: 0.2, screwMm: 8, outerMm: 32, minMm: 2.5, plateMm: 8, jointMm: 23 };
 
 /** Ponta do calço (a "seta" que aponta para a perna) */
 export const TAB_MM = 6;
@@ -102,22 +103,66 @@ export function currentGeometry(geom: PlatformGeometry, margin: number): LabGeom
   return { ...g, home_z: balancedHome(g, limits.operational) };
 }
 
+/** Encaixe de um cardã do tampo, no referencial do tampo (mm). */
+export interface SeatFrame {
+  /** centro do furo original, na face de baixo do tampo */
+  attach: Vec3;
+  /** para onde a ponta do calço aponta (horizontal, unitário) */
+  heading: [number, number];
+  /** eixo do assento / do parafuso, para cima (unitário) */
+  axis: Vec3;
+  /** origem do calço (face plana, encostada no tampo) */
+  wedgeOrigin: Vec3;
+  /** centro da face do cubo do cardã (face inclinada do calço) */
+  hub: Vec3;
+  /** centro da cruzeta */
+  center: Vec3;
+  /** origem da arruela (face plana, em cima do tampo) */
+  washerOrigin: Vec3;
+  /** onde a cabeça do parafuso assenta (face inclinada da arruela) */
+  head: Vec3;
+}
+
+/**
+ * Onde fica cada peça do kit. O eixo do parafuso passa pelo centro do furo original do
+ * tampo, na metade da espessura: basta alargar o furo que já existe. Sem calço (0°, sem
+ * espessura) é a montagem de hoje.
+ */
+export function seatFrames(geom: PlatformGeometry, p: WedgeParams): SeatFrame[] {
+  const a = p.angleDeg * D2R;
+  const ta = Math.tan(a);
+  const tc = centerThickness(p);
+  const { washer } = kitPieces(p);
+  const tw = washer.minMm + (washer.outerMm / 2 + washer.tabMm) * ta;
+  const delta = (tc + p.plateMm / 2) * ta;
+  return legHeadings(geom).map(([dx, dy], i) => {
+    const pt = geom.platform_points_local[i];
+    const attach: Vec3 = [pt[0], pt[1], pt[2] + p.jointMm];
+    const axis = unit([-Math.sin(a) * dx, -Math.sin(a) * dy, Math.cos(a)]);
+    const wedgeOrigin: Vec3 = [attach[0] + delta * dx, attach[1] + delta * dy, attach[2]];
+    const hub: Vec3 = [wedgeOrigin[0], wedgeOrigin[1], attach[2] - tc];
+    const center: Vec3 = [hub[0] - p.jointMm * axis[0], hub[1] - p.jointMm * axis[1], hub[2] - p.jointMm * axis[2]];
+    const top = attach[2] + p.plateMm;
+    const q: [number, number] = [attach[0] - (p.plateMm / 2) * ta * dx, attach[1] - (p.plateMm / 2) * ta * dy];
+    const washerOrigin: Vec3 = [q[0] - tw * ta * dx, q[1] - tw * ta * dy, top];
+    const head: Vec3 = [washerOrigin[0], washerOrigin[1], top + tw];
+    return { attach, heading: [dx, dy], axis, wedgeOrigin, hub, center, washerOrigin, head };
+  });
+}
+
 /**
  * A montagem com o calço: o assento de cada cardã do tampo inclina `angleDeg` na direção
  * da perna, e o centro da cruzeta desce (espessura do calço) e acompanha a inclinação.
  */
 export function wedgeGeometry(geom: PlatformGeometry, p: WedgeParams): LabGeometry {
-  const a = p.angleDeg * D2R;
-  const tc = centerThickness(p);
-  const heads = legHeadings(geom);
-  const normals: Vec3[] = heads.map(([dx, dy]) => unit([-Math.sin(a) * dx, -Math.sin(a) * dy, Math.cos(a)]));
-  const points: Vec3[] = geom.platform_points_local.map((pt, i) => {
-    const n = normals[i];
-    // antes: centro da cruzeta a jointMm abaixo do tampo; agora: abaixo do calço, no eixo inclinado
-    return [pt[0] - p.jointMm * n[0], pt[1] - p.jointMm * n[1], pt[2] - tc + p.jointMm * (1 - n[2])];
-  });
+  const frames = seatFrames(geom, p);
   const limits = withMargin(geom, p.margin);
-  const g: LimitGeometry = { base_points: geom.base_points, platform_points_local: points, limits, top_seat_normals_local: normals };
+  const g: LimitGeometry = {
+    base_points: geom.base_points,
+    platform_points_local: frames.map((f) => f.center),
+    limits,
+    top_seat_normals_local: frames.map((f) => f.axis),
+  };
   return { ...g, home_z: balancedHome(g, limits.operational) };
 }
 

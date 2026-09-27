@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
 import { measurePose } from '@/lib/limits';
 import type { Vec3 } from '@/lib/types';
-import { assemblyNumbers, centerThickness, currentGeometry, DEFAULT_WEDGE, envelope, headingTable, kitPieces, legHeadings, tiltAt, tiltTable, toStl, wedgeGeometry, wedgeMesh } from './wedge';
+import { assemblyNumbers, centerThickness, currentGeometry, DEFAULT_WEDGE, envelope, headingTable, kitPieces, legHeadings, seatFrames, tiltAt, tiltTable, toStl, wedgeGeometry, wedgeMesh } from './wedge';
 
 const geom = DEFAULT_GEOMETRY;
 
@@ -41,6 +41,22 @@ describe('assento do cardã do tampo', () => {
     // o mínimo da tabela é a inclinação em qualquer direção do envelope
     expect(Math.min(...now)).toBeCloseTo(envelope(currentGeometry(geom, 0.2)).tilt, 0);
     expect(tiltAt([1, 3], Math.PI / 2)).toBeCloseTo(2, 9);
+  });
+
+  it('o eixo do parafuso passa no centro do furo original, na metade do tampo', () => {
+    const p = DEFAULT_WEDGE;
+    for (const f of seatFrames(geom, p)) {
+      // do cubo do cardã, subindo pelo eixo até a metade do tampo
+      const s = (f.attach[2] + p.plateMm / 2 - f.hub[2]) / f.axis[2];
+      const x = f.hub[0] + s * f.axis[0];
+      const y = f.hub[1] + s * f.axis[1];
+      expect(Math.hypot(x - f.attach[0], y - f.attach[1])).toBeLessThan(1e-9);
+      // a cabeça do parafuso também está no eixo
+      const s2 = (f.head[2] - f.hub[2]) / f.axis[2];
+      expect(Math.hypot(f.hub[0] + s2 * f.axis[0] - f.head[0], f.hub[1] + s2 * f.axis[1] - f.head[1])).toBeLessThan(1e-9);
+      // cruzeta a jointMm do cubo, no eixo
+      expect(Math.hypot(f.hub[0] - f.center[0], f.hub[1] - f.center[1], f.hub[2] - f.center[2])).toBeCloseTo(p.jointMm, 9);
+    }
   });
 
   it('a ponta de cada calço aponta para a junta de baixo da mesma perna', () => {

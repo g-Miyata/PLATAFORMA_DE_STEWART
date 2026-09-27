@@ -24,6 +24,7 @@ import {
   type WedgeParams,
 } from '@/features/lab/wedge';
 import { WedgeDemo } from '@/features/lab/WedgeDemo';
+import { WedgeRealModel } from '@/features/lab/WedgeRealModel';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { cn } from '@/lib/cn';
 import { checkPose, REASON_TEXT } from '@/lib/limits';
@@ -171,6 +172,14 @@ export default function WedgeLabPage() {
           description="As duas montagens recebem o mesmo comando ao mesmo tempo e cada uma vai até o próprio limite. Arraste para girar a vista."
         >
           <WedgeDemo now={now} wedge={wedge} envNow={eNow} envWedge={eWedge} angleDeg={p.angleDeg} jointMm={p.jointMm} />
+        </Card>
+
+        <Card
+          title="No modelo real: o encaixe"
+          icon={<Wrench aria-hidden />}
+          description="A bancada detalhada com o calço montado em cada cardã do tampo. Escolha uma perna para ver o encaixe de perto (calço, tampo, arruela e parafuso), e mova a pose para ver os cardãs trabalhando."
+        >
+          <WedgeRealModel geometry={geometry} params={p} now={now} wedge={wedge} />
         </Card>
 
         <div className="grid gap-5 lg:grid-cols-2">

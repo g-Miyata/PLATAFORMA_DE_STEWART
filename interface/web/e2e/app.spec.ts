@@ -563,6 +563,12 @@ test.describe('Laboratório do calço', () => {
     await expect(page.getByRole('button', { name: 'Roll', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Pausar a demonstração' }).click();
     await expect(page.getByRole('button', { name: 'Continuar a demonstração' })).toBeVisible();
+    // modelo real: o encaixe de uma perna, com calço e hoje
+    const real = page.getByRole('region', { name: 'No modelo real: o encaixe' });
+    await expect(real.getByText(/P3: cardã do tampo \d+,\d°/)).toBeVisible();
+    await real.getByRole('button', { name: 'Hoje', exact: true }).click();
+    await expect(real.getByText('Hoje (sem calço)')).toBeVisible();
+    await expect(real.getByText('pose aceita')).toBeVisible();
     // a pose de 16° de roll: recusada hoje, aceita com o calço
     await expect(page.getByText(/Hoje: recusada: cardã do tampo no limite · Com calço: aceita/)).toBeVisible();
     const download = page.waitForEvent('download');
