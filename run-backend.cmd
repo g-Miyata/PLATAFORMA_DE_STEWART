@@ -26,13 +26,17 @@ cd /d "%BACKEND_DIR%" || (
 	exit /b 1
 )
 
-if defined STEWART_LAN (
-	REM modo rede local: HTTP 8001 + HTTPS 8443 em 0.0.0.0, PIN para o celular (serve.py)
-	echo Iniciando FastAPI na rede local (celular no mesmo Wi-Fi)...
-	"%PYTHON_EXE%" serve.py
-) else (
-	echo Iniciando FastAPI em http://localhost:8001/docs
-	"%PYTHON_EXE%" -m uvicorn app:app --reload --host 127.0.0.1 --port 8001
-)
+REM Sem parenteses nos textos: dentro de um bloco if ( ... ) eles fecham o bloco.
+if defined STEWART_LAN goto lan
 
+echo Iniciando FastAPI em http://localhost:8001/docs
+"%PYTHON_EXE%" -m uvicorn app:app --reload --host 127.0.0.1 --port 8001
+goto fim
+
+:lan
+REM modo rede local: HTTP 8001 + HTTPS 8443 em 0.0.0.0, PIN para o celular - serve.py
+echo Iniciando FastAPI na rede local - celular no mesmo Wi-Fi...
+"%PYTHON_EXE%" serve.py
+
+:fim
 pause
