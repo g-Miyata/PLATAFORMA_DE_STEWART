@@ -418,10 +418,98 @@ test.describe('Celular', () => {
     await expect(page.getByRole('button', { name: 'Ativar o giroscópio' })).toHaveCount(0);
   });
 
+  test('QR code com o PIN: o celular entra sozinho e o PIN some da barra de endereço', async ({ page }) => {
+    let authorized = false;
+    let sentPin = '';
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: true, local: false, authorized, busy: false } }));
+    await page.route('**/lan/auth', (r) => {
+      sentPin = (r.request().postDataJSON() as { pin: string }).pin;
+      authorized = true;
+      return r.fulfill({ json: { ok: true } });
+    });
+    await page.goto('/celular#pin=123456');
+    await expect.poll(() => sentPin).toBe('123456');
+    await expect(page.getByRole('button', { name: 'Desconectar este celular' })).toBeVisible();
+    expect(new URL(page.url()).hash).toBe('');
+  });
+
+  test('bancada 3D: tela cheia com o PARAR à mão e volta', async ({ page }) => {
+    await page.goto('/celular');
+    await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
+    await page.getByRole('tab', { name: 'Bancada 3D' }).click();
+    await page.getByRole('button', { name: 'Bancada em tela cheia' }).click();
+    const exit = page.getByRole('button', { name: 'Sair da tela cheia' });
+    await expect(exit).toBeVisible();
+    // o PARAR fica dentro da tela cheia (o cabeçalho some)
+    await expect(page.getByRole('button', { name: /Parar/ }).last()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Aumentar' })).toBeVisible();
+    await exit.click();
+    await expect(page.getByRole('button', { name: 'Bancada em tela cheia' })).toBeVisible();
+  });
+
+  test('resposta: o joystick mostra o modelo 3D e o curso dos pistões', async ({ page }) => {
+    await page.goto('/celular');
+    await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
+    await page.getByRole('tab', { name: 'Joystick' }).click();
+    await expect(page.getByRole('region', { name: 'Resposta da plataforma' })).toBeVisible();
+    await expect(page.getByRole('img', { name: /Curso (medido )?dos pistões/ })).toBeVisible();
+  });
+
   test('giroscópio pede para ativar o sensor', async ({ page }) => {
     await page.goto('/celular');
     await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
     await expect(page.getByRole('button', { name: 'Ativar o giroscópio' })).toBeVisible();
+  });
+});
+
+test.describe('Apresentação com celular', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  const info = (devices: object[]) => ({
+    lan: true,
+    mode: 'runtime',
+    pin: '482913',
+    https_port: 8443,
+    urls: [{ ip: '192.168.0.10', https: 'https://192.168.0.10:8443/celular', http: null }],
+    devices,
+    waiting: [],
+  });
+
+  test('modo rede: QR code na tela; com um celular conectado, foco na bancada e botão de desconectar', async ({ page }) => {
+    let devices: object[] = [];
+    let kicked = false;
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: true, local: true, authorized: true, busy: false } }));
+    await page.route('**/lan/info', (r) => r.fulfill({ json: info(devices) }));
+    await page.route('**/lan/devices/*', (r) => {
+      kicked = true;
+      devices = [];
+      return r.fulfill({ json: info([]) });
+    });
+    await page.goto('/apresentacao');
+    await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible();
+
+    devices = [{ id: 'cc01', ip: '192.168.0.80', agent: 'Mozilla/5.0 (iPhone)', since_s: 3, seen_s: 1, active: true }];
+    await expect(page.getByRole('heading', { name: 'Um visitante está no comando' })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('img', { name: /QR code para controlar/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Desconectar celular e voltar ao show' }).click();
+    await expect.poll(() => kicked).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Um visitante está no comando' })).toHaveCount(0);
+  });
+
+  test('painel do operador liga o modo rede', async ({ page }) => {
+    let started = false;
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: started, local: true, authorized: true, busy: false } }));
+    await page.route('**/lan/info', (r) => r.fulfill({ json: started ? info([]) : { lan: false, mode: null, pin: null, urls: [], https_port: 8443, devices: [], waiting: [] } }));
+    await page.route('**/lan/start', (r) => {
+      started = true;
+      return r.fulfill({ json: info([]) });
+    });
+    await page.goto('/apresentacao');
+    await expect(page.getByRole('heading', { level: 2 }).first()).toBeVisible();
+    await page.keyboard.press('KeyO');
+    await expect(page.getByRole('complementary', { name: 'Painel do operador' })).toBeVisible();
+    await page.getByRole('button', { name: 'Ligar o modo rede' }).click();
+    await expect.poll(() => started).toBe(true);
+    await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible();
   });
 });
 
