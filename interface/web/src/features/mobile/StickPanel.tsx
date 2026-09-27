@@ -68,32 +68,27 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
   }, [running, poseNow]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <LiveResponse target={running ? shown : null} />
-      <div className="flex flex-wrap justify-around gap-4">
+      <div className="flex justify-around gap-2">
         <VirtualStick
-          size={148}
+          size={136}
           label="Mover (X / Y)"
           onChange={(x, y) => {
             sticks.current = { ...sticks.current, lx: x, ly: -y };
           }}
         />
         <VirtualStick
-          size={148}
+          size={136}
           label="Inclinar (roll / pitch)"
           onChange={(x, y) => {
             sticks.current = { ...sticks.current, rx: x, ry: -y };
           }}
         />
       </div>
-      <p className="text-center text-sm tabular-nums text-muted" aria-live="polite">
+      <p className="text-center text-xs tabular-nums text-muted min-[420px]:text-sm" aria-live="polite">
         X {fmt(shown.x, 0)} · Y {fmt(shown.y, 0)} mm · roll {fmt(shown.roll, 1)}° · pitch {fmt(shown.pitch, 1)}°
       </p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SliderField label="Altura Z" value={z} onValueChange={setZ} min={lim.pose.z[0]} max={lim.pose.z[1]} step={1} unit="mm" unitSpoken="milímetros" digits={0} />
-        <SliderField label="Yaw" value={yaw} onValueChange={setYaw} min={lim.pose.yaw[0]} max={lim.pose.yaw[1]} step={0.5} unit="°" unitSpoken="graus" />
-        <SliderField label="Sensibilidade dos sticks" value={sensitivity} onValueChange={setSensitivity} min={25} max={100} step={5} unit="%" unitSpoken="por cento" digits={0} />
-      </div>
       <SendStatusBar idleText="Nada enviado ainda: toque em Iniciar joystick." />
       {running ? (
         <Button variant="danger" size="lg" className="w-full" onClick={stop}>
@@ -106,6 +101,14 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
           Iniciar joystick
         </Button>
       )}
+      <details className="rounded-lg border border-border px-3 py-2">
+        <summary className="cursor-pointer text-sm font-medium">Mais ajustes: altura, yaw e sensibilidade</summary>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <SliderField label="Altura Z" value={z} onValueChange={setZ} min={lim.pose.z[0]} max={lim.pose.z[1]} step={1} unit="mm" unitSpoken="milímetros" digits={0} />
+          <SliderField label="Yaw" value={yaw} onValueChange={setYaw} min={lim.pose.yaw[0]} max={lim.pose.yaw[1]} step={0.5} unit="°" unitSpoken="graus" />
+          <SliderField label="Sensibilidade dos sticks" value={sensitivity} onValueChange={setSensitivity} min={25} max={100} step={5} unit="%" unitSpoken="por cento" digits={0} />
+        </div>
+      </details>
     </div>
   );
 }

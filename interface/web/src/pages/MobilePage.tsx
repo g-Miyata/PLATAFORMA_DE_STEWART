@@ -110,22 +110,22 @@ export default function MobilePage() {
 
   return (
     <div className="flex min-h-dvh touch-manipulation flex-col overflow-x-hidden overscroll-none bg-bg text-fg">
-      <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-2 backdrop-blur">
-        <Link to="/" className="mr-auto truncate text-sm font-semibold">
-          <span className="hidden min-[430px]:inline">Plataforma de </span>Stewart
+      <header className="sticky top-0 z-20 flex min-w-0 items-center gap-1.5 border-b border-border bg-surface/95 px-2 py-1.5 backdrop-blur">
+        <Link to="/" className="mr-auto min-w-0 truncate text-sm font-semibold">
+          <span className="hidden min-[560px]:inline">Plataforma de </span>Stewart
         </Link>
-        <ModeBadge />
+        <ModeBadge compact className="shrink-0" />
         {paired && (
-          <Button size="sm" variant="ghost" onClick={logout} aria-label="Desconectar este celular">
+          <Button size="sm" variant="ghost" className="shrink-0 px-2" onClick={logout} aria-label="Desconectar este celular" title="Desconectar este celular">
             <LogOut aria-hidden />
-            <span className="hidden min-[400px]:inline">Desconectar</span>
+            <span className="hidden min-[520px]:inline">Desconectar</span>
           </Button>
         )}
         <EmergencyStopButton showShortcut={false} />
       </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-4 pb-24">
-        <h1 className="text-xl font-semibold">Controle pelo celular</h1>
+      <main className="mx-auto w-full min-w-0 max-w-2xl flex-1 space-y-3 px-3 py-3 pb-24">
+        <h1 className="text-lg font-semibold max-sm:sr-only">Controle pelo celular</h1>
 
         {!online && <Alert tone="danger" title="Sem conexão com o PC">Confira se o celular está no mesmo Wi-Fi e se o backend foi aberto com start.bat rede.</Alert>}
 
@@ -148,9 +148,9 @@ export default function MobilePage() {
         ) : (
           <>
             {online && !serial.connected && (
-              <Alert tone="info" title="Bancada desconectada">
-                <span className="block">A conexão com a bancada real se faz no PC. Para testar daqui, use o simulador:</span>
-                <Button size="sm" variant="secondary" className="mt-2" onClick={connectSim}>
+              <Alert tone="warning" title="Nada conectado no PC">
+                <span className="block">Sem simulador nem bancada, os comandos não vão a lugar nenhum. Conecte o simulador daqui (a bancada real se conecta no PC):</span>
+                <Button size="sm" variant="primary" className="mt-2" onClick={connectSim}>
                   Conectar ao simulador
                 </Button>
               </Alert>

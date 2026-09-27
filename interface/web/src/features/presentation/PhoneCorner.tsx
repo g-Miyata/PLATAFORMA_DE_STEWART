@@ -6,7 +6,7 @@ import { fmt } from '@/lib/pistons';
 import type { Pose } from '@/lib/types';
 
 /** Convite no canto da apresentação: QR code que abre o controle no celular, já com o PIN. */
-export function PhoneQrCard({ info }: { info: LanInfo }) {
+export function PhoneQrCard({ info, withPin }: { info: LanInfo; withPin: boolean }) {
   const first = info.urls[0];
   if (!first) return null;
   return (
@@ -14,14 +14,16 @@ export function PhoneQrCard({ info }: { info: LanInfo }) {
       aria-label="Controle a plataforma pelo celular"
       className="scene-enter pointer-events-none flex items-center gap-4 rounded-2xl border border-[var(--ex-border)] bg-[var(--ex-panel)] p-3 pr-5 shadow-2xl backdrop-blur"
     >
-      <Qr text={pinLink(first.https, info.pin)} label="QR code para controlar a plataforma pelo celular" className="size-32 rounded-xl bg-white p-1.5 xl:size-40" />
+      <Qr text={withPin ? pinLink(first.https, info.pin) : first.https} label="QR code para controlar a plataforma pelo celular" className="size-32 rounded-xl bg-white p-1.5 xl:size-40" />
       <div className="max-w-[13rem] space-y-1">
         <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ex-accent)]">
           <Smartphone aria-hidden className="size-4" />
           Experimente
         </p>
         <p className="text-xl font-bold leading-tight">Controle pelo seu celular</p>
-        <p className="text-sm text-[var(--ex-muted)]">Aponte a câmera, no mesmo Wi-Fi. Aceite o aviso de segurança uma vez.</p>
+        <p className="text-sm text-[var(--ex-muted)]">
+          Aponte a câmera, no mesmo Wi-Fi. Aceite o aviso de segurança uma vez{withPin ? '.' : ' e peça o PIN ao apresentador.'}
+        </p>
       </div>
     </section>
   );

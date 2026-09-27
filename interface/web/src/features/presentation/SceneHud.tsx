@@ -33,10 +33,10 @@ function titleStats(geometry: PlatformGeometry): [string, string][] {
 }
 
 /** Instrumento de atitude (horizonte artificial) com o roll e o pitch do tampo. */
-export function AttitudeIndicator({ roll, pitch }: { roll: number; pitch: number }) {
+export function AttitudeIndicator({ roll, pitch, className }: { roll: number; pitch: number; className?: string }) {
   const shift = Math.max(-40, Math.min(40, pitch * 4));
   return (
-    <svg viewBox="-60 -60 120 120" className="size-40 drop-shadow-xl sm:size-48" role="img" aria-label={`Horizonte artificial: roll ${fmt(roll, 0)} graus, pitch ${fmt(pitch, 0)} graus`}>
+    <svg viewBox="-60 -60 120 120" className={cn('size-40 drop-shadow-xl sm:size-48', className)} role="img" aria-label={`Horizonte artificial: roll ${fmt(roll, 0)} graus, pitch ${fmt(pitch, 0)} graus`}>
       <defs>
         <clipPath id="ai-clip">
           <circle r="54" />

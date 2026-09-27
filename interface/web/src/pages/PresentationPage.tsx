@@ -22,6 +22,7 @@ import { useExhibitFlight } from '@/features/presentation/useExhibitFlight';
 import { useKiosk } from '@/features/presentation/useKiosk';
 import { stepTilt, VISITOR_IDLE_S, VISITOR_MODEL, VISITOR_REAL } from '@/features/presentation/visitor';
 import { useLibrary } from '@/features/recorder/library';
+import { refreshSerialStatus } from '@/features/serial/status';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { zeroPose } from '@/lib/kinematics';
@@ -131,6 +132,8 @@ export default function PresentationPage() {
   const phone = lan?.devices.find((d) => d.active) ?? null;
   const phoneActive = !!phone && mode === 'show';
   const [showQr, setShowQr] = useState(true);
+  // PIN dentro do QR: quem escanear entra direto; desligado, o visitante pede o PIN ao apresentador
+  const [qrWithPin, setQrWithPin] = useState(false);
   const qrShown = mode === 'show' && !!lan && !phone && showQr && !visitor;
   const lanStart = useLanAction(() => api.lanStart(), 'Modo rede ligado');
   const [autoLan, setAutoLanState] = useState(readAutoLan);
@@ -152,6 +155,25 @@ export default function PresentationPage() {
     startLan(undefined);
   }, [autoLan, lanOff, startLan]);
   const kick = useLanAction((id: string) => api.lanKick(id), 'Celular desconectado: o show recomeça');
+  // celular no comando sem nada conectado no PC: conecta o simulador (os comandos precisam de um destino)
+  const serialConnected = useConnection((s) => s.serial.connected);
+  const backendOnline = useConnection((s) => s.backendOnline !== false);
+  const simTried = useRef(false);
+  useEffect(() => {
+    if (!phoneActive) {
+      simTried.current = false;
+      return;
+    }
+    if (serialConnected || !backendOnline || simTried.current) return;
+    simTried.current = true;
+    api
+      .openSerial('SIMULADOR')
+      .then(() => {
+        refreshSerialStatus();
+        toast.info('Simulador conectado', { description: 'Nada estava conectado: os comandos do celular vão para a plataforma virtual.' });
+      })
+      .catch((err: Error) => toast.error('O celular está sem destino', { description: `Conecte o simulador ou a bancada. ${err.message}` }));
+  }, [phoneActive, serialConnected, backendOnline]);
   const phoneRef = useRef(false);
   useEffect(() => {
     phoneRef.current = phoneActive;
@@ -495,7 +517,7 @@ export default function PresentationPage() {
       {/* convite para o celular (modo rede ligado, nenhum celular conectado): embaixo do logo, acima dos títulos */}
       {qrShown && lan && (
         <div className="absolute left-5 top-24 hidden sm:left-8 sm:top-28 lg:block [@media(max-height:760px)]:hidden">
-          <PhoneQrCard info={lan} />
+          <PhoneQrCard info={lan} withPin={qrWithPin} />
         </div>
       )}
 
@@ -559,6 +581,9 @@ export default function PresentationPage() {
           lanStarting={lanStart.isPending}
           showQr={showQr}
           onShowQr={setShowQr}
+          qrWithPin={qrWithPin}
+          onQrWithPin={setQrWithPin}
+          pin={lan?.pin ?? null}
           phone={phone}
           onKick={(id) => kick.mutate(id)}
         />

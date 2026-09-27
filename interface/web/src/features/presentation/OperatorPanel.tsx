@@ -38,6 +38,9 @@ interface OperatorPanelProps {
   lanStarting: boolean;
   showQr: boolean;
   onShowQr: (on: boolean) => void;
+  qrWithPin: boolean;
+  onQrWithPin: (on: boolean) => void;
+  pin: string | null;
   /** celular conectado agora */
   phone: LanDevice | null;
   onKick: (id: string) => void;
@@ -176,7 +179,16 @@ export function OperatorPanel(p: OperatorPanelProps) {
           </>
         ) : (
           <>
-            <SwitchField label="Mostrar o QR code na tela" description="O QR já leva o PIN: quem escanear entra direto." checked={p.showQr} onCheckedChange={p.onShowQr} disabled={p.mode !== 'show'} />
+            <p className="text-sm">
+              PIN: <span className="font-mono text-xl font-bold tracking-widest">{p.pin}</span>
+            </p>
+            <SwitchField label="Mostrar o QR code na tela" checked={p.showQr} onCheckedChange={p.onShowQr} disabled={p.mode !== 'show'} />
+            <SwitchField
+              label="QR code já leva o PIN"
+              description="Ligado: quem escanear entra direto. Desligado: o visitante digita o PIN que você passar."
+              checked={p.qrWithPin}
+              onCheckedChange={p.onQrWithPin}
+            />
             <SwitchField
               label="Ligar o modo rede ao abrir a apresentação"
               description="Neste PC, a apresentação religa o modo rede sozinha (também se o backend reiniciar)."

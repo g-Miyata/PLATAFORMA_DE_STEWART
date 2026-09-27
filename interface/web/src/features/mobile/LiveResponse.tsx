@@ -75,7 +75,7 @@ export function LiveResponse({ target, className }: { target: Pose | null; class
 
   return (
     <section aria-label="Resposta da plataforma" className={cn('space-y-2', className)}>
-      <div ref={box} className="relative h-48 overflow-hidden rounded-xl border border-border bg-surface-2 min-[420px]:h-56" aria-hidden>
+      <div ref={box} className="pointer-events-none relative h-40 overflow-hidden rounded-xl border border-border bg-surface-2 min-[420px]:h-48" aria-hidden>
         <Canvas
           dpr={[1, 1.5]}
           frameloop={visible ? 'always' : 'never'}
@@ -84,23 +84,23 @@ export function LiveResponse({ target, className }: { target: Pose | null; class
         >
           <Scene geometry={geometry} store={store} background={colors.bg} gridColor={colors.grid} view="iso" viewNonce={0} />
         </Canvas>
-        <span className="absolute left-2 top-2 rounded-md bg-surface/85 px-2 py-0.5 text-xs font-medium backdrop-blur">{label}</span>
-        {live && target && <span className="absolute right-2 top-2 rounded-md bg-surface/85 px-2 py-0.5 text-xs text-muted backdrop-blur">fantasma = comando</span>}
+        <span className="absolute left-2 top-2 max-w-[calc(100%-1rem)] truncate rounded-md bg-surface/85 px-2 py-0.5 text-xs font-medium backdrop-blur">{label}</span>
+        {live && target && <span className="absolute bottom-2 right-2 rounded-md bg-surface/85 px-2 py-0.5 text-xs text-muted backdrop-blur">fantasma = comando</span>}
       </div>
 
-      <p className="text-center text-sm tabular-nums">
+      <p className="text-center text-xs tabular-nums min-[420px]:text-sm">
         {live ? (
           <>
             <span className="text-muted">Medido:</span> roll {fmt(live.roll, 1)}° · pitch {fmt(live.pitch, 1)}° · Z {fmt(live.z, 0)} mm
           </>
         ) : (
-          <span className="text-muted">Conecte ao simulador ou à bancada para ver a resposta.</span>
+          <span className="text-muted">Sem resposta: conecte o simulador ou a bancada.</span>
         )}
       </p>
 
       {/* curso de cada pistão: barra = medido, traço = comandado */}
       <div
-        className="grid grid-cols-6 gap-1.5"
+        className="grid grid-cols-6 gap-1"
         role="img"
         aria-label={snap.strokes ? `Curso medido dos pistões: ${snap.strokes.map((v) => fmt(v, 0)).join(', ')} milímetros` : 'Curso dos pistões sem telemetria'}
       >
@@ -109,7 +109,7 @@ export function LiveResponse({ target, className }: { target: Pose | null; class
           const k = cmd?.[i];
           return (
             <div key={i} className="space-y-0.5 text-center">
-              <div className="relative h-12 overflow-hidden rounded-md bg-surface-2">
+              <div className="relative h-7 overflow-hidden rounded-md bg-surface-2">
                 {m !== undefined && (
                   <div
                     className="absolute inset-x-0 bottom-0 transition-[height] duration-200"

@@ -30,7 +30,7 @@ const MODES: Record<ConnectionMode, { label: string; hint: string; className: st
 };
 
 /** Selo sempre visível: deixa claro se o hardware vai se mover. */
-export function ModeBadge({ className }: { className?: string }) {
+export function ModeBadge({ className, compact = false }: { className?: string; compact?: boolean }) {
   const mode = useConnectionMode();
   const m = MODES[mode];
   return (
@@ -43,7 +43,8 @@ export function ModeBadge({ className }: { className?: string }) {
         )}
       >
         <m.Icon aria-hidden className="size-4" />
-        {m.label}
+        {compact ? <span className="hidden min-[520px]:inline">{m.label}</span> : m.label}
+        {compact && <span className="sr-only min-[520px]:hidden">{m.label}</span>}
         <span className="sr-only">. {m.hint}</span>
       </span>
     </div>

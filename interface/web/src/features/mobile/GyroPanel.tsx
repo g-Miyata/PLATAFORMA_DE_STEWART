@@ -126,7 +126,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
   if (permission === 'unsupported') return <Alert tone="info">Este aparelho não tem sensor de orientação. Use o joystick na tela.</Alert>;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <LiveResponse target={commanded} />
       {permission !== 'granted' ? (
         <div className="space-y-2">
@@ -140,7 +140,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
         <>
           <div className="flex flex-wrap items-center justify-around gap-4">
             <div className="text-center">
-              <AttitudeIndicator roll={shown.phone.roll} pitch={shown.phone.pitch} />
+              <AttitudeIndicator roll={shown.phone.roll} pitch={shown.phone.pitch} className="size-28 sm:size-40" />
               <p className="mt-1 text-xs text-muted">celular</p>
             </div>
             <dl className="space-y-1 text-sm tabular-nums">
