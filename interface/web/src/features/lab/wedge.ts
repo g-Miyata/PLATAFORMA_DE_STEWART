@@ -170,6 +170,31 @@ export function envelope(g: LabGeometry): Envelope {
   };
 }
 
+/** Inclinação máxima (°) em `n` direções, a partir do home (roll = t·cos φ, pitch = t·sen φ). */
+export function tiltTable(g: LabGeometry, n = 72): number[] {
+  const home = level(g.home_z);
+  return Array.from({ length: n }, (_, k) => {
+    const phi = (2 * Math.PI * k) / n;
+    let lo = 0;
+    let hi = 60;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      if (checkPose({ ...home, roll: mid * Math.cos(phi), pitch: mid * Math.sin(phi) }, g).valid) lo = mid;
+      else hi = mid;
+    }
+    return lo;
+  });
+}
+
+/** Valor da tabela na direção `phi` (rad), interpolado. */
+export function tiltAt(table: number[], phi: number): number {
+  const n = table.length;
+  const f = ((((phi / (2 * Math.PI)) % 1) + 1) % 1) * n;
+  const i = Math.floor(f) % n;
+  const w = f - Math.floor(f);
+  return table[i] * (1 - w) + table[(i + 1) % n] * w;
+}
+
 // ---------------------------------------------------------------- peças para imprimir
 export interface Mesh {
   positions: number[];

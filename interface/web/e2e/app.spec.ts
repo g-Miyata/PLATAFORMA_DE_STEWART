@@ -557,6 +557,12 @@ test.describe('Laboratório do calço', () => {
     const table = page.getByRole('region', { name: 'Comparação da montagem de hoje com o calço' });
     await expect(table.getByRole('columnheader', { name: 'Com calço de 12°' })).toBeVisible();
     await expect(table.getByText('cardã do tampo no limite')).toBeVisible();
+    // demonstração lado a lado: o polar mostra as duas montagens e dá para trocar o movimento
+    await expect(page.getByRole('img', { name: /Inclinação máxima por direção\. Hoje: de 12,\d a .* Com calço: de 19,\d/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Roll', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Roll', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Pausar a demonstração' }).click();
+    await expect(page.getByRole('button', { name: 'Continuar a demonstração' })).toBeVisible();
     // a pose de 16° de roll: recusada hoje, aceita com o calço
     await expect(page.getByText(/Hoje: recusada: cardã do tampo no limite · Com calço: aceita/)).toBeVisible();
     const download = page.waitForEvent('download');

@@ -23,6 +23,7 @@ import {
   type Mesh,
   type WedgeParams,
 } from '@/features/lab/wedge';
+import { WedgeDemo } from '@/features/lab/WedgeDemo';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { cn } from '@/lib/cn';
 import { checkPose, REASON_TEXT } from '@/lib/limits';
@@ -163,6 +164,14 @@ export default function WedgeLabPage() {
           Hoje o cardã do tampo fica reto no tampo e a perna chega inclinada: parado no home ele já está a {fmt(eNow.homeTop, 0)}° dos {fmt(now.limits?.physical.cardan_top_max_deg ?? 45, 0)}°, e é ele que trava a inclinação. O calço vira o
           assento na direção da perna e devolve esse ângulo. Depois de montar e testar, os limites da bancada precisam passar a considerar o calço (ainda não fazem).
         </Alert>
+
+        <Card
+          title="Demonstração: hoje × com calço"
+          icon={<FlaskConical aria-hidden />}
+          description="As duas montagens recebem o mesmo comando ao mesmo tempo e cada uma vai até o próprio limite. Arraste para girar a vista."
+        >
+          <WedgeDemo now={now} wedge={wedge} envNow={eNow} envWedge={eWedge} angleDeg={p.angleDeg} jointMm={p.jointMm} />
+        </Card>
 
         <div className="grid gap-5 lg:grid-cols-2">
           <Card title="Parâmetros" icon={<Ruler aria-hidden />}>

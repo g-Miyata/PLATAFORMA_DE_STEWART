@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
 import { measurePose } from '@/lib/limits';
 import type { Vec3 } from '@/lib/types';
-import { assemblyNumbers, centerThickness, currentGeometry, DEFAULT_WEDGE, envelope, headingTable, kitPieces, legHeadings, toStl, wedgeGeometry, wedgeMesh } from './wedge';
+import { assemblyNumbers, centerThickness, currentGeometry, DEFAULT_WEDGE, envelope, headingTable, kitPieces, legHeadings, tiltAt, tiltTable, toStl, wedgeGeometry, wedgeMesh } from './wedge';
 
 const geom = DEFAULT_GEOMETRY;
 
@@ -32,6 +32,15 @@ describe('assento do cardã do tampo', () => {
     // a montagem de hoje dá ~13° com 20% de margem (igual ao backend)
     expect(now.tilt).toBeGreaterThan(12);
     expect(now.tilt).toBeLessThan(14);
+  });
+
+  it('com o calço, a inclinação máxima é maior em todas as direções', () => {
+    const now = tiltTable(currentGeometry(geom, 0.2), 36);
+    const w = tiltTable(wedgeGeometry(geom, DEFAULT_WEDGE), 36);
+    w.forEach((v, k) => expect(v).toBeGreaterThan(now[k]));
+    // o mínimo da tabela é a inclinação em qualquer direção do envelope
+    expect(Math.min(...now)).toBeCloseTo(envelope(currentGeometry(geom, 0.2)).tilt, 0);
+    expect(tiltAt([1, 3], Math.PI / 2)).toBeCloseTo(2, 9);
   });
 
   it('a ponta de cada calço aponta para a junta de baixo da mesma perna', () => {
