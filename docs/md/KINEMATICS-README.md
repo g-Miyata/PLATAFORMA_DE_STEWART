@@ -88,7 +88,7 @@ Interface completa para montar poses, visualizar o resultado em 3D e acompanhar 
 
 ## Troubleshooting
 
-- **"Pose inválida" ao calcular**: reduza ângulos/translações, verifique limites (curso 500–680 mm) e consulte logs do backend para entender o motivo do `valid=False`.
+- **"Pose inválida" ao calcular**: a resposta traz o motivo (`reason` e `reasons` por atuador): curso de operação (525–725 mm, com a margem de 20% sobre 500–750 mm), cardã da base, cardã do tampo ou pernas perto de encostar. Os valores físicos ficam em `interface/backend/limits.json` (Ajustes → Limites da mecânica).
 - **Botão “Aplicar” não aparece**: execute “Calcular Posição” novamente; o botão só fica visível quando `currentPlatformData` existe e `valid === true`.
 - **Telemetria parada**: cheque se o backend está enviando mensagens em `/ws/telemetry`; observe o console do navegador para ver se o heartbeat está tentando reconectar.
 - **Painel do MPU oculto**: somente é exibido quando `mpu.roll/pitch/yaw` chegam como números. Garanta que o firmware esteja publicando esses campos.

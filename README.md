@@ -88,6 +88,19 @@ O script:
 
 > Se aparecer "O ambiente virtual existente é inválido", apague a pasta `interface/backend/.venv` e rode o `start.bat` de novo.
 
+### Pelo celular (rede local)
+
+```bat
+start.bat rede
+```
+
+- O backend passa a escutar na rede em **HTTP 8001** e **HTTPS 8443**, no mesmo processo (`interface/backend/serve.py`). O HTTPS usa um certificado autoassinado gerado na primeira vez em `interface/backend/certs/`, e é ele que libera o giroscópio do celular (os navegadores só dão o sensor em HTTPS).
+- No PC, o botão **Celular** do cabeçalho mostra o QR code, o endereço (`https://<IP-do-PC>:8443/celular`) e o **PIN**. No celular, aceite uma vez o aviso de certificado e digite o PIN.
+- Sem o PIN, o celular só acompanha. O botão **PARAR** funciona sempre, em qualquer aparelho. O próprio PC nunca pede PIN. Um IP que erra o PIN 5 vezes fica bloqueado por um minuto.
+- A tela `/celular` tem **giroscópio** (incline o celular e o tampo acompanha, com zerar, sensibilidade e iniciar/parar), **joystick na tela** (dois sticks, Z e yaw) e **Bancada 3D por toque** (P1–P6 ou tampo, − / + que repetem ao segurar, desfazer e ao vivo). O controle para sozinho se a tela apagar, se o sensor parar ou numa parada de emergência.
+- **Firewall:** na primeira vez, o Windows pergunta se libera o Python; permita em **redes privadas**. Para liberar à mão, num prompt de administrador:
+  `netsh advfirewall firewall add rule name="Plataforma de Stewart" dir=in action=allow protocol=TCP localport=8001,8443 profile=private`
+
 ## Modo simulação (sem hardware)
 
 No topo da interface, escolha **Simulador** e clique em **Conectar**. O selo muda para **SIMULAÇÃO** (azul). Nada físico se move, e todas as páginas funcionam.
@@ -112,7 +125,8 @@ Além das páginas de controle, o menu tem:
 | **Apresentação** (`/apresentacao`) | Tela para feiras e exposições, em página inteira (tema escuro ou claro, pelo botão no canto). Mostra um show automático de 6 cenas (título, 6 graus de liberdade, pistões ao vivo, simulador de voo, cinemática) e quem toca na tela ou mexe no gamepad assume o controle, voltando ao show após 30 s. A bancada física só se move pelo **painel do operador** (tecla **O** ou segurar o logo): quiosque com amplitude e velocidade limitadas, controle do público na bancada (até 5°) e tempo de sessão. No painel também dá para trocar o show pelo **Simulador de voo**: um voo gravado do ERJ145 toca em laço pelo motion cueing (washout), com instrumentos na tela, a imagem do FlightGear no canto quando ele está aberto e, se o operador ligar, a bancada engatada no cueing. `?cena=voo` abre direto numa cena e `?modo=voo` no simulador de voo. |
 | **Aula de cinemática** (`/aula`) | Curso em dois módulos, na notação do TCC (aᵢ, bᵢ, p, R, Lᵢ = ‖p + R·bᵢ − aᵢ‖). **Conhecendo a Plataforma**: peças, história, 6 GDL, atuadores e juntas, referenciais {B} e {P}. **Cinemática**: seriais × paralelos com um braço UR5e (cadeia DH e as até 8 soluções da inversa) e um braço 2R, pose e matrizes com números ao vivo, inversa passo a passo e direta com experimento, esferas de restrição e as iterações do solver. Tem perguntas rápidas e o progresso fica salvo. |
 | **Jogo da bolinha** (`/jogo`) | Incline o tampo e leve a bolinha ao alvo, em 5 fases. Pode espelhar na plataforma (até 5°, devagar). |
-| **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança, corte colorido pela folga até o batente, inclinação máxima por direção e alcance de cada eixo a partir do home. Considera só o curso dos pistões. |
+| **Espaço de trabalho** (`/espaco-de-trabalho`) | Volume que o centro do tampo alcança com os limites reais, corte colorido pelo limite que está mais perto (curso, cardã da base, cardã do tampo ou folga entre pernas), inclinação máxima por direção e alcance de cada eixo com e sem margem. |
+| **Limites da mecânica** (Ajustes → `/limites`) | Os valores físicos de `interface/backend/limits.json` (curso de 500 a 750 mm, ângulo máximo dos cardãs, raio e folga das pernas) e a margem de operação (20%), com o alcance que resulta. Tudo o que comanda a bancada deriva daqui. |
 | **Calibração** (Ajustes → `/calibracao`) | Um processo de 3 a 4 min que interrompe o que estiver rodando e faz o **autoteste** (cada pistão sozinho ±30 mm em torno do home: velocidade, atraso, erro final e ruído; aponta travado, invertido, lento ou ruidoso) e a **recalibração** do simulador (gêmeo digital: um simulador "sombra" recebe os mesmos comandos só durante a calibração; o ajuste de vmax e zona morta só entra se melhorar a reprodução). Gera um relatório datado, comparado com o anterior; os parâmetros novos vão para o `sim_params.json` (com cópia `.bak`) só se você aplicar. Também compara ensaios CSV das Rotinas com o simulador. |
 | **Simulador de voo** (`/simulador-voo`) | Sensações do voo no FlightGear com washout clássico (inclinação sustentada, translação e rotação), respeitando curso e velocidade dos pistões, com o ERJ145 do IFSP voando no FlightGear dentro da página. Toca voos gravados (inclui uma rotina pronta), grava voos ao vivo via UDP e compara avião × plataforma. Veja [MOTION-CUEING-README.md](MOTION-CUEING-README.md) e [FLIGHTGEAR-SETUP.md](FLIGHTGEAR-SETUP.md). |
 | **Orientação do avião** (`/orientacao-voo`) | A plataforma copia roll e pitch do avião (até ±12°), ao vivo ou de um voo gravado, com o mesmo FlightGear embutido. |
@@ -122,7 +136,8 @@ Enquanto uma rotina ou trajetória roda, o backend recusa comandos manuais (409)
 ### Segurança
 
 - **Parar** (ou a tecla **Esc**) chama `POST /emergency-stop`: interrompe rotinas e a simulação de voo, tira o firmware do modo manual (`OK`) e congela os atuadores na posição atual. Joystick, IMU e "aplicar automaticamente" desligam sozinhos.
-- O backend escuta só em `127.0.0.1`, e o CORS é restrito ao próprio servidor e ao servidor de desenvolvimento.
+- **Limites reais** (`interface/backend/limits.py`, igual no frontend em `lib/limits.ts`): uma pose só é aceita se, com **20% de margem**, cada perna ficar no curso (525 a 725 mm dos 500 a 750 mm do atuador), os cardãs da base e do tampo não passarem de 80% do ângulo máximo e duas pernas não chegarem perto demais. O ângulo máximo dos cardãs (45°) é de catálogo: a junta real, impressa em PLA, não foi medida (o modelo 3D do cardã daria só 17°, menos do que a bancada já faz; veja `tools/estimate_cardan_limit.py`). Meça e ajuste em **Ajustes → Limites da mecânica**. O home fica no meio do curso de operação (570 mm). Sliders, joystick, IMU, rotinas, trajetórias, setpoints manuais e o simulador de voo usam esse envelope, em vez de faixas fixas.
+- O backend escuta só em `127.0.0.1`, e o CORS é restrito ao próprio servidor e ao servidor de desenvolvimento. No modo rede (`start.bat rede`), escuta na rede e exige o PIN para comandos que vêm de outros aparelhos.
 
 ## Desenvolvimento
 

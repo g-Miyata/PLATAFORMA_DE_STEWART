@@ -16,6 +16,8 @@ npm run test:e2e   :: Playwright + axe contra o build, com o simulador
 
 Equações em **KaTeX** (empacotado, funciona offline; `components/Tex.tsx`).
 
+**Limites reais:** `lib/limits.ts` faz as mesmas checagens do backend (curso de operação, cardãs e folga entre pernas); `limits.test.ts` confere contra `limits.fixture.json`, gerado por `interface/backend/tools/make_limits_fixture.py` (rode de novo se mudar `limits.py`). `useLimits()` dá o alcance de cada eixo para sliders e controles.
+
 O `test:e2e` usa o Edge instalado no Windows. Com o `start.bat` aberto, rode num backend separado (`PW_PORT=8011`) para não desconectar a sua sessão. Defina `PYTHON` com o Python do venv do backend se ele não for o `python` do PATH. No CI (Linux), use `PW_CHANNEL=chromium` depois de `npx playwright install chromium`.
 
 ## Estrutura
