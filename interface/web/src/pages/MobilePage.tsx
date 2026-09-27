@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/status';
 import { useCanCommand } from '@/features/control/useControlGate';
 import { GyroPanel } from '@/features/mobile/GyroPanel';
-import { LanConnectCard, PinGate, useLanStatus } from '@/features/mobile/lan';
+import { LanConnectCard, PinGate, pinFromHash, useLanStatus } from '@/features/mobile/lan';
 import { StickPanel } from '@/features/mobile/StickPanel';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { refreshSerialStatus } from '@/features/serial/status';
@@ -22,6 +22,20 @@ const TouchBench = lazy(() => import('@/features/mobile/TouchBench').then((m) =>
 
 type Tab = 'giroscopio' | 'joystick' | 'bancada';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+// tela de controle: sem zoom de pinça nem de toque duplo (os gestos são dos controles)
+const LOCKED_VIEWPORT = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+
+function useLockedViewport() {
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!meta) return;
+    const before = meta.content;
+    meta.content = LOCKED_VIEWPORT;
+    return () => {
+      meta.content = before;
+    };
+  }, []);
+}
 const TABS: { id: Tab; label: string; Icon: typeof Box }[] = [
   { id: 'giroscopio', label: 'Giroscópio', Icon: Smartphone },
   { id: 'joystick', label: 'Joystick', Icon: Gamepad2 },
@@ -43,9 +57,27 @@ export default function MobilePage() {
   // celular com PIN (pode sair e liberar a vez para outro)
   const paired = !!lan.data?.lan && !lan.data.local && lan.data.authorized;
 
+  useLockedViewport();
   useEffect(() => {
     document.title = 'Celular · Plataforma de Stewart · IFSP';
   }, []);
+
+  // QR code com o PIN (#pin=…): tira da barra de endereço e entra sozinho uma vez
+  const linkPin = useRef<string | null>(typeof window === 'undefined' ? null : pinFromHash(window.location.hash));
+  useEffect(() => {
+    if (pinFromHash(window.location.hash)) history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
+  const busy = !!lan.data?.busy;
+  useEffect(() => {
+    const pin = linkPin.current;
+    if (!pin || !needsPin || busy) return;
+    linkPin.current = null;
+    api
+      .lanAuth(pin)
+      .then(() => toast.success('Celular liberado para comandar'))
+      .catch((err: Error) => toast.error('Não liberou pelo QR code', { description: `${err.message} Digite o PIN que aparece no PC.` }))
+      .finally(() => void qc.invalidateQueries({ queryKey: ['lan-status'] }));
+  }, [needsPin, busy, qc]);
 
   // o PC desconectou este celular (ou o backend reiniciou): avisa uma vez
   const wasPaired = useRef(false);
@@ -74,10 +106,10 @@ export default function MobilePage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-fg">
+    <div className="flex min-h-dvh touch-manipulation flex-col overflow-x-hidden overscroll-none bg-bg text-fg">
       <header className="sticky top-0 z-20 flex items-center gap-2 border-b border-border bg-surface/95 px-3 py-2 backdrop-blur">
-        <Link to="/" className="mr-auto text-sm font-semibold">
-          Plataforma de Stewart
+        <Link to="/" className="mr-auto truncate text-sm font-semibold">
+          <span className="hidden min-[430px]:inline">Plataforma de </span>Stewart
         </Link>
         <ModeBadge />
         {paired && (
@@ -86,7 +118,7 @@ export default function MobilePage() {
             <span className="hidden min-[400px]:inline">Desconectar</span>
           </Button>
         )}
-        <EmergencyStopButton />
+        <EmergencyStopButton showShortcut={false} />
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-4 pb-24">
@@ -109,7 +141,7 @@ export default function MobilePage() {
             </Button>
           </div>
         ) : needsPin ? (
-          <PinGate busy={!!lan.data?.busy} />
+          <PinGate busy={busy} />
         ) : (
           <>
             {online && !serial.connected && (

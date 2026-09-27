@@ -10,6 +10,8 @@ import { useGeometry, useLimits } from '@/features/platform3d/geometry';
 import { api } from '@/lib/api';
 import { limitPose } from '@/lib/limits';
 import { fmt } from '@/lib/pistons';
+import type { Pose } from '@/lib/types';
+import { LiveResponse } from './LiveResponse';
 
 const SEND_MS = 50;
 
@@ -22,7 +24,7 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
   const [z, setZ] = useState(lim.home);
   const [yaw, setYaw] = useState(0);
   const sticks = useRef({ ...NEUTRAL });
-  const [shown, setShown] = useState({ x: 0, y: 0, roll: 0, pitch: 0 });
+  const [shown, setShown] = useState<Pose>(() => ({ x: 0, y: 0, z: lim.home, roll: 0, pitch: 0, yaw: 0 }));
 
   const poseNow = useCallback(() => {
     const p = sticksToPose(sticks.current, lim.home, lim, geometry, sensitivity / 100);
@@ -31,8 +33,7 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      const p = poseNow();
-      setShown({ x: p.x, y: p.y, roll: p.roll, pitch: p.pitch });
+      setShown(poseNow());
     }, 120);
     return () => clearInterval(id);
   }, [poseNow]);
@@ -66,14 +67,17 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap justify-around gap-6">
+      <LiveResponse target={running ? shown : null} />
+      <div className="flex flex-wrap justify-around gap-4">
         <VirtualStick
+          size={148}
           label="Mover (X / Y)"
           onChange={(x, y) => {
             sticks.current = { ...sticks.current, lx: x, ly: -y };
           }}
         />
         <VirtualStick
+          size={148}
           label="Inclinar (roll / pitch)"
           onChange={(x, y) => {
             sticks.current = { ...sticks.current, rx: x, ry: -y };

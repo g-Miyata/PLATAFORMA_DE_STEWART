@@ -9,7 +9,7 @@ import { useGeometry, useLimits } from '@/features/platform3d/geometry';
 import { AttitudeIndicator } from '@/features/presentation/SceneHud';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/pistons';
-import { useTelemetry } from '@/stores/telemetry';
+import { LiveResponse } from './LiveResponse';
 import { approachTilt, PHONE_TILT_RATE, tiltFromOrientation, type Orientation, type Tilt } from './control';
 
 const SEND_MS = 100;
@@ -110,7 +110,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
     }
   }
 
-  const live = useTelemetry((s) => s.telemetry?.pose_live ?? null);
+  const commanded = running ? { x: 0, y: 0, z: geometry.home_z, roll: shown.sent.roll, pitch: shown.sent.pitch, yaw: 0 } : null;
 
   if (!secure)
     return (
@@ -125,6 +125,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
 
   return (
     <div className="space-y-4">
+      <LiveResponse target={commanded} />
       {permission !== 'granted' ? (
         <div className="space-y-2">
           <p className="text-sm text-muted">Deite o celular com a tela para cima e incline: o tampo acompanha, até {fmt(maxDeg, 0)}° (o limite real da bancada, com margem).</p>
@@ -135,7 +136,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-around gap-4">
+          <div className="flex flex-wrap items-center justify-around gap-4">
             <div className="text-center">
               <AttitudeIndicator roll={shown.phone.roll} pitch={shown.phone.pitch} />
               <p className="mt-1 text-xs text-muted">celular</p>
@@ -146,10 +147,6 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
                 <dd className="text-lg font-semibold">
                   roll {fmt(shown.sent.roll, 1)}° · pitch {fmt(shown.sent.pitch, 1)}°
                 </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted">Tampo (medido)</dt>
-                <dd>{live ? `roll ${fmt(live.roll, 1)}° · pitch ${fmt(live.pitch, 1)}°` : '—'}</dd>
               </div>
             </dl>
           </div>

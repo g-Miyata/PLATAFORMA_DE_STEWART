@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber';
-import { Home, Minus, Plus, Undo2 } from 'lucide-react';
+import { Home, Maximize2, Minimize2, Minus, Plus, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import * as THREE from 'three';
@@ -9,6 +9,7 @@ import { SwitchField } from '@/components/ui/field';
 import { BenchScene } from '@/features/bench3d/BenchScene';
 import { AXIS_LABEL, PLATFORM_AXES, useBench } from '@/features/bench3d/benchStore';
 import { useAutoDisable } from '@/features/control/useControlGate';
+import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
@@ -19,7 +20,7 @@ const LIVE_MS = 100;
 const REPEAT_MS = 110;
 
 /** Botão que repete enquanto o dedo fica em cima (−/+ grandes para o toque). */
-function HoldButton({ label, onStep, children, disabled }: { label: string; onStep: () => void; children: React.ReactNode; disabled?: boolean }) {
+function HoldButton({ label, onStep, children, disabled, className }: { label: string; onStep: () => void; children: React.ReactNode; disabled?: boolean; className?: string }) {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stop = () => {
     if (timer.current) clearInterval(timer.current);
@@ -30,7 +31,7 @@ function HoldButton({ label, onStep, children, disabled }: { label: string; onSt
     <Button
       variant="secondary"
       size="lg"
-      className="h-16 flex-1 touch-none text-xl"
+      className={cn('h-16 flex-1 touch-none text-xl', className)}
       aria-label={label}
       disabled={disabled}
       onPointerDown={(e) => {
@@ -49,8 +50,14 @@ function HoldButton({ label, onStep, children, disabled }: { label: string; onSt
   );
 }
 
-/** Bancada 3D adaptada ao toque: um dedo gira, dois dão zoom; os botões grandes movem. */
+/**
+ * Bancada 3D adaptada ao toque: um dedo gira, dois dão zoom; os botões grandes movem.
+ * Em tela cheia, o modelo ocupa o celular inteiro e os controles ficam embaixo.
+ * O fantasma mostra a pose medida (a resposta do simulador ou da bancada).
+ */
 export function TouchBench({ canCommand }: { canCommand: boolean }) {
+  const root = useRef<HTMLDivElement>(null);
+  const [full, setFull] = useState(false);
   const geometry = useGeometry();
   const theme = useUi((s) => s.theme);
   const selection = useBench((s) => s.selection);
@@ -65,6 +72,22 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
   }, [theme]);
 
   useEffect(() => useBench.getState().init(geometry), [geometry]);
+
+  // tela cheia de verdade onde o navegador deixa (Android); no iPhone fica só o layout
+  async function toggleFull() {
+    if (full) {
+      setFull(false);
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+      return;
+    }
+    setFull(true);
+    await root.current?.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
+  }
+  useEffect(() => {
+    const on = () => !document.fullscreenElement && setFull(false);
+    document.addEventListener('fullscreenchange', on);
+    return () => document.removeEventListener('fullscreenchange', on);
+  }, []);
   useAutoDisable(live, () => setLive(false));
 
   // ao vivo: segue a edição a até 10 Hz
@@ -107,21 +130,39 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         : 'Toque num pistão ou no tampo';
 
   return (
-    <div className="space-y-3">
-      <div className="h-[46dvh] min-h-64 touch-none overflow-hidden rounded-xl border border-border" aria-hidden>
-        <Canvas
-          shadows
-          frameloop="demand"
-          dpr={[1, 1.5]}
-          camera={{ position: [1600, -1850, 1200], up: [0, 0, 1], fov: 34, near: 5, far: 20000 }}
-          gl={{ antialias: true, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.05 }}
+    <div ref={root} className={cn(full ? 'fixed inset-0 z-50 flex flex-col bg-bg' : 'space-y-3')}>
+      <div className={cn('relative touch-none overflow-hidden', full ? 'min-h-0 flex-1' : 'h-[52dvh] min-h-64 rounded-xl border border-border')}>
+        <div className="absolute inset-0" aria-hidden>
+          <Canvas
+            shadows
+            frameloop="demand"
+            dpr={[1, 1.5]}
+            camera={{ position: [1600, -1850, 1200], up: [0, 0, 1], fov: 34, near: 5, far: 20000 }}
+            gl={{ antialias: true, toneMapping: THREE.AgXToneMapping, toneMappingExposure: 1.05 }}
+          >
+            <BenchScene geometry={geometry} quality="leve" onDecline={() => undefined} showReal background={background} view="iso" viewNonce={0} />
+          </Canvas>
+        </div>
+        <div
+          className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2"
+          style={full ? { top: 'max(0.5rem, env(safe-area-inset-top))' } : undefined}
         >
-          <BenchScene geometry={geometry} quality="leve" onDecline={() => undefined} showReal={false} background={background} view="iso" viewNonce={0} />
-        </Canvas>
+          <p className="rounded-md bg-surface/85 px-2 py-1 text-sm font-medium backdrop-blur" aria-live="polite">
+            {selected}
+          </p>
+          <div className="pointer-events-auto flex items-center gap-1.5">
+            {full && <EmergencyStopButton showShortcut={false} />}
+            <Button size="icon" variant="secondary" onClick={toggleFull} aria-label={full ? 'Sair da tela cheia' : 'Bancada em tela cheia'} title={full ? 'Sair da tela cheia' : 'Tela cheia'}>
+              {full ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+            </Button>
+          </div>
+        </div>
+        <p className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-surface/85 px-2 py-0.5 text-xs text-muted backdrop-blur">fantasma = pose medida</p>
       </div>
-      <p className="text-center text-sm font-medium" aria-live="polite">
-        {selected}
-      </p>
+      <div
+        className={cn(full ? 'space-y-2 border-t border-border bg-surface/95 px-3 pt-2 backdrop-blur' : 'space-y-3')}
+        style={full ? { paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' } : undefined}
+      >
       <p role="status" className={cn('min-h-5 text-center text-sm font-medium text-danger', !limit && 'sr-only')}>
         {limit?.reason}
       </p>
@@ -163,10 +204,10 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         </div>
       )}
       <div className="flex gap-2">
-        <HoldButton label="Diminuir" onStep={() => step(-1)} disabled={selection.kind === 'none'}>
+        <HoldButton label="Diminuir" onStep={() => step(-1)} disabled={selection.kind === 'none'} className={full ? 'h-12' : undefined}>
           <Minus aria-hidden />
         </HoldButton>
-        <HoldButton label="Aumentar" onStep={() => step(1)} disabled={selection.kind === 'none'}>
+        <HoldButton label="Aumentar" onStep={() => step(1)} disabled={selection.kind === 'none'} className={full ? 'h-12' : undefined}>
           <Plus aria-hidden />
         </HoldButton>
       </div>
@@ -188,6 +229,7 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
         <div className="ml-auto">
           <SwitchField label="Ao vivo" checked={live} onCheckedChange={setLive} disabled={!canCommand} tone="danger" />
         </div>
+      </div>
       </div>
     </div>
   );

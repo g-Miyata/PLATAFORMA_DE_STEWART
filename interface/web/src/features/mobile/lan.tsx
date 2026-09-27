@@ -34,22 +34,35 @@ export function ago(s: number) {
   return `${Math.floor(m / 60)} h ${m % 60} min`;
 }
 
-function Qr({ text }: { text: string }) {
+/**
+ * Link do QR code com o PIN depois do "#": o celular entra sem digitar, e o fragmento
+ * não vai para o servidor nem para os logs (a página lê e apaga da barra de endereço).
+ */
+export function pinLink(url: string, pin: string | null) {
+  return pin ? `${url}#pin=${pin}` : url;
+}
+
+/** PIN que veio no link do QR code (#pin=123456), se houver. */
+export function pinFromHash(hash: string) {
+  return /(?:^#|&)pin=(\d{6})(?:&|$)/.exec(hash)?.[1] ?? null;
+}
+
+export function Qr({ text, className, label }: { text: string; className?: string; label?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    QRCode.toDataURL(text, { margin: 1, width: 220, errorCorrectionLevel: 'M' })
+    QRCode.toDataURL(text, { margin: 1, width: 320, errorCorrectionLevel: 'M' })
       .then((url) => alive && setSrc(url))
       .catch(() => alive && setSrc(null));
     return () => {
       alive = false;
     };
   }, [text]);
-  return src ? <img src={src} alt={`QR code para abrir ${text}`} className="size-44 rounded-lg bg-white p-2" /> : null;
+  return src ? <img src={src} alt={label ?? `QR code para abrir ${text}`} className={className ?? 'size-44 rounded-lg bg-white p-2'} draggable={false} /> : null;
 }
 
 /** Chamadas do PC que devolvem o LanInfo novo: atualiza o cache na hora. */
-function useLanAction<A>(fn: (arg: A) => Promise<LanInfo>, ok?: string) {
+export function useLanAction<A>(fn: (arg: A) => Promise<LanInfo>, ok?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: fn,
@@ -126,10 +139,10 @@ export function LanConnectCard() {
         </Alert>
       ) : first ? (
         <div className="flex flex-wrap items-center gap-4">
-          <Qr text={first.https} />
+          <Qr text={pinLink(first.https, data.pin)} label={`QR code para abrir ${first.https} já com o PIN`} />
           <div className="min-w-0 flex-1 space-y-2 text-sm">
             <p>
-              Aponte a câmera do celular para o QR code, ou digite no navegador dele:
+              Aponte a câmera do celular para o QR code (ele já leva o PIN), ou digite no navegador dele:
               <br />
               <span className="break-all font-mono font-semibold">{first.https}</span>
             </p>
