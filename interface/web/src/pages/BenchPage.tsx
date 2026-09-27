@@ -19,7 +19,8 @@ import { CAMERA_VIEWS, type CameraView } from '@/features/platform3d/Scene';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { legStatus } from '@/lib/kinematics';
+import { poseStatus } from '@/lib/kinematics';
+import { uiLimits } from '@/lib/limits';
 import { fmt, PISTON_COLORS, PISTONS } from '@/lib/pistons';
 import { useConnection } from '@/stores/connection';
 import { useUi } from '@/stores/ui';
@@ -44,11 +45,13 @@ function PoseReadout() {
 function PistonPanel({ index }: { index: number }) {
   const geometry = useBench((s) => s.geometry);
   const length = useBench((s) => s.lengths[index]);
+  const pose = useBench((s) => s.pose);
   const real = useThrottledTelemetry((s) => s.telemetry?.actuator_lengths_abs?.[index] ?? null, 200);
-  const { stroke_min: min, stroke_max: max } = geometry;
-  const stroke = length - min;
-  const pct = (stroke / (max - min)) * 100;
-  const status = legStatus(length, min, max);
+  // curso de OPERAÇÃO (com a margem); o curso mostrado continua contado do recolhido
+  const [min, max] = uiLimits(geometry).stroke;
+  const stroke = length - geometry.stroke_min;
+  const pct = (stroke / (geometry.stroke_max - geometry.stroke_min)) * 100;
+  const status = poseStatus(pose, geometry)[index];
   const set = (v: number) => {
     const s = useBench.getState();
     s.checkpoint();
@@ -67,7 +70,7 @@ function PistonPanel({ index }: { index: number }) {
       <div>
         <p className="text-3xl font-bold tabular-nums">{fmt(length, 1, 'mm')}</p>
         <p className="text-sm text-muted">
-          curso {fmt(stroke, 1, 'mm')} de {max - min} mm · folga {fmt(Math.min(length - min, max - length), 1, 'mm')}
+          curso {fmt(stroke, 1, 'mm')} de {geometry.stroke_max - geometry.stroke_min} mm · folga até o limite de operação {fmt(Math.min(length - min, max - length), 1, 'mm')}
         </p>
         <div aria-hidden className="mt-2 h-2.5 overflow-hidden rounded-full bg-surface-3">
           <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: PISTON_COLORS[index] }} />
@@ -124,8 +127,6 @@ function PlatformPanel({ axis }: { axis: PlatformAxis }) {
       </fieldset>
       <PoseEditor
         pose={pose}
-        // faixas largas: quem limita de verdade é o curso dos pistões (cinemática inversa)
-        limits={{ x: [-60, 60], y: [-60, 60], z: [430, 640], roll: [-25, 25], pitch: [-25, 25], yaw: [-30, 30] }}
         onChange={(p) => {
           const s = useBench.getState();
           s.checkpoint();

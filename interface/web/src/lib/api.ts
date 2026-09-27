@@ -1,3 +1,4 @@
+import type { JointLimitValues, LimitsInfo } from './limits';
 import type {
   ApplyPoseResult,
   CueingAnalysis,
@@ -114,6 +115,8 @@ export const api = {
 
   // Cinemática
   geometry: () => get<PlatformGeometry>('/config'),
+  limits: () => get<LimitsInfo>('/limits'),
+  setLimits: (values: Partial<JointLimitValues>) => post<LimitsInfo & { backup: string | null }>('/limits', values),
   calculate: (pose: Partial<Pose>) => post<PlatformResponse>('/calculate', pose),
   /** `source` identifica quem comandou (para o gravador); padrão: cinemática. */
   applyPose: async (pose: Partial<Pose>, source: PoseSource = 'cinematica') => {
@@ -121,7 +124,7 @@ export const api = {
     if (r.applied && pose.z !== undefined) emitPose(fullPose(pose, pose.z), source);
     return r;
   },
-  joystickPose: async (body: { lx: number; ly: number; rx: number; ry: number; apply: boolean; z_base: number }) => {
+  joystickPose: async (body: { lx: number; ly: number; rx: number; ry: number; apply: boolean; z_base: number; scale?: number }) => {
     const r = await post<PoseControlResult>('/joystick/pose', body);
     if (r.applied) emitPose(r.pose, 'joystick');
     return r;

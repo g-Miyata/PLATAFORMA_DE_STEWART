@@ -80,7 +80,7 @@ export default function BlocksPage() {
     if (!ok) return compiled.errors;
     if (check && !check.valid) {
       const s = stepAt(compiled.steps, check.firstInvalid!.t);
-      return [{ blockId: s?.blockId, message: `Fora do curso dos pistões em ${fmt(check.firstInvalid!.t, 1)} s.` }];
+      return [{ blockId: s?.blockId, message: `Passa dos limites da bancada em ${fmt(check.firstInvalid!.t, 1)} s.` }];
     }
     return [];
   }, [ok, compiled, check]);

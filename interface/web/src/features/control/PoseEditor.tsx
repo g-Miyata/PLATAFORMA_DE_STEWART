@@ -1,4 +1,5 @@
 import { SliderField } from '@/components/ui/field';
+import { useLimits } from '@/features/platform3d/geometry';
 import type { Pose } from '@/lib/types';
 
 export interface PoseLimits {
@@ -10,6 +11,7 @@ export interface PoseLimits {
   yaw: [number, number];
 }
 
+/** Faixas antigas, fixas (só para comparação no Espaço de trabalho). Os sliders usam o alcance real. */
 export const DEFAULT_LIMITS: PoseLimits = {
   x: [-40, 40],
   y: [-40, 40],
@@ -37,7 +39,9 @@ interface PoseEditorProps {
 }
 
 export function PoseEditor({ pose, onChange, limits, fields, disabled }: PoseEditorProps) {
-  const lim = { ...DEFAULT_LIMITS, ...limits };
+  // padrão: alcance de operação de cada eixo a partir do home (limites reais, /config)
+  const auto = useLimits().pose;
+  const lim = { ...auto, ...limits };
   const shown = fields ? FIELDS.filter((f) => fields.includes(f.key)) : FIELDS;
   return (
     <fieldset className="@container" disabled={disabled}>

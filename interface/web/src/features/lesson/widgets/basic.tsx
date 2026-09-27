@@ -9,6 +9,7 @@ import { forwardKinematics } from '@/lib/forwardKinematics';
 import { solvePose, zeroPose } from '@/lib/kinematics';
 import { fmt } from '@/lib/pistons';
 import type { Pose, Vec3 } from '@/lib/types';
+import { uiLimits } from '@/lib/limits';
 import { legVectors } from '../lessonMath';
 import { useLessonScene } from '../lessonStore';
 import { PARTS } from '../Overlays';
@@ -127,7 +128,7 @@ export function ActuatorWidget() {
   const pose = useLessonScene((s) => s.pose);
   const set = useLessonScene((s) => s.set);
   const start = useRef<number[] | null>(null);
-  const range = geometry.stroke_max - geometry.stroke_min;
+  const [courseLo, courseHi] = uiLimits(geometry).course;
   const legs = legVectors(pose, geometry);
   const [delta, setDelta] = useState(() => legs[0].delta);
   const [failed, setFailed] = useState(false);
@@ -144,7 +145,7 @@ export function ActuatorWidget() {
 
   return (
     <div className="space-y-3">
-      <SliderField label="Curso do pistão 1 (Δ₁)" value={delta} onValueChange={change} min={0} max={range} step={1} unit="mm" unitSpoken="milímetros" digits={0} />
+      <SliderField label="Curso do pistão 1 (Δ₁)" value={delta} onValueChange={change} min={courseLo} max={courseHi} step={1} unit="mm" unitSpoken="milímetros" digits={0} />
       <Tex block label={`L1 igual a L mínimo mais Delta 1, igual a ${fmt(geometry.stroke_min + delta, 0)} milímetros`}>
         {`L_1 = L_{\\min} + \\Delta_1 = ${texNum(geometry.stroke_min, 0)} + ${texNum(delta, 0)} = ${texNum(geometry.stroke_min + delta, 0)}\\ \\text{mm}`}
       </Tex>

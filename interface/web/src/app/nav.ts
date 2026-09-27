@@ -1,4 +1,4 @@
-import { Axis3d, Box, CircleDot, Clapperboard, Compass, GraduationCap, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Axis3d, Box, ShieldCheck, CircleDot, Clapperboard, Compass, GraduationCap, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'ajustes';
 
@@ -35,5 +35,6 @@ export const NAV: NavItem[] = [
   { path: '/jogo', label: 'Jogo da bolinha', description: 'Incline o tampo e leve a bolinha ao alvo, desviando dos buracos', Icon: CircleDot, group: 'mostrar' },
   { path: '/espaco-de-trabalho', label: 'Espaço de trabalho', description: 'Volume que o tampo alcança e inclinação máxima em cada direção', Icon: Orbit, group: 'mostrar' },
   { path: '/configuracoes', label: 'Ganhos PID', description: 'Kp, Ki, Kd, zona morta e PWM mínimo', Icon: SlidersHorizontal, group: 'ajustes' },
+  { path: '/limites', label: 'Limites da mecânica', description: 'Curso, ângulo dos cardãs e folga entre pernas: o máximo da bancada e a margem de operação', Icon: ShieldCheck, group: 'ajustes' },
   { path: '/calibracao', label: 'Calibração', description: 'Autoteste dos pistões e recalibração do simulador (gêmeo digital), com relatório', Icon: Stethoscope, group: 'ajustes' },
 ];

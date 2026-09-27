@@ -9,6 +9,7 @@ import { Alert, StatusPill } from '@/components/ui/status';
 import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate';
 import { useThrottledTelemetry } from '@/features/control/useThrottled';
 import { useGeometry } from '@/features/platform3d/geometry';
+import { uiLimits } from '@/lib/limits';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { fmt } from '@/lib/pistons';
@@ -37,6 +38,7 @@ function AngleBar({ label, value, range = 20 }: { label: string; value: number; 
 
 export default function ImuPage() {
   const geometry = useGeometry();
+  const lim = uiLimits(geometry);
   const canCommand = useCanCommand();
   // só conta como "transmitindo" se a última leitura for recente
   const imu = useThrottledTelemetry((s) => (s.imu && Date.now() / 1000 - s.imu.ts < SENSOR_TIMEOUT_S ? s.imu : null), 100);
@@ -134,9 +136,9 @@ export default function ImuPage() {
 
           {effectiveSource === 'virtual' ? (
             <div className="mt-5 space-y-4">
-              <SliderField label="Roll" value={virtualImu.roll} onValueChange={(v) => setVirtualImu((o) => ({ ...o, roll: v }))} min={-20} max={20} step={0.5} unit="°" unitSpoken="graus" />
-              <SliderField label="Pitch" value={virtualImu.pitch} onValueChange={(v) => setVirtualImu((o) => ({ ...o, pitch: v }))} min={-20} max={20} step={0.5} unit="°" unitSpoken="graus" />
-              <SliderField label="Yaw" value={virtualImu.yaw} onValueChange={(v) => setVirtualImu((o) => ({ ...o, yaw: v }))} min={-20} max={20} step={0.5} unit="°" unitSpoken="graus" />
+              <SliderField label="Roll" value={virtualImu.roll} onValueChange={(v) => setVirtualImu((o) => ({ ...o, roll: v }))} min={lim.pose.roll[0]} max={lim.pose.roll[1]} step={0.5} unit="°" unitSpoken="graus" />
+              <SliderField label="Pitch" value={virtualImu.pitch} onValueChange={(v) => setVirtualImu((o) => ({ ...o, pitch: v }))} min={lim.pose.pitch[0]} max={lim.pose.pitch[1]} step={0.5} unit="°" unitSpoken="graus" />
+              <SliderField label="Yaw" value={virtualImu.yaw} onValueChange={(v) => setVirtualImu((o) => ({ ...o, yaw: v }))} min={lim.pose.yaw[0]} max={lim.pose.yaw[1]} step={0.5} unit="°" unitSpoken="graus" />
               <Button size="sm" variant="ghost" onClick={() => setVirtualImu(ZERO)}>
                 <RotateCcw aria-hidden />
                 Nivelar

@@ -1,3 +1,5 @@
+import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
+import { checkPose, clampToReach, reasonText, uiLimits, type UiLimits } from '@/lib/limits';
 // Rotinas de movimento: presets da interface e uma cópia do gerador de trajetória
 // do backend (MotionRunner._generate_pose / _clamp_pose em app.py), usada só para
 // ESTIMAR antes de iniciar se os atuadores conseguem acompanhar a rotina.
@@ -55,7 +57,7 @@ export function buildRequest(preset: Preset, values: Record<string, number>): Mo
 const TAU = Math.PI * 2;
 
 /** Pose da rotina no instante t, em regime (sem rampa), como no backend. */
-export function routinePose(req: MotionRequest, t: number, zBase: number): Pose {
+export function routinePose(req: MotionRequest, t: number, zBase: number, lim: UiLimits = uiLimits(DEFAULT_GEOMETRY)): Pose {
   const pose: Pose = { x: 0, y: 0, z: zBase, roll: 0, pitch: 0, yaw: 0 };
   const f = req.hz;
   switch (req.routine) {
@@ -90,15 +92,8 @@ export function routinePose(req: MotionRequest, t: number, zBase: number): Pose 
       pose.pitch = (req.ay ?? 2.5) * Math.sin(TAU * f * t + TAU * 0.25);
       break;
   }
-  // mesmos limites de _clamp_pose (Z usa a margem de fallback de ±30 mm)
-  const c = (v: number, lim: number) => Math.max(-lim, Math.min(lim, v));
-  pose.x = c(pose.x, 50);
-  pose.y = c(pose.y, 50);
-  pose.z = Math.max(zBase - 30, Math.min(zBase + 30, pose.z));
-  pose.roll = c(pose.roll, 10);
-  pose.pitch = c(pose.pitch, 10);
-  pose.yaw = c(pose.yaw, 10);
-  return pose;
+  // mesmo clamp de _clamp_pose no backend: o alcance de operação de cada eixo (limites reais)
+  return clampToReach(pose, lim);
 }
 
 export interface Feasibility {
@@ -107,7 +102,10 @@ export interface Feasibility {
   /** comprimento mínimo e máximo percorridos (mm) */
   minLength: number;
   maxLength: number;
+  /** todas as amostras dentro dos limites (curso, cardãs e folga entre pernas) */
   withinStroke: boolean;
+  /** motivo da primeira amostra recusada */
+  reason: string | null;
 }
 
 /** Amostra um período (ou até 10 s) da rotina e mede o pior caso nos atuadores. */
@@ -118,8 +116,15 @@ export function analyzeRoutine(req: MotionRequest, geom: PlatformGeometry): Feas
   let peak = 0;
   let lo = Infinity;
   let hi = -Infinity;
+  let reason: string | null = null;
+  const lim = uiLimits(geom);
   for (let t = 0; t <= period + 1e-9; t += dt) {
-    const L = legLengths(geom.base_points, transformPoints(routinePose(req, t, geom.home_z), geom.platform_points_local));
+    const pose = routinePose(req, t, geom.home_z, lim);
+    const L = legLengths(geom.base_points, transformPoints(pose, geom.platform_points_local));
+    if (reason === null) {
+      const c = checkPose(pose, geom);
+      if (!c.valid) reason = reasonText(c);
+    }
     for (let i = 0; i < 6; i++) {
       lo = Math.min(lo, L[i]);
       hi = Math.max(hi, L[i]);
@@ -128,7 +133,7 @@ export function analyzeRoutine(req: MotionRequest, geom: PlatformGeometry): Feas
     }
     prev = L;
   }
-  return { peakSpeed: peak, minLength: lo, maxLength: hi, withinStroke: lo >= geom.stroke_min && hi <= geom.stroke_max };
+  return { peakSpeed: peak, minLength: lo, maxLength: hi, withinStroke: reason === null, reason };
 }
 
 /** Velocidade que os atuadores reais sustentam (ensaios de degrau do TCC: ~10–16 mm/s). */

@@ -7,6 +7,7 @@ import { rotationZYX } from '@/lib/kinematics';
 import { cn } from '@/lib/cn';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import type { Pose } from '@/lib/types';
+import { uiLimits } from '@/lib/limits';
 import { legVectors, rotX, rotY, rotZ, swappedOrderPose, zyxAnimation } from '../lessonMath';
 import { useLessonScene } from '../lessonStore';
 import { RB_COLOR } from '../Overlays';
@@ -158,7 +159,9 @@ export function IkSteps() {
             {`L_${i} = \\lVert \\mathbf{s}_${i} \\rVert = ${texNum(l.length)}\\ \\text{mm},\\qquad \\Delta_${i} = L_${i} - L_{\\min} = ${texNum(l.delta)}\\ \\text{mm}`}
           </Tex>
           <p className={cn('mt-1 font-medium', ok ? 'text-brand-text' : 'text-danger')}>
-            {ok ? `Dentro do curso (0 a ${fmt(geometry.stroke_max - geometry.stroke_min, 0)} mm).` : 'Fora do curso: essa pose seria recusada.'}
+            {ok
+              ? `Dentro do curso de operação (${fmt(uiLimits(geometry).course[0], 0)} a ${fmt(uiLimits(geometry).course[1], 0)} mm, com a margem de segurança).`
+              : 'Fora do curso de operação: essa pose seria recusada.'}
           </p>
         </li>
       </ol>

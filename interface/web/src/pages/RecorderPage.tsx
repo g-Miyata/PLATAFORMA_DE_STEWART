@@ -136,7 +136,7 @@ function Feasibility({ rec, geometryValid }: { rec: Recording; geometryValid: Re
   if (!a.valid)
     return (
       <Alert tone="danger" title="Fora do curso">
-        Em {fmt(a.firstInvalid!.t, 1)} s a trajetória pede um comprimento fora do curso dos pistões. Ajuste as poses-chave perto desse instante.
+        Em {fmt(a.firstInvalid!.t, 1)} s a trajetória passa dos limites da bancada (curso, cardãs ou folga entre pernas). Ajuste as poses-chave perto desse instante.
       </Alert>
     );
   if (a.tooFast)

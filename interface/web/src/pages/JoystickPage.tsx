@@ -7,7 +7,8 @@ import { Card } from '@/components/ui/card';
 import { SliderField, SwitchField } from '@/components/ui/field';
 import { Alert, StatusPill } from '@/components/ui/status';
 import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate';
-import { JOYSTICK_LIMITS, NEUTRAL, sticksToPose, useGamepad, type Sticks } from '@/features/joystick/gamepad';
+import { NEUTRAL, sticksToPose, useGamepad, type Sticks } from '@/features/joystick/gamepad';
+import { uiLimits } from '@/lib/limits';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { PlatformViewer } from '@/features/platform3d/PlatformViewer';
 import { api } from '@/lib/api';
@@ -39,10 +40,13 @@ export default function JoystickPage() {
   const [apply, setApply] = useState(false);
   const [virtualSticks, setVirtualSticks] = useState<Sticks>(NEUTRAL);
   const zBase = geometry.home_z;
+  const lim = uiLimits(geometry);
+  const [sensitivity, setSensitivity] = useState(60);
+  const scale = sensitivity / 100;
 
   // valores correntes (atualizados a 60 Hz sem re-render) e cópia para a UI (10 Hz)
   const live = useRef<Sticks>(NEUTRAL);
-  const [shown, setShown] = useState<{ sticks: Sticks; pose: Pose }>(() => ({ sticks: NEUTRAL, pose: sticksToPose(NEUTRAL, zBase) }));
+  const [shown, setShown] = useState<{ sticks: Sticks; pose: Pose }>(() => ({ sticks: NEUTRAL, pose: sticksToPose(NEUTRAL, zBase, lim, geometry, scale) }));
 
   const onFrame = useCallback((s: Sticks) => {
     live.current = s;
@@ -57,9 +61,9 @@ export default function JoystickPage() {
   }, [usingPad, virtualSticks]);
 
   useEffect(() => {
-    const id = setInterval(() => setShown({ sticks: live.current, pose: sticksToPose(live.current, zBase) }), UI_MS);
+    const id = setInterval(() => setShown({ sticks: live.current, pose: sticksToPose(live.current, zBase, lim, geometry, scale) }), UI_MS);
     return () => clearInterval(id);
-  }, [zBase]);
+  }, [zBase, lim, geometry, scale]);
 
   // envio a 20 Hz: com "mover a plataforma" desligado, o backend só valida
   const inFlight = useRef(false);
@@ -69,9 +73,9 @@ export default function JoystickPage() {
       if (inFlight.current) return;
       inFlight.current = true;
       const s = live.current;
-      const pose = sticksToPose(s, zBase);
+      const pose = sticksToPose(s, zBase, lim, geometry, scale);
       try {
-        await api.joystickPose({ lx: s.lx, ly: s.ly, rx: s.rx, ry: s.ry, apply: true, z_base: pose.z });
+        await api.joystickPose({ lx: s.lx, ly: s.ly, rx: s.rx, ry: s.ry, apply: true, z_base: pose.z, scale });
       } catch (err) {
         setApply(false);
         toast.error('Controle por joystick interrompido', { description: (err as Error).message });
@@ -80,16 +84,17 @@ export default function JoystickPage() {
       }
     }, SEND_MS);
     return () => clearInterval(id);
-  }, [apply, zBase]);
+  }, [apply, zBase, lim, geometry, scale]);
 
   const setStick = (k: keyof Sticks) => (v: number) => setVirtualSticks((s) => ({ ...s, [k]: v }));
-  const { transMm, angleDeg, zRangeMm } = JOYSTICK_LIMITS;
+  const r = lim.reach;
+  const fmtSpan = (k: 'x' | 'roll', unit: string) => `${fmt(-r[k][0] * scale, 0)} a ${fmt(r[k][1] * scale, 0)} ${unit}`;
 
   return (
     <>
       <PageHeader
         title="Joystick"
-        description={`Controle em tempo real com gamepad Xbox/PlayStation (±${transMm} mm em X/Y, ±${angleDeg}° em roll/pitch, ±${zRangeMm} mm em Z pelos gatilhos). Sem gamepad, use o joystick virtual.`}
+        description={`Controle em tempo real com gamepad Xbox/PlayStation. O curso do stick cobre o alcance real da bancada (a ${sensitivity}%: X ${fmtSpan('x', 'mm')}, roll ${fmtSpan('roll', '°')}); Z pelos gatilhos. Sem gamepad, use o joystick virtual.`}
       />
       <div className="space-y-5">
         <Card
@@ -117,6 +122,18 @@ export default function JoystickPage() {
                 disabled={!canCommand}
                 tone="danger"
               />
+              <SliderField
+                label="Sensibilidade"
+                value={sensitivity}
+                onValueChange={setSensitivity}
+                min={25}
+                max={100}
+                step={5}
+                unit="%"
+                unitSpoken="por cento"
+                digits={0}
+              />
+              <p className="text-xs text-muted">100% = o curso todo do stick vai até o alcance real da bancada (com a margem de segurança).</p>
             </div>
 
             <div>

@@ -11,13 +11,14 @@ import { Alert } from '@/components/ui/status';
 import { SerialConsole } from '@/features/actuators/SerialConsole';
 import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate';
 import { useThrottledTelemetry } from '@/features/control/useThrottled';
+import { useGeometry } from '@/features/platform3d/geometry';
 import { api } from '@/lib/api';
+import { uiLimits } from '@/lib/limits';
 import { cn } from '@/lib/cn';
 import { downloadText, timestampName, toCsv } from '@/lib/csv';
 import { fmt, PISTON_COLORS, PISTONS } from '@/lib/pistons';
 import { useTelemetry } from '@/stores/telemetry';
 
-const STROKE = 180;
 const SERIES: SeriesDef[] = [
   ...PISTON_COLORS.map((color, i) => ({ label: `Y${i + 1}`, color })),
   { label: 'SP (P1)', color: '#94a3b8', dashed: true },
@@ -106,6 +107,7 @@ function TelemetryChart() {
 }
 
 function TelemetryTable() {
+  const geometry = useGeometry();
   const m = useThrottledTelemetry((s) => s.telemetry, 200);
   return (
     <Card title="Telemetria" description={m ? `Setpoint P1: ${fmt(m.sp_mm, 1, 'mm')}` : 'Sem dados: conecte a serial ou o simulador.'}>
@@ -125,7 +127,7 @@ function TelemetryTable() {
           <tbody>
             {PISTONS.map((p, i) => {
               const y = m?.Y[i];
-              const pct = y === undefined ? 0 : Math.max(0, Math.min(100, (y / STROKE) * 100));
+              const pct = y === undefined ? 0 : Math.max(0, Math.min(100, (y / (geometry.stroke_max - geometry.stroke_min)) * 100));
               return (
                 <tr key={p} className="border-t border-border">
                   <th scope="row" className="py-1.5 text-left font-medium">
@@ -155,7 +157,10 @@ function SetpointsCard() {
   const [global, setGlobal] = useState(90);
   const [individual, setIndividual] = useState<number[]>(() => Array(6).fill(90));
   const pushLog = useTelemetry((s) => s.pushLog);
-  const clamp = (v: number) => Math.max(0, Math.min(STROKE, v));
+  const geometry = useGeometry();
+  // curso de operação: 10% de margem em cada ponta do curso do atuador
+  const [lo, hi] = uiLimits(geometry).course;
+  const clamp = (v: number) => Math.max(lo, Math.min(hi, v));
 
   async function send(value: number, piston?: number) {
     try {
@@ -167,9 +172,12 @@ function SetpointsCard() {
   }
 
   return (
-    <Card title="Setpoints" description={`Curso desejado de 0 a ${STROKE} mm, controlado pelo PID do ESP32.`}>
+    <Card
+      title="Setpoints"
+      description={`Curso desejado de ${lo} a ${hi} mm (o atuador vai de 0 a ${geometry.stroke_max - geometry.stroke_min} mm; as pontas ficam de margem). O backend também confere se a pose resultante respeita os cardãs e a folga entre pernas.`}
+    >
       <div className="flex flex-wrap items-end gap-2">
-        <NumberField label="Todos os pistões" value={global} onValueChange={setGlobal} min={0} max={STROKE} step={1} unit="mm" className="w-40" />
+        <NumberField label="Todos os pistões" value={global} onValueChange={setGlobal} min={lo} max={hi} step={1} unit="mm" className="w-40" />
         <Button variant="primary" onClick={() => send(global)} disabled={!canCommand}>
           <Send aria-hidden />
           Aplicar em todos
@@ -182,8 +190,8 @@ function SetpointsCard() {
               label={`Pistão ${p}`}
               value={individual[i]}
               onValueChange={(v) => setIndividual((prev) => prev.map((x, k) => (k === i ? v : x)))}
-              min={0}
-              max={STROKE}
+              min={lo}
+              max={hi}
               unit="mm"
               className="min-w-0 flex-1"
             />

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
+import { uiLimits } from '@/lib/limits';
 import { analyzeRoutine, buildRequest, PRESETS, routinePose } from './routines';
 
 describe('rotinas', () => {
@@ -13,9 +14,9 @@ describe('rotinas', () => {
     expect(routinePose(req, 3, 530).z).toBeCloseTo(520);
   });
 
-  it('respeita os limites de _clamp_pose do backend', () => {
+  it('respeita o clamp do backend: o alcance real de cada eixo', () => {
     const req = buildRequest(PRESETS[3], { amp: 25, hz: 0.25, duration_s: 30 });
-    expect(routinePose(req, 1, 530).pitch).toBe(10);
+    expect(routinePose(req, 1, 530).pitch).toBe(uiLimits(DEFAULT_GEOMETRY).pose.pitch[1]);
   });
 
   it('detecta rotina rápida demais para os atuadores', () => {

@@ -9,9 +9,12 @@ import { glass, sceneBackground, stageClass, useFullscreen } from '@/components/
 import { Button } from '@/components/ui/button';
 import { SelectField, SliderField, SwitchField } from '@/components/ui/field';
 import { DEFAULT_LIMITS, PoseEditor, type PoseLimits } from '@/features/control/PoseEditor';
+import { physicalLimits } from '@/lib/limits';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { usePositionField, useTiltField } from '@/features/workspace/useWorkspace';
-import { axisReach, makeMargin } from '@/features/workspace/workspace';
+import { axisReach, LIMIT_LABELS, makeLimiter } from '@/features/workspace/workspace';
+import { LIMIT_COLORS } from '@/features/workspace/WorkspaceScene';
+import { useLimits } from '@/features/platform3d/geometry';
 import { WorkspaceScene } from '@/features/workspace/WorkspaceScene';
 import { cn } from '@/lib/cn';
 import { zeroPose } from '@/lib/kinematics';
@@ -95,7 +98,19 @@ export default function WorkspacePage() {
   const field = usePositionField(geometry, orient, RESOLUTION[res]);
   const tilt = useTiltField(geometry, { x: pose.x, y: pose.y, z: pose.z }, pose.yaw, mode === 'inclinacao');
   const reach = useMemo(() => axisReach(geometry, zeroPose(geometry.home_z)), [geometry]);
-  const margin = useMemo(() => makeMargin(geometry)(pose.x, pose.y, pose.z, pose.roll, pose.pitch, pose.yaw), [geometry, pose]);
+  // o mesmo alcance sem a margem de segurança (os limites físicos), para comparar
+  const physicalReach = useMemo(() => {
+    const v = geometry.limits?.values;
+    if (!v || !geometry.limits) return null;
+    const phys = { ...geometry, limits: { ...geometry.limits, operational: physicalLimits(v) } };
+    return axisReach(phys, zeroPose(geometry.home_z));
+  }, [geometry]);
+  const lim = useLimits();
+  const { margin, limit } = useMemo(() => {
+    const l = makeLimiter(geometry);
+    const m = l.margin(pose.x, pose.y, pose.z, pose.roll, pose.pitch, pose.yaw);
+    return { margin: m, limit: l.lastLimit() };
+  }, [geometry, pose]);
   const shownPose = mode === 'posicao' ? pose : { ...pose, roll: 0, pitch: 0 };
   const valid = margin >= 0;
 
@@ -147,7 +162,7 @@ export default function WorkspacePage() {
           </Tabs.Content>
         </Tabs.Root>
         <p role="status" className={cn('text-sm font-medium', valid ? 'text-brand-text' : 'text-danger')}>
-          {valid ? `Pose alcançável (folga de ${fmt(margin, 1)} mm até o batente mais próximo).` : `Pose fora do curso (${fmt(-margin, 1)} mm além do batente).`}
+          {valid ? `Pose alcançável. Limite mais perto: ${LIMIT_LABELS[limit].toLowerCase()}.` : `Pose fora dos limites: ${LIMIT_LABELS[limit].toLowerCase()}.`}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" onClick={useLive}>
@@ -173,13 +188,15 @@ export default function WorkspacePage() {
             <thead>
               <tr className="text-left text-xs text-muted">
                 <th className="font-medium">Eixo</th>
-                <th className="font-medium">Alcance</th>
-                <th className="font-medium">Sliders</th>
+                <th className="font-medium">Operação</th>
+                <th className="font-medium">Sem margem</th>
+                <th className="font-medium">Antes</th>
               </tr>
             </thead>
             <tbody>
               {AXES.map(({ key, label, unit }) => {
                 const [lo, hi] = reach[key];
+                const phys = physicalReach?.[key];
                 const [slo, shi] = DEFAULT_LIMITS[key];
                 return (
                   <tr key={key} className="border-t border-border">
@@ -187,7 +204,8 @@ export default function WorkspacePage() {
                     <td>
                       {fmt(lo, 1)} a {fmt(hi, 1)} {unit}
                     </td>
-                    <td className={cn((slo < lo || shi > hi) && 'text-danger')}>
+                    <td className="text-muted">{phys ? `${fmt(phys[0], 1)} a ${fmt(phys[1], 1)}` : '—'}</td>
+                    <td className="text-muted">
                       {slo} a {shi}
                     </td>
                   </tr>
@@ -195,22 +213,37 @@ export default function WorkspacePage() {
               })}
             </tbody>
           </table>
-          <p className="mt-1 text-xs text-muted">Cada eixo sozinho, com os outros no home. “Sliders” são os limites das outras páginas (em vermelho quando passam do alcance).</p>
+          <p className="mt-1 text-xs text-muted">
+            Cada eixo sozinho, com os outros no home. “Operação” é o que os sliders e controles usam (com 20% de margem); “sem margem” é o limite físico; “antes” eram as faixas fixas usadas até agora.
+          </p>
         </div>
         <div className="space-y-3 border-t border-border pt-3">
           <SwitchField label="Superfície do volume" checked={showSurface} onCheckedChange={setShowSurface} />
           <SwitchField label="Corte horizontal" checked={showSlice} onCheckedChange={setShowSlice} />
           <SwitchField label="Pernas e tampo" description="Desligue para ver só o volume sobre a base." checked={showRig} onCheckedChange={setShowRig} />
-          {showSlice && <SliderField label="Altura do corte" value={sliceZ} onValueChange={setSliceZ} min={400} max={680} step={1} unit="mm" unitSpoken="milímetros" digits={0} />}
+          {showSlice && <SliderField label="Altura do corte" value={sliceZ} onValueChange={setSliceZ} min={Math.floor(lim.pose.z[0] - 40)} max={Math.ceil(lim.pose.z[1] + 40)} step={1} unit="mm" unitSpoken="milímetros" digits={0} />}
           <SelectField label="Resolução" value={res} onChange={(e) => setRes(e.target.value as keyof typeof RESOLUTION)}>
             <option value="rapida">Rápida (48³)</option>
             <option value="fina">Fina (96³, mais lenta)</option>
           </SelectField>
         </div>
-        <p className="flex gap-2 rounded-lg bg-surface-2 p-3 text-xs text-muted">
-          <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
-          Considera só o curso dos pistões. O ângulo máximo dos cardãs e as colisões entre as pernas não entram: o alcance real pode ser menor.
-        </p>
+        <div className="space-y-2 rounded-lg bg-surface-2 p-3 text-xs text-muted">
+          <p className="flex gap-2">
+            <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Considera os limites reais com 20% de margem: curso do atuador, ângulo dos cardãs da base e do tampo e distância entre as pernas (Ajustes → Limites da
+              mecânica). No corte, verde é longe dos limites; perto, a cor mostra qual limite está chegando:
+            </span>
+          </p>
+          <ul className="grid grid-cols-2 gap-1" aria-label="Legenda do corte">
+            {LIMIT_LABELS.map((label, i) => (
+              <li key={label} className="flex items-center gap-1.5">
+                <span aria-hidden className="size-2.5 rounded-full" style={{ background: `rgb(${LIMIT_COLORS[i].join(',')})` }} />
+                {label}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <div className={cn(glass, 'absolute bottom-3 right-3 p-2 sm:bottom-4 sm:right-4')}>

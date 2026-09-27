@@ -30,7 +30,7 @@ function FeasibilityNote({ preset, values }: { preset: Preset; values: Record<st
       className="mt-4"
     >
       {!a.withinStroke
-        ? `A trajetória sai do curso (${fmt(a.minLength, 0)} a ${fmt(a.maxLength, 0)} mm; permitido ${geometry.stroke_min} a ${geometry.stroke_max} mm).`
+        ? `A trajetória passa dos limites da bancada (${a.reason}). Reduza a amplitude.`
         : tooFast
           ? `Os atuadores reais sustentam cerca de ${ACTUATOR_SPEED_MM_S} mm/s: a plataforma vai ficar atrás do comando e o movimento sai menor. ${simulated ? 'O simulador reproduz esse atraso, compare as curvas no gráfico.' : 'Teste antes no simulador.'} Reduza a amplitude ou a frequência.`
           : `Dentro do que os atuadores acompanham (~${ACTUATOR_SPEED_MM_S} mm/s). Comprimentos entre ${fmt(a.minLength, 0)} e ${fmt(a.maxLength, 0)} mm.`}

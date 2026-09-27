@@ -166,12 +166,12 @@ export function analyzeTrajectory(samples: readonly TrajectorySample[], geom: Pl
   let hi = -Infinity;
   let firstInvalid: TrajectoryCheck['firstInvalid'] = null;
   samples.forEach((s, index) => {
-    const { lengths } = solvePose(s, geom);
+    const { lengths, valid } = solvePose(s, geom);
     for (const l of lengths) {
       lo = Math.min(lo, l);
       hi = Math.max(hi, l);
     }
-    if (!firstInvalid && lengths.some((l) => l < geom.stroke_min || l > geom.stroke_max)) firstInvalid = { index, t: s.t };
+    if (!firstInvalid && !valid) firstInvalid = { index, t: s.t };
     if (prev && s.t > prev.t) {
       const dt = (s.t - prev.t) / speed;
       for (let i = 0; i < 6; i++) peak = Math.max(peak, Math.abs(lengths[i] - prev.L[i]) / dt);

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_GEOMETRY } from '@/features/platform3d/geometry';
-import { solvePose } from '@/lib/kinematics';
+import { solvePose, zeroPose } from '@/lib/kinematics';
+import { uiLimits } from '@/lib/limits';
 import { useBench } from './benchStore';
 
 const s = () => useBench.getState();
@@ -24,7 +25,11 @@ describe('bancada: pistão individual (cinemática direta)', () => {
 
   it('para no batente e avisa', () => {
     expect(s().setPistonLength(0, 900)).toBe(false);
-    expect(s().lengths[0]).toBe(DEFAULT_GEOMETRY.stroke_max);
+    // vai até o primeiro limite (curso de operação, cardã ou folga) e para ali
+    const L = s().lengths[0];
+    expect(L).toBeGreaterThan(solvePose(zeroPose(DEFAULT_GEOMETRY.home_z), DEFAULT_GEOMETRY).lengths[0] + 20);
+    expect(L).toBeLessThanOrEqual(uiLimits(DEFAULT_GEOMETRY).stroke[1]);
+    expect(solvePose(s().pose, DEFAULT_GEOMETRY).valid).toBe(true);
     expect(s().limit?.piston).toBe(0);
   });
 });

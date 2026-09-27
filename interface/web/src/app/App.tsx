@@ -21,6 +21,7 @@ const LessonPage = lazy(() => import('@/pages/LessonPage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage'));
+const LimitsPage = lazy(() => import('@/pages/LimitsPage'));
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
 function Loading() {
@@ -63,6 +64,7 @@ export const routes = [
       { path: '/jogo', element: page(GamePage) },
       { path: '/espaco-de-trabalho', element: page(WorkspacePage) },
       { path: '/calibracao', element: page(CalibrationPage) },
+      { path: '/limites', element: page(LimitsPage) },
       // o gêmeo digital passou a fazer parte da Calibração
       { path: '/gemeo-digital', element: <Navigate to="/calibracao" replace /> },
       { path: '*', element: page(NotFoundPage) },

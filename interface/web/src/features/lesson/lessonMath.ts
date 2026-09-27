@@ -3,6 +3,7 @@
 // lib/kinematics.ts, só que decomposta para desenhar e mostrar cada termo.
 import { forwardKinematics } from '@/lib/forwardKinematics';
 import { rotationZYX, type Mat3 } from '@/lib/kinematics';
+import { uiLimits } from '@/lib/limits';
 import type { PlatformGeometry, Pose, Vec3 } from '@/lib/types';
 
 export interface LegVectors {
@@ -51,7 +52,8 @@ export function legVectors(pose: Pose, geom: PlatformGeometry): LegVectors[] {
     const a = geom.base_points[i];
     const s = sub(P, a);
     const length = norm(s);
-    return { a, b, Rb, P, s, length, delta: length - geom.stroke_min, inStroke: length >= geom.stroke_min && length <= geom.stroke_max };
+    const [lo, hi] = uiLimits(geom).stroke;
+    return { a, b, Rb, P, s, length, delta: length - geom.stroke_min, inStroke: length >= lo && length <= hi };
   });
 }
 

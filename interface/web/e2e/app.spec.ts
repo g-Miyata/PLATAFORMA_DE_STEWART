@@ -19,6 +19,7 @@ const ROUTES = [
   ['/jogo', 'Jogo da bolinha'],
   ['/espaco-de-trabalho', 'Espaço de trabalho'],
   ['/calibracao', 'Calibração'],
+  ['/limites', 'Limites da mecânica'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -195,7 +196,7 @@ test.describe('Gravar e reproduzir', () => {
     await page.getByRole('textbox', { name: 'Nome' }).fill('e2e');
     // 2ª pose-chave: 3 s depois, 10 mm mais alta
     await page.getByRole('button', { name: 'No instante' }).click();
-    await page.getByRole('spinbutton', { name: 'Z (altura) (milímetros)' }).fill('540');
+    await page.getByRole('spinbutton', { name: 'Z (altura) (milímetros)' }).fill('580');
     await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem')).toHaveCount(2);
     await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
 
