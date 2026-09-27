@@ -32,6 +32,7 @@ interface OperatorPanelProps {
 const MODES: { id: ExhibitMode; label: string; description: string }[] = [
   { id: 'show', label: 'Show automático', description: 'as cenas em laço; o público pode tocar para controlar' },
   { id: 'voo', label: 'Simulador de voo (motion cueing)', description: 'um voo gravado do ERJ145 em laço, com washout' },
+  { id: 'orientacao', label: 'Orientação do avião', description: 'o mesmo voo, com o tampo copiando roll e pitch do avião' },
 ];
 
 const AUTO_CLOSE_MS = 20_000;
@@ -67,7 +68,7 @@ export function OperatorPanel(p: OperatorPanelProps) {
   }, []);
 
   const modeName = useId();
-  const voo = p.mode === 'voo';
+  const voo = p.mode !== 'show';
   return (
     <aside
       ref={ref}
@@ -104,7 +105,7 @@ export function OperatorPanel(p: OperatorPanelProps) {
       <div role="status" aria-live="polite" className="text-sm">
         {voo && p.real ? (
           <>
-            <span className="font-semibold">{p.simulated ? 'Simulador' : 'Bancada'}:</span> engatada no motion cueing
+            <span className="font-semibold">{p.simulated ? 'Simulador' : 'Bancada'}:</span> {p.mode === 'orientacao' ? 'copiando a orientação do avião' : 'engatada no motion cueing'}
             {p.remaining !== null && <span className="block text-muted tabular-nums">Sessão termina em {mmss(p.remaining)}</span>}
           </>
         ) : p.real ? (
@@ -120,7 +121,9 @@ export function OperatorPanel(p: OperatorPanelProps) {
       <SwitchField
         label="Mover a plataforma de verdade"
         description={
-          voo
+          p.mode === 'orientacao'
+            ? 'Engata a plataforma na orientação do avião: o tampo copia roll e pitch (dentro do limite de inclinação) e volta ao neutro ao desligar.'
+            : voo
             ? 'Engata a plataforma no motion cueing: ela sente o voo (dentro do curso e da velocidade dos pistões) e volta ao neutro ao desligar.'
             : `Toca ${p.playlistLength} movimentos com amplitude reduzida (até ~10 mm/s), com pausa no home entre eles.`
         }

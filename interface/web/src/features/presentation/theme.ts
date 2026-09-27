@@ -1,8 +1,12 @@
 import type { CSSProperties } from 'react';
 import type { Theme } from '@/stores/ui';
 
-/** O que a tela de exposição mostra: o show de cenas ou o simulador de voo (motion cueing). */
-export type ExhibitMode = 'show' | 'voo';
+/** O que a tela de exposição mostra: o show de cenas, o simulador de voo (washout) ou a orientação do avião. */
+export type ExhibitMode = 'show' | 'voo' | 'orientacao';
+
+/** Modos que tocam um voo gravado pelo cueing (e o perfil de cada um). */
+export const FLIGHT_PROFILE = { voo: 'washout', orientacao: 'attitude' } as const;
+export const isFlightMode = (m: ExhibitMode): m is 'voo' | 'orientacao' => m !== 'show';
 
 /**
  * Cores da tela de exposição nos dois temas. O HUD usa as variáveis --ex-* (definidas

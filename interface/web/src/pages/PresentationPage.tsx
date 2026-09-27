@@ -15,7 +15,7 @@ import { buildPlaylist } from '@/features/presentation/kiosk';
 import { OperatorPanel } from '@/features/presentation/OperatorPanel';
 import { FlightHud, SceneHud } from '@/features/presentation/SceneHud';
 import { dofAt, SCENES, sceneAt, sceneStart, type Shot } from '@/features/presentation/scenes';
-import { exhibitPalette, type ExhibitMode } from '@/features/presentation/theme';
+import { exhibitPalette, FLIGHT_PROFILE, isFlightMode, type ExhibitMode } from '@/features/presentation/theme';
 import { useExhibitFlight } from '@/features/presentation/useExhibitFlight';
 import { useKiosk } from '@/features/presentation/useKiosk';
 import { stepTilt, VISITOR_IDLE_S, VISITOR_MODEL, VISITOR_REAL } from '@/features/presentation/visitor';
@@ -78,7 +78,11 @@ export default function PresentationPage() {
   const toggleTheme = useUi((s) => s.toggleTheme);
   const pal = exhibitPalette(theme);
   // show automático ou simulador de voo (motion cueing); ?modo=voo abre direto no voo
-  const [mode, setMode] = useState<ExhibitMode>(params.get('modo') === 'voo' ? 'voo' : 'show');
+  const [mode, setMode] = useState<ExhibitMode>(() => {
+    const m = params.get('modo');
+    return m === 'voo' || m === 'orientacao' ? m : 'show';
+  });
+  const flightMode = isFlightMode(mode);
   const modeRef = useRef(mode);
   useEffect(() => {
     modeRef.current = mode;
@@ -102,8 +106,9 @@ export default function PresentationPage() {
   const visitorDrivesReal = real && publicReal && visitor;
   const kiosk = useKiosk(real && mode === 'show' && !visitorDrivesReal, playlist, sessionMin, () => setReal(false));
   const fgReady = useFgReady();
-  const flight = useExhibitFlight(mode === 'voo', real, fgReady, () => setReal(false));
+  const flight = useExhibitFlight(flightMode, isFlightMode(mode) ? FLIGHT_PROFILE[mode] : 'washout', real, fgReady, () => setReal(false));
   useReleaseOnLeave('washout');
+  useReleaseOnLeave('attitude');
 
   useEffect(() => {
     document.title = 'Apresentação · Plataforma de Stewart · IFSP';
@@ -151,7 +156,7 @@ export default function PresentationPage() {
 
   const touch = useCallback(() => {
     // no simulador de voo quem pilota é o voo gravado: o toque não assume o controle
-    if (modeRef.current === 'voo') return;
+    if (modeRef.current !== 'show') return;
     lastInput.current = performance.now();
     firstScene.current = 0;
     setVisitor(true);
@@ -257,7 +262,7 @@ export default function PresentationPage() {
   const onFrame = useCallback(
     (dt: number) => {
       const live = real ? useTelemetry.getState().telemetry?.pose_live : null;
-      if (mode === 'voo') {
+      if (isFlightMode(mode)) {
         // pose calculada pelo washout (a mesma que vai para a bancada quando engatada)
         const tick = useCueing.getState().tick;
         const t = performance.now() / 1000;
@@ -383,8 +388,8 @@ export default function PresentationPage() {
 
       {/* texto da cena ou HUD do visitante */}
       <div className="pointer-events-none absolute inset-x-5 bottom-20 sm:inset-x-10 sm:bottom-24 lg:right-auto lg:max-w-[64rem]" aria-live="polite">
-        {mode === 'voo' ? (
-          <FlightHud getTick={getTick} flightName={flight?.name ?? null} />
+        {flightMode ? (
+          <FlightHud key={mode} getTick={getTick} flightName={flight?.name ?? null} attitude={mode === 'orientacao'} />
         ) : visitor ? (
           <section aria-labelledby="visitante-titulo" className="scene-enter flex items-end gap-5">
             <Countdown left={idleLeft} />
@@ -404,7 +409,7 @@ export default function PresentationPage() {
         )}
       </div>
 
-      {mode === 'voo' && fgReady && (
+      {flightMode && fgReady && (
         <figure className="pointer-events-none absolute right-5 top-20 w-[min(34rem,42vw)] overflow-hidden rounded-xl border border-[var(--ex-border)] bg-black shadow-2xl sm:right-8">
           <img src="/fg/stream?k=apresentacao" alt="FlightGear: o avião do voo que está tocando" className="aspect-video w-full object-cover" />
           <figcaption className="flex items-center gap-1.5 bg-[var(--ex-panel)] px-3 py-1.5 text-xs text-[var(--ex-muted)]">
@@ -426,7 +431,7 @@ export default function PresentationPage() {
 
       {/* rodapé: progresso das cenas e convite */}
       <div className="pointer-events-none absolute inset-x-5 bottom-6 flex items-center justify-between gap-4 sm:inset-x-10 sm:bottom-8">
-        <ol className={cn('flex gap-2', mode === 'voo' && 'invisible')} aria-label="Cenas" aria-hidden={mode === 'voo' || undefined}>
+        <ol className={cn('flex gap-2', flightMode && 'invisible')} aria-label="Cenas" aria-hidden={flightMode || undefined}>
           {SCENES.map((s, i) => (
             <li
               key={s.id}

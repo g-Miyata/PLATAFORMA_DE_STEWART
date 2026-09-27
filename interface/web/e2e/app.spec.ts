@@ -245,7 +245,7 @@ test.describe('Apresentação', () => {
   test('o show troca de cena, arrastar passa o controle ao público e O abre o painel do operador', async ({ page }) => {
     await page.goto('/apresentacao?cena=voo');
     await expect(page.getByRole('heading', { name: 'Do simulador de voo para a bancada' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Cinemática em tempo real' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Orientação do avião' })).toBeVisible({ timeout: 15_000 });
     await page.mouse.move(700, 350);
     await page.mouse.down();
     await page.mouse.move(780, 320, { steps: 5 });
@@ -294,6 +294,19 @@ test.describe('Apresentação: simulador de voo e tema', () => {
     // sair da página para o voo
     await page.goto('/');
     await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay).toBeNull();
+  });
+
+  test('orientação do avião: toca o voo no perfil attitude, engata e o Esc desengata', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/apresentacao?modo=orientacao');
+    await expect(page.getByRole('heading', { name: 'O tampo copia o avião' })).toBeVisible();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.profile ?? null, { timeout: 8_000 }).toBe('attitude');
+    await page.keyboard.press('KeyO');
+    await expect(page.getByRole('radio', { name: /Orientação do avião/ })).toBeChecked();
+    await page.getByRole('switch', { name: 'Mover a plataforma de verdade' }).click();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: 8_000 }).not.toBe('off');
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode).toBe('off');
   });
 
   test('o botão troca o tema da apresentação e continua acessível', async ({ page }) => {

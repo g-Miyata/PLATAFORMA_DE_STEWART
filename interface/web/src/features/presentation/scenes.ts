@@ -3,7 +3,7 @@
 import type { PoseAxis } from '@/features/recorder/trajectory';
 import type { Pose } from '@/lib/types';
 
-export type SceneId = 'titulo' | 'gdl' | 'pistoes' | 'voo' | 'cinematica' | 'toque';
+export type SceneId = 'titulo' | 'gdl' | 'pistoes' | 'voo' | 'orientacao' | 'cinematica' | 'toque';
 
 /** Câmera em coordenadas esféricas em torno do centro da bancada (graus e mm). */
 export interface Shot {
@@ -94,6 +94,18 @@ export const SCENES: Scene[] = [
     shot: [
       { azimuth: 180, elevation: 10, distance: 2950, targetZ: 240 },
       { azimuth: 150, elevation: 16, distance: 2950, targetZ: 220 },
+    ],
+  },
+  {
+    id: 'orientacao',
+    title: 'Orientação do avião',
+    subtitle: 'A plataforma copia a inclinação do avião: rolagem e arfagem, como um instrumento que você sente',
+    seconds: 12,
+    // curva coordenada: inclina para um lado, nivela, inclina para o outro, com o nariz acompanhando
+    pose: (u) => ({ roll: 12 * s(u, 1), pitch: 4 * s(u, 2, 0.25) }),
+    shot: [
+      { azimuth: -95, elevation: 6, distance: 2850, targetZ: 300 },
+      { azimuth: -80, elevation: 12, distance: 2850, targetZ: 280 },
     ],
   },
   {

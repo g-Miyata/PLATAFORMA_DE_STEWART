@@ -130,6 +130,18 @@ function SceneExtra({ id, u, pose, geometry }: { id: SceneId; u: number; pose: P
         </dl>
       </div>
     );
+  if (id === 'orientacao')
+    return (
+      <div className="flex flex-wrap items-center gap-5">
+        <AttitudeIndicator roll={pose.roll} pitch={pose.pitch} />
+        <p className="max-w-xs text-2xl font-bold leading-snug text-[var(--ex-text)]">
+          Tampo = avião
+          <span className="mt-1 block text-base font-normal text-[var(--ex-muted)] tabular-nums">
+            roll {fmt(pose.roll, 1)}° · pitch {fmt(pose.pitch, 1)}°, direto do FlightGear
+          </span>
+        </p>
+      </div>
+    );
   if (id === 'cinematica') {
     const L1 = solvePose(pose, geometry).lengths[0];
     return (
@@ -170,19 +182,21 @@ export function SceneHud({ index, getState, geometry }: { index: number; getStat
 }
 
 /** Modo "Simulador de voo": instrumentos do avião e o que a plataforma faz (motion cueing). */
-export function FlightHud({ getTick, flightName }: { getTick: () => CueingTickMessage | null; flightName: string | null }) {
+export function FlightHud({ getTick, flightName, attitude = false }: { getTick: () => CueingTickMessage | null; flightName: string | null; attitude?: boolean }) {
   const tick = usePolled(getTick, 100);
   const ac = tick?.aircraft ?? null;
   const rp = tick?.replay ?? null;
   const pose = tick?.pose ?? null;
   return (
     <section aria-labelledby="voo-titulo" className="scene-enter space-y-5">
-      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--ex-accent)]">Simulador de voo · motion cueing</p>
+      <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[var(--ex-accent)]">{attitude ? 'Orientação do avião' : 'Simulador de voo · motion cueing'}</p>
       <h2 id="voo-titulo" className="max-w-4xl text-5xl font-extrabold leading-[1.02] tracking-tight text-[var(--ex-text)] drop-shadow-[0_4px_30px_var(--ex-shadow)] sm:text-6xl xl:text-7xl">
-        Sinta o voo
+        {attitude ? 'O tampo copia o avião' : 'Sinta o voo'}
       </h2>
       <p className="max-w-2xl text-lg text-[var(--ex-muted)] sm:text-xl">
-        A plataforma reproduz as acelerações e as curvas do ERJ145 do IFSP no FlightGear. Para simular uma aceleração longa, ela inclina devagar e depois volta ao centro sem você perceber (washout).
+        {attitude
+          ? 'A rolagem e a arfagem do ERJ145 do IFSP no FlightGear vão direto para o tampo, dentro do limite de inclinação da bancada.'
+          : 'A plataforma reproduz as acelerações e as curvas do ERJ145 do IFSP no FlightGear. Para simular uma aceleração longa, ela inclina devagar e depois volta ao centro sem você perceber (washout).'}
       </p>
       <div className="flex flex-wrap items-center gap-5">
         <AttitudeIndicator roll={ac?.roll ?? 0} pitch={ac?.pitch ?? 0} />
@@ -192,7 +206,10 @@ export function FlightHud({ getTick, flightName }: { getTick: () => CueingTickMe
               ['Velocidade', ac ? `${fmt(ac.ias, 0)} kt` : '—'],
               ['Altitude', ac ? `${fmt(ac.alt, 0)} ft` : '—'],
               ['Rumo', ac ? `${fmt(((ac.heading % 360) + 360) % 360, 0)}°` : '—'],
-              ['Plataforma', pose ? `roll ${fmt(pose.roll, 1)}° · pitch ${fmt(pose.pitch, 1)}°` : '—'],
+              attitude
+                ? ['Avião', ac ? `roll ${fmt(ac.roll, 1)}° · pitch ${fmt(ac.pitch, 1)}°` : '—']
+                : ['Plataforma', pose ? `roll ${fmt(pose.roll, 1)}° · pitch ${fmt(pose.pitch, 1)}°` : '—'],
+              ...(attitude ? [['Tampo', pose ? `roll ${fmt(pose.roll, 1)}° · pitch ${fmt(pose.pitch, 1)}°` : '—'] as const] : []),
             ] as const
           ).map(([k, v]) => (
             <div key={k}>
