@@ -1,18 +1,21 @@
 import { Smartphone, X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
-import { LanConnectCard, useLanStatus } from '@/features/mobile/lan';
+import { LanConnectCard, useLanInfo, useLanStatus } from '@/features/mobile/lan';
 
-/** Botão "Celular" no cabeçalho do PC quando o backend está no modo rede. */
+/** Botão "Celular" no cabeçalho do PC: liga o modo rede, QR code e PIN; o ponto verde indica celular conectado. */
 export function LanChip() {
   const status = useLanStatus();
-  if (!status.data?.lan || !status.data.local) return null;
+  const info = useLanInfo(!!status.data?.local && !!status.data.lan);
+  if (!status.data?.local) return null;
+  const connected = info.data?.lan ? info.data.devices.some((d) => d.active) : false;
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
         <Button size="sm" variant="secondary">
           <Smartphone aria-hidden />
           Celular
+          {connected && <span aria-label="celular conectado" role="img" className="size-2 rounded-full bg-brand" />}
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>

@@ -26,6 +26,34 @@ import type {
   CalibrationStatus,
 } from './types';
 
+export interface LanStatus {
+  lan: boolean;
+  /** este aparelho é o próprio PC */
+  local: boolean;
+  authorized: boolean;
+  /** outro celular já está conectado */
+  busy: boolean;
+}
+export interface LanDevice {
+  id: string;
+  ip: string;
+  agent: string;
+  since_s: number;
+  seen_s: number;
+  active: boolean;
+}
+export interface LanInfo {
+  lan: boolean;
+  /** startup: start.bat rede; runtime: ligado pela tela Celular */
+  mode: 'startup' | 'runtime' | null;
+  pin: string | null;
+  urls: { ip: string; https: string; http: string | null }[];
+  https_port: number;
+  devices: LanDevice[];
+  /** abriram a página e ainda não digitaram o PIN */
+  waiting: { ip: string; agent: string; seen_s: number }[];
+}
+
 /** Mesma origem: o FastAPI serve o frontend em produção e o Vite faz proxy em dev. */
 export const API_BASE = '';
 
@@ -39,7 +67,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -97,6 +125,7 @@ const fullPose = (p: Partial<Pose>, zDefault: number): Pose => ({
 
 const get = <T>(path: string, signal?: AbortSignal) => request<T>('GET', path, undefined, signal);
 const post = <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {});
+const del = <T>(path: string) => request<T>('DELETE', path);
 
 const query = (params: Record<string, number | undefined>) =>
   new URLSearchParams(
@@ -117,9 +146,15 @@ export const api = {
   geometry: () => get<PlatformGeometry>('/config'),
   limits: () => get<LimitsInfo>('/limits'),
   // rede local (celular no mesmo Wi-Fi)
-  lanStatus: () => get<{ lan: boolean; local: boolean; authorized: boolean }>('/lan/status'),
-  lanInfo: () => get<{ lan: boolean; pin: string | null; urls: { ip: string; https: string; http: string }[]; https_port: number }>('/lan/info'),
+  lanStatus: () => get<LanStatus>('/lan/status'),
+  lanInfo: () => get<LanInfo>('/lan/info'),
   lanAuth: (pin: string) => post<{ ok: boolean }>('/lan/auth', { pin }),
+  lanLogout: () => post<{ ok: boolean }>('/lan/logout'),
+  /** liga o modo rede sem reiniciar (HTTPS na rede, só do PC) */
+  lanStart: () => post<LanInfo>('/lan/start'),
+  lanStop: () => post<LanInfo>('/lan/stop'),
+  lanNewPin: () => post<LanInfo>('/lan/pin'),
+  lanKick: (id: string) => del<LanInfo>(`/lan/devices/${encodeURIComponent(id)}`),
   setLimits: (values: Partial<JointLimitValues>) => post<LimitsInfo & { backup: string | null }>('/limits', values),
   calculate: (pose: Partial<Pose>) => post<PlatformResponse>('/calculate', pose),
   /** `source` identifica quem comandou (para o gravador); padrão: cinemática. */

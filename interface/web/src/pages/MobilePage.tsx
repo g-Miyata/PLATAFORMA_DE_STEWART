@@ -1,6 +1,7 @@
-import { Box, Gamepad2, Smartphone } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Box, Gamepad2, LogOut, Smartphone } from 'lucide-react';
 import { Tabs } from 'radix-ui';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 import { ModeBadge } from '@/components/ModeBadge';
@@ -34,12 +35,32 @@ export default function MobilePage() {
   const canCommand = useCanCommand();
   const [tab, setTab] = useState<Tab>('giroscopio');
   const [showControls, setShowControls] = useState(false);
+  const qc = useQueryClient();
   const needsPin = !!lan.data?.lan && !lan.data.local && !lan.data.authorized;
   const onPc = !!lan.data?.local;
+  // celular com PIN (pode sair e liberar a vez para outro)
+  const paired = !!lan.data?.lan && !lan.data.local && lan.data.authorized;
 
   useEffect(() => {
     document.title = 'Celular · Plataforma de Stewart · IFSP';
   }, []);
+
+  // o PC desconectou este celular (ou o backend reiniciou): avisa uma vez
+  const wasPaired = useRef(false);
+  useEffect(() => {
+    if (wasPaired.current && needsPin) toast.info('Este celular foi desconectado', { description: 'Para comandar de novo, digite o PIN que aparece no PC.' });
+    wasPaired.current = paired;
+  }, [paired, needsPin]);
+
+  async function logout() {
+    try {
+      await api.lanLogout();
+    } finally {
+      wasPaired.current = false;
+      await qc.invalidateQueries({ queryKey: ['lan-status'] });
+      toast.success('Celular desconectado', { description: 'Outro aparelho já pode entrar.' });
+    }
+  }
 
   async function connectSim() {
     try {
@@ -57,6 +78,12 @@ export default function MobilePage() {
           Plataforma de Stewart
         </Link>
         <ModeBadge />
+        {paired && (
+          <Button size="sm" variant="ghost" onClick={logout} aria-label="Desconectar este celular">
+            <LogOut aria-hidden />
+            <span className="hidden min-[400px]:inline">Desconectar</span>
+          </Button>
+        )}
         <EmergencyStopButton />
       </header>
 
@@ -67,14 +94,14 @@ export default function MobilePage() {
 
         {onPc && !showControls ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted">Esta é a tela para o celular. Abra-a no celular pelo QR code abaixo:</p>
+            <p className="text-sm text-muted">Esta é a tela para o celular. Abra-a no celular pelo QR code abaixo (mesmo Wi-Fi do PC):</p>
             <LanConnectCard />
             <Button variant="ghost" onClick={() => setShowControls(true)}>
               Usar os controles aqui no PC mesmo
             </Button>
           </div>
         ) : needsPin ? (
-          <PinGate />
+          <PinGate busy={!!lan.data?.busy} />
         ) : (
           <>
             {online && !serial.connected && (

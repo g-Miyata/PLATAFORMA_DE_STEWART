@@ -330,7 +330,8 @@ test.describe('Celular', () => {
     await page.goto('/celular');
     await expect(page.getByRole('heading', { level: 1, name: 'Controle pelo celular' })).toBeVisible();
     // sem o modo rede, o PC explica como ligar
-    await expect(page.getByText('Modo rede desligado')).toBeVisible();
+    await expect(page.getByText('O celular ainda não enxerga este PC')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ligar o modo rede' })).toBeVisible();
     await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
 
     await page.getByRole('tab', { name: 'Joystick' }).click();
@@ -360,6 +361,52 @@ test.describe('Celular', () => {
     await page.getByRole('button', { name: 'Aumentar' }).click();
     await page.getByRole('button', { name: 'Aumentar' }).click();
     await expect(label).not.toHaveText(before ?? '');
+  });
+
+  // o modo rede de verdade abre a porta na rede (e o Windows pergunta do firewall): aqui o backend é simulado
+  const lanInfo = (devices: object[], waiting: object[] = []) => ({
+    lan: true,
+    mode: 'runtime',
+    pin: '482913',
+    https_port: 8443,
+    urls: [{ ip: '192.168.0.10', https: 'https://192.168.0.10:8443/celular', http: null }],
+    devices,
+    waiting,
+  });
+  async function mockLan(page: import('@playwright/test').Page, info: object) {
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: true, local: true, authorized: true, busy: false } }));
+    await page.route('**/lan/info', (r) => r.fulfill({ json: info }));
+  }
+
+  test('modo rede no PC: QR code com o IP, PIN e quem está esperando', async ({ page }) => {
+    await mockLan(page, lanInfo([], [{ ip: '192.168.0.55', agent: 'Mozilla/5.0 (iPhone)', seen_s: 1 }]));
+    await page.goto('/celular');
+    await expect(page.getByRole('img', { name: 'QR code para abrir https://192.168.0.10:8443/celular' })).toBeVisible();
+    await expect(page.getByText('https://192.168.0.10:8443/celular', { exact: true })).toBeVisible();
+    await expect(page.getByText('482913')).toBeVisible();
+    await expect(page.getByText(/iPhone em 192\.168\.0\.55 abriu a página/)).toBeVisible();
+  });
+
+  test('com um celular já conectado, o PC pede para desconectar antes', async ({ page }) => {
+    await mockLan(page, lanInfo([{ id: 'ab12', ip: '192.168.0.77', agent: 'Mozilla/5.0 (Linux; Android 14) Mobile', since_s: 125, seen_s: 2, active: true }]));
+    let kicked = '';
+    await page.route('**/lan/devices/*', (r) => {
+      kicked = r.request().url();
+      return r.fulfill({ json: lanInfo([]) });
+    });
+    await page.goto('/celular');
+    await expect(page.getByText('Já tem um celular conectado')).toBeVisible();
+    await expect(page.getByText(/Celular Android em 192\.168\.0\.77, conectado há 2 min/)).toBeVisible();
+    await expect(page.getByRole('img', { name: /QR code/ })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Desconectar este celular' }).click();
+    await expect.poll(() => kicked).toContain('/lan/devices/ab12');
+  });
+
+  test('segundo celular: avisa que outro está conectado e não deixa digitar o PIN', async ({ page }) => {
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: true, local: false, authorized: false, busy: true } }));
+    await page.goto('/celular');
+    await expect(page.getByText('Outro celular está conectado')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Liberar' })).toBeDisabled();
   });
 
   test('giroscópio pede para ativar o sensor', async ({ page }) => {
