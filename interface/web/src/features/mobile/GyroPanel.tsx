@@ -10,6 +10,7 @@ import { AttitudeIndicator } from '@/features/presentation/SceneHud';
 import { api } from '@/lib/api';
 import { fmt } from '@/lib/pistons';
 import { LiveResponse } from './LiveResponse';
+import { noteError, noteResult, SendStatusBar } from './sendStatus';
 import { approachTilt, PHONE_TILT_RATE, tiltFromOrientation, type Orientation, type Tilt } from './control';
 
 const SEND_MS = 100;
@@ -90,8 +91,9 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
       if (busy) return;
       busy = true;
       try {
-        await api.mpuControl({ roll: tilt.current.roll, pitch: tilt.current.pitch, yaw: 0, x: 0, y: 0, z: geometry.home_z, scale: 1 });
+        noteResult(await api.mpuControl({ roll: tilt.current.roll, pitch: tilt.current.pitch, yaw: 0, x: 0, y: 0, z: geometry.home_z, scale: 1 }));
       } catch (err) {
+        noteError(err);
         stop((err as Error).message);
       } finally {
         busy = false;
@@ -150,6 +152,7 @@ export function GyroPanel({ canCommand }: { canCommand: boolean }) {
               </div>
             </dl>
           </div>
+          <SendStatusBar idleText="Nada enviado ainda: toque em Iniciar controle." />
           <SliderField label="Sensibilidade" value={sensitivity} onValueChange={setSensitivity} min={20} max={100} step={5} unit="%" unitSpoken="por cento" digits={0} />
           <div className="grid grid-cols-2 gap-2">
             <Button variant="secondary" size="lg" onClick={() => (zero.current = last.current?.o ?? null)}>

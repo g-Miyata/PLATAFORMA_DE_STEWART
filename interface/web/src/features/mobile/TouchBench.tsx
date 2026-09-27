@@ -15,6 +15,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';
 import { useUi } from '@/stores/ui';
+import { noteError, noteResult, SendStatusBar } from './sendStatus';
 
 const LIVE_MS = 100;
 const REPEAT_MS = 110;
@@ -65,7 +66,8 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
   const pose = useBench((s) => s.pose);
   const limit = useBench((s) => s.limit);
   const historyLen = useBench((s) => s.history.length);
-  const [live, setLive] = useState(false);
+  // no celular a bancada é um controle: já abre mandando para a plataforma (dá para desligar)
+  const [live, setLive] = useState(canCommand);
   const background = useMemo(() => {
     void theme;
     return sceneBackground();
@@ -101,9 +103,10 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
       timer = setTimeout(async () => {
         lastSent = Date.now();
         try {
-          const r = await api.applyPose(useBench.getState().pose, 'bancada');
+          const r = noteResult(await api.applyPose(useBench.getState().pose, 'bancada'));
           if (!r.applied) toast.error('Pose não aplicada', { description: r.message });
         } catch (err) {
+          noteError(err);
           setLive(false);
           toast.error('Ao vivo interrompido', { description: (err as Error).message });
         }
@@ -166,6 +169,7 @@ export function TouchBench({ canCommand }: { canCommand: boolean }) {
       <p role="status" className={cn('min-h-5 text-center text-sm font-medium text-danger', !limit && 'sr-only')}>
         {limit?.reason}
       </p>
+      <SendStatusBar className="py-1.5" idleText={live ? 'Ao vivo: toque em − ou + para mover a plataforma.' : 'Ao vivo desligado: os botões mexem só o modelo.'} />
       <div className="grid grid-cols-7 gap-1.5" role="group" aria-label="O que mover">
         {PISTON_COLORS.map((c, i) => (
           <button

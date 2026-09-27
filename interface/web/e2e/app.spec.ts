@@ -433,6 +433,26 @@ test.describe('Celular', () => {
     expect(new URL(page.url()).hash).toBe('');
   });
 
+  test('reabrir pelo QR já liberado e desconectar: pede o PIN de novo (não reconecta sozinho)', async ({ page }) => {
+    let authorized = true;
+    let auths = 0;
+    await page.route('**/lan/status', (r) => r.fulfill({ json: { lan: true, local: false, authorized, busy: false } }));
+    await page.route('**/lan/auth', (r) => {
+      auths++;
+      authorized = true;
+      return r.fulfill({ json: { ok: true } });
+    });
+    await page.route('**/lan/logout', (r) => {
+      authorized = false;
+      return r.fulfill({ json: { ok: true } });
+    });
+    await page.goto('/celular#pin=123456');
+    await page.getByRole('button', { name: 'Desconectar este celular' }).click();
+    await expect(page.getByRole('heading', { name: 'Digite o PIN' })).toBeVisible();
+    await page.waitForTimeout(1000);
+    expect(auths).toBe(0);
+  });
+
   test('bancada 3D: tela cheia com o PARAR à mão e volta', async ({ page }) => {
     await page.goto('/celular');
     await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();

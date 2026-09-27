@@ -68,16 +68,19 @@ export default function MobilePage() {
     if (pinFromHash(window.location.hash)) history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);
   const busy = !!lan.data?.busy;
+  const statusKnown = !!lan.data;
   useEffect(() => {
     const pin = linkPin.current;
-    if (!pin || !needsPin || busy) return;
+    if (!pin || !statusKnown) return;
+    // decide uma vez só: depois de Desconectar (ou do PC desconectar), o PIN é pedido de novo
     linkPin.current = null;
+    if (!needsPin || busy) return;
     api
       .lanAuth(pin)
       .then(() => toast.success('Celular liberado para comandar'))
       .catch((err: Error) => toast.error('Não liberou pelo QR code', { description: `${err.message} Digite o PIN que aparece no PC.` }))
       .finally(() => void qc.invalidateQueries({ queryKey: ['lan-status'] }));
-  }, [needsPin, busy, qc]);
+  }, [statusKnown, needsPin, busy, qc]);
 
   // o PC desconectou este celular (ou o backend reiniciou): avisa uma vez
   const wasPaired = useRef(false);

@@ -12,6 +12,7 @@ import { limitPose } from '@/lib/limits';
 import { fmt } from '@/lib/pistons';
 import type { Pose } from '@/lib/types';
 import { LiveResponse } from './LiveResponse';
+import { noteError, noteResult, SendStatusBar } from './sendStatus';
 
 const SEND_MS = 50;
 
@@ -54,8 +55,9 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
       if (busy) return;
       busy = true;
       try {
-        await api.applyPose(poseNow(), 'joystick');
+        noteResult(await api.applyPose(poseNow(), 'joystick'));
       } catch (err) {
+        noteError(err);
         setRunning(false);
         toast.error('Joystick interrompido', { description: (err as Error).message });
       } finally {
@@ -92,6 +94,7 @@ export function StickPanel({ canCommand }: { canCommand: boolean }) {
         <SliderField label="Yaw" value={yaw} onValueChange={setYaw} min={lim.pose.yaw[0]} max={lim.pose.yaw[1]} step={0.5} unit="°" unitSpoken="graus" />
         <SliderField label="Sensibilidade dos sticks" value={sensitivity} onValueChange={setSensitivity} min={25} max={100} step={5} unit="%" unitSpoken="por cento" digits={0} />
       </div>
+      <SendStatusBar idleText="Nada enviado ainda: toque em Iniciar joystick." />
       {running ? (
         <Button variant="danger" size="lg" className="w-full" onClick={stop}>
           <Square aria-hidden />
