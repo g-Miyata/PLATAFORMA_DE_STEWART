@@ -20,6 +20,7 @@ const ROUTES = [
   ['/espaco-de-trabalho', 'Espaço de trabalho'],
   ['/calibracao', 'Calibração'],
   ['/limites', 'Limites da mecânica'],
+  ['/celular', 'Controle pelo celular'],
 ] as const;
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
@@ -318,6 +319,53 @@ test.describe('Apresentação: simulador de voo e tema', () => {
     await expect(page.locator('[data-theme="light"]').first()).toBeAttached();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
+  });
+});
+
+test.describe('Celular', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+  test('no PC mostra como conectar; o joystick na tela move o simulador e o PARAR para', async ({ page }) => {
+    await serial(page, 'open');
+    await page.goto('/celular');
+    await expect(page.getByRole('heading', { level: 1, name: 'Controle pelo celular' })).toBeVisible();
+    // sem o modo rede, o PC explica como ligar
+    await expect(page.getByText('Modo rede desligado')).toBeVisible();
+    await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
+
+    await page.getByRole('tab', { name: 'Joystick' }).click();
+    await page.getByRole('button', { name: 'Iniciar joystick' }).click();
+    const sent = page.waitForRequest((r) => r.url().endsWith('/apply_pose') && r.method() === 'POST');
+    const stick = page.getByRole('application', { name: /Mover \(X \/ Y\)/ });
+    const box = (await stick.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 10, box.y + box.height / 2, { steps: 5 });
+    const body = (await sent).postDataJSON() as { x: number };
+    await page.waitForTimeout(300);
+    await page.mouse.up();
+    expect(typeof body.x).toBe('number');
+    await page.getByRole('button', { name: 'Parar', exact: true }).first().click();
+    await expect(page.getByRole('button', { name: 'Iniciar joystick' })).toBeVisible();
+  });
+
+  test('bancada por toque: escolher o pistão e segurar + muda o curso', async ({ page }) => {
+    await page.goto('/celular');
+    await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
+    await page.getByRole('tab', { name: 'Bancada 3D' }).click();
+    await page.getByRole('button', { name: 'P1', exact: true }).click();
+    const label = page.getByText(/^Pistão 1: \d+ mm de curso$/);
+    await expect(label).toBeVisible();
+    const before = await label.textContent();
+    await page.getByRole('button', { name: 'Aumentar' }).click();
+    await page.getByRole('button', { name: 'Aumentar' }).click();
+    await expect(label).not.toHaveText(before ?? '');
+  });
+
+  test('giroscópio pede para ativar o sensor', async ({ page }) => {
+    await page.goto('/celular');
+    await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
+    await expect(page.getByRole('button', { name: 'Ativar o giroscópio' })).toBeVisible();
   });
 });
 

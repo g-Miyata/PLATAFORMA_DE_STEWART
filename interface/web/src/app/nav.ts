@@ -1,4 +1,4 @@
-import { Axis3d, Box, ShieldCheck, CircleDot, Clapperboard, Compass, GraduationCap, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { Axis3d, Box, ShieldCheck, Smartphone, CircleDot, Clapperboard, Compass, GraduationCap, Orbit, Stethoscope, Presentation, Puzzle, Gamepad2, Gauge, Home, Move3d, Plane, Repeat, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 
 export type NavGroup = 'inicio' | 'controlar' | 'criar' | 'mostrar' | 'ajustes';
 
@@ -28,6 +28,7 @@ export const NAV: NavItem[] = [
   { path: '/acelerometro', label: 'IMU (roll/pitch/yaw)', description: 'Plataforma segue a orientação do sensor MPU-6050/BNO085', Icon: Compass, group: 'controlar' },
   { path: '/simulador-voo', label: 'Simulador de voo', description: 'Sinta o voo do FlightGear na plataforma (motion cueing), com o avião voando na tela ao lado', Icon: Plane, group: 'controlar' },
   { path: '/orientacao-voo', label: 'Orientação do avião', description: 'A plataforma copia a inclinação (roll/pitch) do avião no FlightGear', Icon: Axis3d, group: 'controlar' },
+  { path: '/celular', label: 'Celular', description: 'Controle pelo celular na rede local: giroscópio, joystick na tela e Bancada 3D por toque', Icon: Smartphone, group: 'controlar' },
   { path: '/gravar', label: 'Gravar e reproduzir', description: 'Grave movimentos, edite poses-chave numa linha do tempo e reproduza', Icon: Clapperboard, group: 'criar' },
   { path: '/blocos', label: 'Programação em blocos', description: 'Monte sequências encaixando blocos, como no Scratch', Icon: Puzzle, group: 'criar' },
   { path: '/aula', label: 'Aula de cinemática', description: 'Curso guiado: a plataforma, robôs seriais × paralelos, cinemática inversa e direta', Icon: GraduationCap, group: 'mostrar' },

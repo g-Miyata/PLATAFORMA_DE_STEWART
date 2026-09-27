@@ -258,7 +258,6 @@ export default function BenchPage() {
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         role="application"
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
         tabIndex={0}
         aria-label={`Modelo 3D interativo da bancada, ${selLabel}.`}
         aria-describedby="bancada-instrucoes"

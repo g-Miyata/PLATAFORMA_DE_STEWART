@@ -18,6 +18,7 @@ const RecorderPage = lazy(() => import('@/pages/RecorderPage'));
 const BlocksPage = lazy(() => import('@/pages/BlocksPage'));
 const PresentationPage = lazy(() => import('@/pages/PresentationPage'));
 const LessonPage = lazy(() => import('@/pages/LessonPage'));
+const MobilePage = lazy(() => import('@/pages/MobilePage'));
 const GamePage = lazy(() => import('@/pages/GamePage'));
 const WorkspacePage = lazy(() => import('@/pages/WorkspacePage'));
 const CalibrationPage = lazy(() => import('@/pages/CalibrationPage'));
@@ -41,6 +42,8 @@ const page = (Component: React.ComponentType) => (
 export const routes = [
   // tela de exposição: página inteira, sem cabeçalho nem menu
   { path: '/apresentacao', element: page(PresentationPage) },
+  // tela do celular (rede local): página inteira, feita para o toque
+  { path: '/celular', element: page(MobilePage) },
   {
     element: <AppShell />,
     children: [

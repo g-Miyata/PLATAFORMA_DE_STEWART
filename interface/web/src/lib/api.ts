@@ -116,6 +116,10 @@ export const api = {
   // Cinemática
   geometry: () => get<PlatformGeometry>('/config'),
   limits: () => get<LimitsInfo>('/limits'),
+  // rede local (celular no mesmo Wi-Fi)
+  lanStatus: () => get<{ lan: boolean; local: boolean; authorized: boolean }>('/lan/status'),
+  lanInfo: () => get<{ lan: boolean; pin: string | null; urls: { ip: string; https: string; http: string }[]; https_port: number }>('/lan/info'),
+  lanAuth: (pin: string) => post<{ ok: boolean }>('/lan/auth', { pin }),
   setLimits: (values: Partial<JointLimitValues>) => post<LimitsInfo & { backup: string | null }>('/limits', values),
   calculate: (pose: Partial<Pose>) => post<PlatformResponse>('/calculate', pose),
   /** `source` identifica quem comandou (para o gravador); padrão: cinemática. */

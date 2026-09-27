@@ -16,8 +16,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       // rótulos que envolvem o input com o texto num <span> aninhado
       'jsx-a11y/label-has-associated-control': ['error', { depth: 3 }],
-      // regiões roláveis (tabelas e equações largas) precisam de foco para rolar pelo teclado
-      'jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['tabpanel', 'region'] }],
+      // regiões roláveis (tabelas e equações largas) precisam de foco para rolar pelo teclado;
+      // "application" = controles 2D próprios (joystick na tela, braço 2R da aula), operados pelas setas
+      'jsx-a11y/no-noninteractive-tabindex': ['error', { roles: ['tabpanel', 'region', 'application'] }],
     },
   },
 );

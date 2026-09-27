@@ -2,6 +2,7 @@ import { Menu, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { ModeBadge } from '@/components/ModeBadge';
+import { LanChip } from '@/components/LanChip';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Alert } from '@/components/ui/status';
 import { Button } from '@/components/ui/button';
@@ -121,6 +122,7 @@ export function AppShell() {
             <div className="hidden md:block">
               <SerialConnect compact />
             </div>
+            <LanChip />
             <ThemeToggle />
             <EmergencyStopButton />
           </div>
