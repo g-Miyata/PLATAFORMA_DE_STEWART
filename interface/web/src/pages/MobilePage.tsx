@@ -21,6 +21,7 @@ import { useConnection } from '@/stores/connection';
 const TouchBench = lazy(() => import('@/features/mobile/TouchBench').then((m) => ({ default: m.TouchBench })));
 
 type Tab = 'giroscopio' | 'joystick' | 'bancada';
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 const TABS: { id: Tab; label: string; Icon: typeof Box }[] = [
   { id: 'giroscopio', label: 'Giroscópio', Icon: Smartphone },
   { id: 'joystick', label: 'Joystick', Icon: Gamepad2 },
@@ -37,7 +38,8 @@ export default function MobilePage() {
   const [showControls, setShowControls] = useState(false);
   const qc = useQueryClient();
   const needsPin = !!lan.data?.lan && !lan.data.local && !lan.data.authorized;
-  const onPc = !!lan.data?.local;
+  // sem resposta do /lan/status (backend fora do ar ou antigo), decide pelo endereço aberto
+  const onPc = lan.data ? lan.data.local : LOCAL_HOSTS.has(window.location.hostname);
   // celular com PIN (pode sair e liberar a vez para outro)
   const paired = !!lan.data?.lan && !lan.data.local && lan.data.authorized;
 
@@ -91,6 +93,12 @@ export default function MobilePage() {
         <h1 className="text-xl font-semibold">Controle pelo celular</h1>
 
         {!online && <Alert tone="danger" title="Sem conexão com o PC">Confira se o celular está no mesmo Wi-Fi e se o backend foi aberto com start.bat rede.</Alert>}
+
+        {online && lan.isError && !onPc && (
+          <Alert tone="warning" title="O backend não respondeu sobre o modo rede">
+            Ele provavelmente foi aberto antes desta atualização. Feche a janela do backend e abra de novo com <code className="rounded bg-surface-2 px-1">start.bat</code>.
+          </Alert>
+        )}
 
         {onPc && !showControls ? (
           <div className="space-y-3">

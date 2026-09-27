@@ -75,7 +75,12 @@ export function LanConnectCard() {
   const newPin = useLanAction(() => api.lanNewPin(), 'PIN novo gerado');
   const kick = useLanAction((id: string) => api.lanKick(id), 'Celular desconectado');
 
-  if (status.isError) return <Alert tone="danger" title="Sem conexão com o backend">Abra o backend (start.bat) e tente de novo.</Alert>;
+  if (status.isError)
+    return (
+      <Alert tone="danger" title="Não deu para ligar o celular agora">
+        O backend não respondeu sobre o modo rede. Se ele está aberto, é uma versão anterior: feche a janela do backend e abra de novo com start.bat.
+      </Alert>
+    );
   if (!status.data || (onPc && !info.data)) return <p className="text-sm text-muted">Verificando a rede…</p>;
   if (!onPc) return null;
   const data = info.data!;

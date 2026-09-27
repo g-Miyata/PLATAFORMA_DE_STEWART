@@ -409,6 +409,15 @@ test.describe('Celular', () => {
     await expect(page.getByRole('button', { name: 'Liberar' })).toBeDisabled();
   });
 
+  test('backend antigo (sem /lan/status): no PC avisa para reiniciar em vez de mostrar os controles', async ({ page }) => {
+    // o backend antigo devolve a página do app no lugar da rota que não conhece
+    await page.route('**/lan/status', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html></html>' }));
+    await page.goto('/celular');
+    await expect(page.getByText('Não deu para ligar o celular agora')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ativar o giroscópio' })).toHaveCount(0);
+  });
+
   test('giroscópio pede para ativar o sensor', async ({ page }) => {
     await page.goto('/celular');
     await page.getByRole('button', { name: 'Usar os controles aqui no PC mesmo' }).click();
