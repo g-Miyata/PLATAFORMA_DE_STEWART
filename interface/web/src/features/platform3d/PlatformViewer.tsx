@@ -1,6 +1,6 @@
-import { Canvas } from '@react-three/fiber';
 import { Camera, Maximize2, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Canvas } from '@/components/Canvas3D';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import { solvePose, zeroPose, type LegStatus } from '@/lib/kinematics';

@@ -1,8 +1,8 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas } from '@react-three/fiber';
 import { Download, FlaskConical, Ruler, Wrench } from 'lucide-react';
 import { useDeferredValue, useMemo, useState } from 'react';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';

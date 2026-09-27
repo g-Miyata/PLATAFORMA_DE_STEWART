@@ -1,6 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
+// no CI (3D por software, máquina dividida com o backend) as esperas explícitas dobram
+const T = (ms: number) => (process.env.CI ? ms * 2 : ms);
+
 const ROUTES = [
   ['/', 'Plataforma de Stewart'],
   ['/atuadores', 'Atuadores e PID'],
@@ -79,7 +82,7 @@ test('modo simulação: conectar, aplicar pose e parar com Esc', async ({ page }
 
   // o modelo virtual converge para a pose (atraso de 1ª ordem dos atuadores)
   await expect
-    .poll(async () => (await (await page.request.get('/telemetry')).json()).Y?.length ?? 0, { timeout: 10_000 })
+    .poll(async () => (await (await page.request.get('/telemetry')).json()).Y?.length ?? 0, { timeout: T(10_000) })
     .toBe(6);
   await page.getByRole('switch', { name: 'Aplicar automaticamente' }).click();
   await expect(page.getByRole('switch', { name: 'Aplicar automaticamente' })).toBeChecked();
@@ -154,7 +157,7 @@ test.describe('Bancada 3D', () => {
     const target = Number(await lengthOf(page)) - 500; // curso comandado do P4
     await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
     await expect
-      .poll(async () => ((await (await page.request.get('/telemetry')).json()).Y?.[3] ?? -1) as number, { timeout: 20_000 })
+      .poll(async () => ((await (await page.request.get('/telemetry')).json()).Y?.[3] ?? -1) as number, { timeout: T(20_000) })
       .toBeGreaterThan(target - 2);
   });
 });
@@ -203,7 +206,7 @@ test.describe('Gravar e reproduzir', () => {
     await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
 
     await page.getByRole('button', { name: 'Reproduzir no simulador' }).click();
-    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: 5_000 }).toBe('trajectory');
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: T(5_000) }).toBe('trajectory');
     await expect(page.getByText('e2e ·')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
@@ -239,7 +242,7 @@ test('programação em blocos: abre um exemplo, mostra os passos e reproduz no s
   await expect(steps).toContainText('Repetir 2 vezes:');
   await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Reproduzir no simulador' }).click();
-  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: 5_000 }).toBe('trajectory');
+  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: T(5_000) }).toBe('trajectory');
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
 });
@@ -248,7 +251,7 @@ test.describe('Apresentação', () => {
   test('o show troca de cena, arrastar passa o controle ao público e O abre o painel do operador', async ({ page }) => {
     await page.goto('/apresentacao?cena=voo');
     await expect(page.getByRole('heading', { name: 'Do simulador de voo para a bancada' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Orientação do avião' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Orientação do avião' })).toBeVisible({ timeout: T(15_000) });
     await page.mouse.move(700, 350);
     await page.mouse.down();
     await page.mouse.move(780, 320, { steps: 5 });
@@ -268,7 +271,7 @@ test.describe('Apresentação', () => {
     const real = page.getByRole('switch', { name: 'Mover a plataforma de verdade' });
     await real.click();
     await expect(real).toBeChecked();
-    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running, { timeout: 8_000 }).toBe(true);
+    await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running, { timeout: T(8_000) }).toBe(true);
     await page.keyboard.press('Escape');
     await expect(real).not.toBeChecked();
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
@@ -280,7 +283,7 @@ test.describe('Apresentação: simulador de voo e tema', () => {
     await serial(page, 'open');
     await page.goto('/apresentacao?modo=voo');
     await expect(page.getByRole('heading', { name: 'Sinta o voo' })).toBeVisible();
-    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.id ?? null, { timeout: 8_000 }).not.toBeNull();
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.id ?? null, { timeout: T(8_000) }).not.toBeNull();
     // no voo o toque não assume o controle
     await page.mouse.move(700, 350);
     await page.mouse.down();
@@ -290,7 +293,7 @@ test.describe('Apresentação: simulador de voo e tema', () => {
     await page.keyboard.press('KeyO');
     const real = page.getByRole('switch', { name: 'Mover a plataforma de verdade' });
     await real.click();
-    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: 8_000 }).not.toBe('off');
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: T(8_000) }).not.toBe('off');
     await page.keyboard.press('Escape');
     await expect(real).not.toBeChecked();
     await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode).toBe('off');
@@ -303,11 +306,11 @@ test.describe('Apresentação: simulador de voo e tema', () => {
     await serial(page, 'open');
     await page.goto('/apresentacao?modo=orientacao');
     await expect(page.getByRole('heading', { name: 'O tampo copia o avião' })).toBeVisible();
-    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.profile ?? null, { timeout: 8_000 }).toBe('attitude');
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).replay?.profile ?? null, { timeout: T(8_000) }).toBe('attitude');
     await page.keyboard.press('KeyO');
     await expect(page.getByRole('radio', { name: /Orientação do avião/ })).toBeChecked();
     await page.getByRole('switch', { name: 'Mover a plataforma de verdade' }).click();
-    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: 8_000 }).not.toBe('off');
+    await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode, { timeout: T(8_000) }).not.toBe('off');
     await page.keyboard.press('Escape');
     await expect.poll(async () => (await (await page.request.get('/cueing/status')).json()).mode).toBe('off');
   });
@@ -509,7 +512,7 @@ test.describe('Apresentação com celular', () => {
     await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible();
 
     devices = [{ id: 'cc01', ip: '192.168.0.80', agent: 'Mozilla/5.0 (iPhone)', since_s: 3, seen_s: 1, active: true }];
-    await expect(page.getByRole('heading', { name: 'Um visitante está no comando' })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('heading', { name: 'Um visitante está no comando' })).toBeVisible({ timeout: T(8000) });
     await expect(page.getByRole('img', { name: /QR code para controlar/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Desconectar celular e voltar ao show' }).click();
     await expect.poll(() => kicked).toBe(true);
@@ -526,7 +529,7 @@ test.describe('Apresentação com celular', () => {
       return r.fulfill({ json: info([]) });
     });
     await page.goto('/apresentacao');
-    await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('img', { name: 'QR code para controlar a plataforma pelo celular' })).toBeVisible({ timeout: T(10_000) });
     expect(started).toBe(1);
   });
 
@@ -598,7 +601,7 @@ test.describe('Aula', () => {
     await page.goto('/aula/cinematica/direta/2');
     await page.getByRole('radio', { name: 'O tampo sobe, praticamente sem girar' }).check();
     await page.getByRole('button', { name: 'Testar' }).click();
-    await expect(page.getByText('Acertou!')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('Acertou!')).toBeVisible({ timeout: T(8_000) });
     await expect(page.getByText('ΔZ')).toBeVisible();
 
     // restrições: a pose real (escondida por padrão) também é editável
@@ -615,7 +618,7 @@ test.describe('Aula', () => {
     await page.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('-22');
     await page.getByRole('spinbutton', { name: 'Yaw (em torno de Z) (graus)' }).fill('-8');
     await page.getByRole('button', { name: 'Rodar' }).click();
-    await expect(page.getByText(/Convergiu em \d+ iterações para a pose real/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Convergiu em \d+ iterações para a pose real/)).toBeVisible({ timeout: T(30_000) });
     await expect(page.getByRole('cell', { name: '< 0,01 mm' }).first()).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
     expect(results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => `${v.id} → ${v.nodes.map((n) => n.target.join(' ')).slice(0, 3).join(' | ')}`)).toEqual([]);
@@ -658,11 +661,11 @@ test('jogo da bolinha: setas começam, espaço pausa e o espelhamento desliga no
 test('espaço de trabalho: inclinar encolhe o volume e a pose vai para a Cinemática', async ({ page }) => {
   await page.goto('/espaco-de-trabalho');
   const volume = page.getByText(/^\d+,\d+ L$/);
-  await expect(volume).toBeVisible({ timeout: 10_000 });
+  await expect(volume).toBeVisible({ timeout: T(10_000) });
   const litros = async () => Number((await volume.textContent())!.replace(' L', '').replace(',', '.'));
   const flat = await litros();
   await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('8');
-  await expect.poll(litros, { timeout: 10_000 }).toBeLessThan(flat);
+  await expect.poll(litros, { timeout: T(10_000) }).toBeLessThan(flat);
   await page.getByRole('spinbutton', { name: 'X (frente/trás) (milímetros)' }).fill('25');
   await page.getByRole('button', { name: 'Abrir na Cinemática' }).click();
   await expect(page).toHaveURL(/\/cinematica\?x=25/);
@@ -680,10 +683,10 @@ test.describe('Calibração', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Calibrando' })).toBeVisible();
     // mostra o que está sendo testado agora e o curso de cada pistão
     await expect(page.getByRole('region', { name: 'Agora', exact: true })).toBeVisible();
-    await expect(page.getByText(/Pistão 1 subindo/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Pistão 1 subindo/)).toBeVisible({ timeout: T(30_000) });
     await expect(page.getByRole('listitem', { name: /Pistão 1, em teste/ })).toBeVisible();
     expect((await page.request.post('/apply_pose', { data: { z: 530 } })).status()).toBe(409);
-    await expect(page.getByRole('heading', { name: /Relatório de/ })).toBeVisible({ timeout: 170_000 });
+    await expect(page.getByRole('heading', { name: /Relatório de/ })).toBeVisible({ timeout: T(170_000) });
     await expect(page.getByRole('row', { name: /^P6/ }).first()).toBeVisible();
     await expect(page.getByText('Nada a mudar')).toBeVisible();
     await page.getByRole('tab', { name: 'Relatórios' }).click();

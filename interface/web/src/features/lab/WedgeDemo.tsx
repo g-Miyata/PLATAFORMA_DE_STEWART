@@ -1,8 +1,9 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { Button } from '@/components/ui/button';
 import { checkPose } from '@/lib/limits';
 import { fmt, PISTON_COLORS } from '@/lib/pistons';

@@ -1,9 +1,10 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useThree } from '@react-three/fiber';
+import { useThree } from '@react-three/fiber';
 import { Home } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import { Canvas } from '@/components/Canvas3D';
 import { Button } from '@/components/ui/button';
 import { SliderField, SwitchField } from '@/components/ui/field';
 import { applyLegFrame } from '@/features/platform3d/legFrame';

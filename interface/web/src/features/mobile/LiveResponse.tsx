@@ -1,5 +1,5 @@
-import { Canvas } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Canvas } from '@/components/Canvas3D';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { Scene } from '@/features/platform3d/Scene';
 import { SceneStore } from '@/features/platform3d/sceneState';

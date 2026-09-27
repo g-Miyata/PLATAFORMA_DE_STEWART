@@ -1,8 +1,9 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { OrbitControls as OrbitControlsImpl } from 'three/examples/jsm/controls/OrbitControls.js';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { showcasePose } from '@/features/landing/showcase';
 import { PremiumRig } from '@/features/platform3d/premium/PremiumRig';
 import { StudioLights, StudioStage } from '@/features/platform3d/premium/Studio';

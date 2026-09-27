@@ -1,8 +1,8 @@
-import { Canvas } from '@react-three/fiber';
 import { Box, Eye, EyeOff, Gauge, Home, Maximize, Minimize, MousePointerClick, Send, Sparkles, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import * as THREE from 'three';
 import { toast } from 'sonner';
+import { Canvas } from '@/components/Canvas3D';
 import { ModeBadge } from '@/components/ModeBadge';
 import { glass, stageClass, useFullscreen } from '@/components/Stage';
 import { Button } from '@/components/ui/button';

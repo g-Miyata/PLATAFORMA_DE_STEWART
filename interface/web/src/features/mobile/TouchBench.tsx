@@ -1,8 +1,8 @@
-import { Canvas } from '@react-three/fiber';
 import { Home, Maximize2, Minimize2, Minus, Plus, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { sceneBackground } from '@/components/Stage';
 import { Button } from '@/components/ui/button';
 import { SwitchField } from '@/components/ui/field';

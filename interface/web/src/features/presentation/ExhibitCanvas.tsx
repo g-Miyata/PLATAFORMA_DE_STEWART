@@ -1,9 +1,10 @@
 import { ContactShadows, MeshReflectorMaterial, PerformanceMonitor, Sparkles } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import type { PoseAxis } from '@/features/recorder/trajectory';
 import { PREMIUM_FLOOR_Z } from '@/features/platform3d/premium/PremiumBase';
 import { PremiumRig } from '@/features/platform3d/premium/PremiumRig';

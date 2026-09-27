@@ -1,9 +1,10 @@
 import { OrbitControls, PerformanceMonitor } from '@react-three/drei';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { useFrame } from '@react-three/fiber';
 import { EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing';
 import { ToneMappingMode } from 'postprocessing';
 import { useState, type ReactNode } from 'react';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { PremiumRig } from '@/features/platform3d/premium/PremiumRig';
 import { StudioLights, StudioStage } from '@/features/platform3d/premium/Studio';
 import type { PlatformGeometry, Pose } from '@/lib/types';

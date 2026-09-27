@@ -7,10 +7,15 @@ import { defineConfig } from '@playwright/test';
 const PYTHON = process.env.PYTHON ?? 'python';
 // PW_PORT permite rodar num backend separado do que está em uso (ex.: 8011)
 const PORT = Number(process.env.PW_PORT ?? 8001);
+// No CI (Linux sem GPU) o 3D roda por software e divide a máquina com o backend: mais
+// tempo, uma nova tentativa, e o WebGL por software ligado (o Chromium o desliga por padrão).
+const CI = !!process.env.CI;
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 60_000,
+  timeout: CI ? 120_000 : 60_000,
+  expect: { timeout: CI ? 15_000 : 5_000 },
+  retries: CI ? 1 : 0,
   fullyParallel: false,
   workers: 1,
   reporter: [['list']],
@@ -20,6 +25,11 @@ export default defineConfig({
     channel: process.env.PW_CHANNEL ?? 'msedge',
     locale: 'pt-BR',
     viewport: { width: 1440, height: 900 },
+    ...(CI && {
+      launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] },
+      navigationTimeout: 45_000,
+      actionTimeout: 30_000,
+    }),
   },
   webServer: {
     command: `"${PYTHON}" -m uvicorn app:app --app-dir ../backend --host 127.0.0.1 --port ${PORT}`,

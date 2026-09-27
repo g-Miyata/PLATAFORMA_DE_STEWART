@@ -1,9 +1,9 @@
-import { Canvas } from '@react-three/fiber';
 import { Crosshair, ExternalLink, Info, Loader2, Maximize, Minimize } from 'lucide-react';
 import { Tabs } from 'radix-ui';
 import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import * as THREE from 'three';
+import { Canvas } from '@/components/Canvas3D';
 import { ModeBadge } from '@/components/ModeBadge';
 import { glass, sceneBackground, stageClass, useFullscreen } from '@/components/Stage';
 import { Button } from '@/components/ui/button';
