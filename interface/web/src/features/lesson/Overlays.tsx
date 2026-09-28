@@ -1,5 +1,5 @@
 import { Html, Line } from '@react-three/drei';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { PREMIUM_FLOOR_Z } from '@/features/platform3d/premium/PremiumBase';
 import { AXIS_COLORS } from '@/features/recorder/TimelinePlot';
@@ -15,8 +15,16 @@ export const RB_COLOR = '#b55cf2';
 const INVALID = '#e5484d';
 
 export function Label({ at, children, color, strong }: { at: Vec3; children: ReactNode; color?: string; strong?: boolean }) {
+  // O primeiro <Html> da cena monta antes de o canvas ligar os eventos: o drei cria uma
+  // segunda raiz no mesmo elemento e a desmontagem da primeira apaga o conteúdo (era o
+  // "Base fixa" da 1.1, que ficava vazio). Remontar uma vez, já com o canvas ligado, resolve.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
   return (
-    <Html position={at} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
+    <Html key={ready ? 'pronto' : 'montando'} position={at} center zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
       <span
         className={cn(
           'whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-semibold shadow transition-all',
