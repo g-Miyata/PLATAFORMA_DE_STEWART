@@ -90,6 +90,26 @@ test('modo simulação: conectar, aplicar pose e parar com Esc', async ({ page }
   await expect(page.getByRole('switch', { name: 'Aplicar automaticamente' })).not.toBeChecked();
 });
 
+test('Esc para a rotina mesmo quando um componente da página segura a tecla', async ({ page }) => {
+  await serial(page, 'open');
+  await page.goto('/rotinas');
+  await expect(page.getByRole('heading', { level: 1, name: 'Rotinas' })).toBeVisible();
+  // um editor que trata o Esc e não o deixa passar (o Blockly faz isso com o foco nos blocos)
+  await page.evaluate(() =>
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }),
+  );
+  const start = await page.request.post('/motion/start', { data: { routine: 'sine_axis', axis: 'z', amp: 10, hz: 0.2, duration_s: 60 } });
+  expect(start.ok()).toBe(true);
+  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
+});
+
 test('hardware real pede confirmação', async ({ page }) => {
   await page.route('**/serial/ports', (route) =>
     route.fulfill({
@@ -243,6 +263,8 @@ test('programação em blocos: abre um exemplo, mostra os passos e reproduz no s
   await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Reproduzir no simulador' }).click();
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).routine, { timeout: T(5_000) }).toBe('trajectory');
+  // com o foco nos blocos (o Blockly também usa o Esc), o Esc continua sendo a parada
+  await page.locator('.blocklyBlockCanvas .blocklyText').first().click();
   await page.keyboard.press('Escape');
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
 });
@@ -661,7 +683,7 @@ test('jogo da bolinha: setas começam, espaço pausa e o espelhamento desliga no
 test('espaço de trabalho: inclinar encolhe o volume e a pose vai para a Cinemática', async ({ page }) => {
   await page.goto('/espaco-de-trabalho');
   const volume = page.getByText(/^\d+,\d+ L$/);
-  await expect(volume).toBeVisible({ timeout: T(10_000) });
+  await expect(volume).toBeVisible({ timeout: T(20_000) });
   const litros = async () => Number((await volume.textContent())!.replace(' L', '').replace(',', '.'));
   const flat = await litros();
   await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('8');

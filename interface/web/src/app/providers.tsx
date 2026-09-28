@@ -27,17 +27,23 @@ function useBackendSync() {
   }, []);
 }
 
-/** Esc = parada de emergência (exceto quando um diálogo aberto precisa do Esc para fechar). */
+// Esc fecha diálogos e menus abertos: com um deles na tela, o Esc é deles
+const ESC_OWNERS = '[role="dialog"], [role="alertdialog"], [role="menu"], [data-radix-popper-content-wrapper]';
+
+/**
+ * Esc = parada de emergência. Escuta na captura, antes de qualquer outro componente:
+ * editores que usam o Esc (o Blockly, por exemplo) não podem engolir a parada.
+ */
 function useEmergencyHotkey() {
   const estop = useEmergencyStop();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      if (e.key !== 'Escape' || e.repeat) return;
+      if (document.querySelector(ESC_OWNERS)) return;
       estop();
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
   }, [estop]);
 }
 
