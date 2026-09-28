@@ -647,6 +647,25 @@ test.describe('Laboratório do calço', () => {
 });
 
 test.describe('Aula', () => {
+  test('modo aula em tela cheia, sumário e progresso do curso; a base fixa aparece no modelo', async ({ page }) => {
+    await page.goto('/aula');
+    await expect(page.getByRole('heading', { name: '1. Um robô de cadeia fechada' })).toBeVisible();
+    // os cinco rótulos das peças no modelo 3D, inclusive a base
+    await expect(page.locator('span.whitespace-nowrap', { hasText: 'Base fixa' })).toBeVisible();
+    // sumário pelo botão da barra
+    await page.getByRole('button', { name: 'Sumário da aula' }).click();
+    await page.getByRole('navigation', { name: 'Sumário da aula' }).getByRole('link', { name: /2\.3 Cinemática inversa/ }).click();
+    await expect(page).toHaveURL(/\/aula\/cinematica\/inversa/);
+    await expect(page.getByRole('list', { name: 'Progresso do curso' }).getByRole('link', { name: /2\.3 Cinemática inversa/ })).toHaveAttribute('aria-current', 'page');
+    // modo aula: F liga, o botão sai
+    await page.locator('body').press('f');
+    await expect(page.getByRole('button', { name: 'Sair do modo aula' })).toBeVisible();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('heading', { level: 2, name: /^2\. / })).toBeVisible();
+    await page.getByRole('button', { name: 'Sair do modo aula' }).click();
+    await expect(page.getByRole('button', { name: 'Modo aula' })).toBeVisible();
+  });
+
   test('→ avança, a URL guarda a etapa e as perguntas dão retorno', async ({ page }) => {
     await page.addInitScript(() => localStorage.removeItem('stewart-lesson-v2'));
     await page.goto('/aula');
