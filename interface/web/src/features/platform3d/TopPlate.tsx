@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import type { PlatformGeometry, Pose } from '@/lib/types';
 import { convexHull, DIM, offsetConvex, xy } from './geometry';
 import { MAT } from './materials';
+import { PlateBolts } from './premium/TopJoint';
 import type { SceneStore } from './sceneState';
 
 const DEG = Math.PI / 180;
@@ -42,11 +43,7 @@ export function TopPlate({ geometry, store }: { geometry: PlatformGeometry; stor
   return (
     <group ref={group}>
       <mesh geometry={plate} material={MAT.blackPlate} position={[0, 0, DIM.topPlateGap]} castShadow receiveShadow />
-      {geometry.platform_points_local.map(([x, y], i) => (
-        <mesh key={i} position={[x, y, DIM.topPlateGap / 2 + 4]} material={MAT.aluminumDark} castShadow>
-          <boxGeometry args={[26, 26, DIM.topPlateGap - 8]} />
-        </mesh>
-      ))}
+      <PlateBolts points={geometry.platform_points_local} plateBottom={DIM.topPlateGap} plateThickness={DIM.topPlateThickness} />
     </group>
   );
 }

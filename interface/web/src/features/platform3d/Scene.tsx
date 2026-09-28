@@ -3,8 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef, type ComponentRef } from 'react';
 import type { PlatformGeometry } from '@/lib/types';
 import { Actuators } from './Actuators';
-import { BaseFrame } from './BaseFrame';
-import { FLOOR_Z } from './geometry';
+import { PREMIUM_FLOOR_Z, PremiumBase } from './premium/PremiumBase';
 import { GhostPlatform } from './GhostPlatform';
 import type { SceneStore } from './sceneState';
 import { TopPlate } from './TopPlate';
@@ -88,12 +87,13 @@ export function Scene({ geometry, store, background, gridColor, view, viewNonce 
         <Lightformer form="rect" intensity={0.8} position={[-1400, 700, 300]} rotation={[0, -Math.PI / 2, 0]} scale={[900, 500, 1]} />
       </Environment>
 
-      <BaseFrame geometry={geometry} />
+      {/* mesma base do modelo premium: anel, perfis, bandeja, eletrônica e botão de emergência */}
+      <PremiumBase geometry={geometry} />
       <Actuators store={store} />
       <TopPlate geometry={geometry} store={store} />
       <GhostPlatform geometry={geometry} store={store} />
 
-      <group position={[0, 0, FLOOR_Z]}>
+      <group position={[0, 0, PREMIUM_FLOOR_Z]}>
         <ContactShadows rotation={[Math.PI / 2, 0, 0]} scale={2200} far={900} blur={2.2} opacity={0.45} resolution={512} />
         <Grid
           rotation={[Math.PI / 2, 0, 0]}
