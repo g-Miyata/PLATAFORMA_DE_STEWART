@@ -97,7 +97,36 @@ async def lifespan(_app: FastAPI):
     serial_mgr.close()
 
 
-app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan)
+# Grupos do /docs (um por recurso, como os routers de motion cueing, FlightGear e rede local)
+TAG_SERIAL = "serial e telemetria"
+TAG_SAFETY = "segurança"
+TAG_KINEMATICS = "cinemática"
+TAG_LIMITS = "limites da mecânica"
+TAG_PID = "atuadores (PID)"
+TAG_MOTION = "rotinas e trajetórias"
+TAG_CONTROL = "controle ao vivo"
+TAG_CALIBRATION = "calibração"
+TAG_TWIN = "gêmeo digital"
+TAG_FLIGHT_LEGACY = "simulação de voo (legado)"
+TAG_SYSTEM = "sistema"
+OPENAPI_TAGS = [
+    {"name": TAG_SERIAL, "description": "Porta serial (bancada real ou SIMULADOR), status, envio de comandos crus e a última telemetria."},
+    {"name": TAG_SAFETY, "description": "Parada de emergência: interrompe rotinas, cueing e calibração e congela os atuadores."},
+    {"name": TAG_KINEMATICS, "description": "Geometria da plataforma, cinemática inversa (calcular) e aplicar uma pose."},
+    {"name": TAG_LIMITS, "description": "Limites reais (curso, cardãs, folga entre pernas), margem de operação e envelope."},
+    {"name": TAG_PID, "description": "Ganhos, feedforward, offsets, setpoints manuais e modo manual de cada pistão."},
+    {"name": TAG_MOTION, "description": "Rotinas prontas e reprodução de trajetórias gravadas (60 Hz)."},
+    {"name": TAG_CONTROL, "description": "Controle contínuo: joystick e IMU (MPU/BNO) mapeados para poses dentro do envelope."},
+    {"name": TAG_CALIBRATION, "description": "Autoteste da bancada e recalibração do simulador, com relatórios."},
+    {"name": TAG_TWIN, "description": "Simulador sombra (gêmeo digital): simular, ajustar e gravar parâmetros dos atuadores."},
+    {"name": "motion cueing", "description": "Washout e orientação do avião: fontes (FlightGear ao vivo ou voo gravado), engate e gravação."},
+    {"name": "flightgear", "description": "Instância do FlightGear embutida: iniciar, parar, conferir e o vídeo da janela."},
+    {"name": "rede local", "description": "Modo rede (celular no mesmo Wi-Fi): PIN, aparelhos conectados e ligar/desligar."},
+    {"name": TAG_FLIGHT_LEGACY, "description": "Rotas da interface antiga de simulação de voo (mantidas para /antigo)."},
+    {"name": TAG_SYSTEM, "description": "Nome, versão e a lista de rotas."},
+]
+
+app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan, openapi_tags=OPENAPI_TAGS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -1425,11 +1454,11 @@ def ensure_not_calibrating():
         raise HTTPException(status_code=409, detail="Calibração em andamento. Aguarde terminar ou cancele em Ajustes → Calibração.")
 
 # -------------------- Endpoints Serial --------------------
-@app.get("/serial/ports")
+@app.get("/serial/ports", tags=[TAG_SERIAL])
 def api_list_ports():
     return {"ports": serial_mgr.list_ports()}
 
-@app.post("/serial/open")
+@app.post("/serial/open", tags=[TAG_SERIAL])
 def api_open_serial(req: SerialOpenRequest):
     try:
         serial_mgr.open(req.port, req.baud or BAUD)
@@ -1437,7 +1466,7 @@ def api_open_serial(req: SerialOpenRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/serial/close")
+@app.post("/serial/close", tags=[TAG_SERIAL])
 def api_close_serial():
     try:
         serial_mgr.close()
@@ -1445,7 +1474,7 @@ def api_close_serial():
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/serial/status")
+@app.get("/serial/status", tags=[TAG_SERIAL])
 def api_serial_status():
     """Retorna o status da conexão serial"""
     try:
@@ -1463,11 +1492,11 @@ def api_serial_status():
             "simulated": False,
         }
 
-@app.get("/telemetry")
+@app.get("/telemetry", tags=[TAG_SERIAL])
 def api_telemetry():
     return serial_mgr.latest or {}
 
-@app.post("/serial/send")
+@app.post("/serial/send", tags=[TAG_SERIAL])
 def api_send_command(cmd: PIDCommand):
     """Envia comando livre pela serial"""
     ensure_not_calibrating()
@@ -1500,7 +1529,7 @@ def check_manual_courses(piston: Optional[int], value: float):
         raise HTTPException(status_code=400, detail=f"A pose resultante passa dos limites: {reason_text(detail)}.")
 
 
-@app.post("/pid/setpoint")
+@app.post("/pid/setpoint", tags=[TAG_PID])
 def set_pid_setpoint(sp: PIDSetpoint):
     """Define setpoint em mm (global ou individual)"""
     ensure_not_calibrating()
@@ -1519,7 +1548,7 @@ def set_pid_setpoint(sp: PIDSetpoint):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/gains")
+@app.post("/pid/gains", tags=[TAG_PID])
 def set_pid_gains(gains: PIDGains):
     """Define ganhos PID para um pistão específico"""
     ensure_not_calibrating()
@@ -1549,19 +1578,19 @@ def set_pid_gains(gains: PIDGains):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/pid/gains")
+@app.get("/pid/gains", tags=[TAG_PID])
 def get_all_pid_gains():
     """Retorna os ganhos PID de todos os pistões do cache"""
     return pid_gains_cache
 
-@app.get("/pid/gains/{piston}")
+@app.get("/pid/gains/{piston}", tags=[TAG_PID])
 def get_pid_gains(piston: int):
     """Retorna os ganhos PID de um pistão específico do cache"""
     if not 1 <= piston <= 6:
         raise HTTPException(status_code=400, detail="Pistão deve ser 1-6")
     return pid_gains_cache[piston]
 
-@app.post("/pid/gains/all")
+@app.post("/pid/gains/all", tags=[TAG_PID])
 def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None):
     """Define ganhos PID para todos os pistões"""
     ensure_not_calibrating()
@@ -1586,7 +1615,7 @@ def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/feedforward")
+@app.post("/pid/feedforward", tags=[TAG_PID])
 def set_pid_feedforward(ff: PIDFeedforward):
     """Define feedforward para um pistão específico"""
     ensure_not_calibrating()
@@ -1609,7 +1638,7 @@ def set_pid_feedforward(ff: PIDFeedforward):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/feedforward/all")
+@app.post("/pid/feedforward/all", tags=[TAG_PID])
 def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[float] = None):
     """Define feedforward para todos os pistões"""
     ensure_not_calibrating()
@@ -1625,7 +1654,7 @@ def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[flo
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/settings")
+@app.post("/pid/settings", tags=[TAG_PID])
 def set_pid_settings(settings: PIDSettings):
     """Ajusta configurações gerais do PID"""
     ensure_not_calibrating()
@@ -1643,12 +1672,12 @@ def set_pid_settings(settings: PIDSettings):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/pid/settings")
+@app.get("/pid/settings", tags=[TAG_PID])
 def get_pid_settings():
     """Retorna as configurações gerais do PID do cache"""
     return pid_settings_cache
 
-@app.post("/pid/manual/{action}")
+@app.post("/pid/manual/{action}", tags=[TAG_PID])
 def pid_manual_control(action: str):
     """Controle manual: A (avanço), R (recuo), ok (parar)"""
     ensure_not_calibrating()
@@ -1661,7 +1690,7 @@ def pid_manual_control(action: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/select/{piston}")
+@app.post("/pid/select/{piston}", tags=[TAG_PID])
 def pid_select_piston(piston: int):
     """Seleciona pistão para operações manuais"""
     ensure_not_calibrating()
@@ -1675,7 +1704,7 @@ def pid_select_piston(piston: int):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/offset")
+@app.post("/pid/offset", tags=[TAG_PID])
 def set_pid_offset(piston: int, offset: float):
     """Define offset de calibração para um pistão específico (compensação de erro sistemático)"""
     ensure_not_calibrating()
@@ -1692,7 +1721,7 @@ def set_pid_offset(piston: int, offset: float):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/offset/all")
+@app.post("/pid/offset/all", tags=[TAG_PID])
 def set_pid_offset_all(offset: float):
     """Define offset de calibração para todos os pistões"""
     ensure_not_calibrating()
@@ -1755,7 +1784,7 @@ Exemplos de uso das rotinas de movimento:
    GET /motion/status
 """
 
-@app.post("/motion/start")
+@app.post("/motion/start", tags=[TAG_MOTION])
 def motion_start(req: MotionRequest):
     """Inicia uma rotina de movimento"""
     ensure_not_calibrating()
@@ -1804,7 +1833,7 @@ def motion_start(req: MotionRequest):
 
 MAX_TRAJECTORY_S = 3600.0
 
-@app.post("/motion/trajectory")
+@app.post("/motion/trajectory", tags=[TAG_MOTION])
 def motion_trajectory(req: TrajectoryRequest):
     """Reproduz uma trajetória arbitrária (lista de poses com tempo).
 
@@ -1878,7 +1907,7 @@ def _check_rows(name: str, rows: List[List[float]], n: int):
     if len(rows) != n or any(len(r) != 6 for r in rows):
         raise HTTPException(status_code=400, detail=f"'{name}' precisa ter {n} linhas de 6 valores.")
 
-@app.post("/twin/simulate")
+@app.post("/twin/simulate", tags=[TAG_TWIN])
 def twin_simulate(req: TwinSimulateRequest):
     """Reproduz setpoints (mm de curso) no simulador, a partir de y0; devolve as posições."""
     _check_rows("sp", req.sp, len(req.t))
@@ -1888,7 +1917,7 @@ def twin_simulate(req: TwinSimulateRequest):
     Y = sim_fit.replay(load_params(SIM_PARAMS_FILE), t, np.asarray(req.sp), req.y0)
     return {"Y_sim": np.round(Y, 3).tolist()}
 
-@app.post("/twin/fit")
+@app.post("/twin/fit", tags=[TAG_TWIN])
 def twin_fit(req: TwinFitRequest):
     """Identifica vmax e zona morta de cada pistão a partir de dados (t, Y, PWM com sinal, sp)."""
     if req.t is None:
@@ -1918,12 +1947,12 @@ def save_sim_params(params: Dict[str, List[float]]) -> str:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return backup.name
 
-@app.post("/twin/params")
+@app.post("/twin/params", tags=[TAG_TWIN])
 def twin_params(req: TwinParamsRequest):
     """Salva vmax/zona morta no sim_params.json (com cópia .bak). Vale para as próximas conexões."""
     return {"saved": True, "backup": save_sim_params(req.params)}
 
-@app.post("/calibration/start")
+@app.post("/calibration/start", tags=[TAG_CALIBRATION])
 def calibration_start():
     """Interrompe o que estiver rodando e inicia autoteste + recalibração (3 a 4 min)."""
     if not serial_mgr.is_open:
@@ -1939,11 +1968,11 @@ def calibration_start():
     calibration_runner.start()
     return calibration_runner.status()
 
-@app.get("/calibration/status")
+@app.get("/calibration/status", tags=[TAG_CALIBRATION])
 def calibration_status():
     return calibration_runner.status()
 
-@app.post("/calibration/cancel")
+@app.post("/calibration/cancel", tags=[TAG_CALIBRATION])
 def calibration_cancel():
     calibration_runner.cancel()
     return calibration_runner.status()
@@ -1956,7 +1985,7 @@ def _report_path(report_id: str) -> Path:
         raise HTTPException(status_code=404, detail="Relatório não encontrado.")
     return path
 
-@app.get("/calibration/reports")
+@app.get("/calibration/reports", tags=[TAG_CALIBRATION])
 def calibration_reports():
     """Relatórios salvos, do mais novo para o mais antigo (resumo)."""
     items = []
@@ -1969,11 +1998,11 @@ def calibration_reports():
             items.append({k: r.get(k) for k in ("id", "created_at", "duration_s", "simulated", "alerts", "improvement_pct", "has_changes", "applied", "applied_at")})
     return {"reports": items}
 
-@app.get("/calibration/reports/{report_id}")
+@app.get("/calibration/reports/{report_id}", tags=[TAG_CALIBRATION])
 def calibration_report(report_id: str):
     return json.loads(_report_path(report_id).read_text(encoding="utf-8"))
 
-@app.post("/calibration/reports/{report_id}/apply")
+@app.post("/calibration/reports/{report_id}/apply", tags=[TAG_CALIBRATION])
 def calibration_apply(report_id: str):
     """Grava no simulador os parâmetros propostos pelo relatório (cópia .bak do anterior)."""
     ensure_not_calibrating()
@@ -1996,7 +2025,7 @@ def ensure_manual_allowed():
             detail="Uma rotina está em execução. Pare-a antes de comandar manualmente.",
         )
 
-@app.post("/motion/stop")
+@app.post("/motion/stop", tags=[TAG_MOTION])
 def motion_stop():
     """Para a rotina de movimento atual"""
     try:
@@ -2005,7 +2034,7 @@ def motion_stop():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/emergency-stop")
+@app.post("/emergency-stop", tags=[TAG_SAFETY])
 def emergency_stop():
     """Parada de emergência.
 
@@ -2029,7 +2058,7 @@ def emergency_stop():
             raise HTTPException(status_code=500, detail=f"Erro TX serial: {e}")
     return {"stopped": True, "held_mm": held.tolist() if held is not None else None}
 
-@app.get("/motion/status")
+@app.get("/motion/status", tags=[TAG_MOTION])
 def motion_status():
     """Retorna o status da rotina de movimento"""
     try:
@@ -2038,7 +2067,7 @@ def motion_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------- Plataforma (REST iguais) --------------------
-@app.get("/config", response_model=PlatformGeometry)
+@app.get("/config", tags=[TAG_KINEMATICS], response_model=PlatformGeometry)
 def get_config():
     return PlatformGeometry(
         h0=platform.h0,
@@ -2050,7 +2079,7 @@ def get_config():
         limits=platform.limits_info(),
     )
 
-@app.post("/config")
+@app.post("/config", tags=[TAG_KINEMATICS])
 def set_config(cfg: PlatformConfig):
     if cfg.stroke_max <= cfg.stroke_min:
         raise HTTPException(status_code=400, detail="stroke_max deve ser maior que stroke_min")
@@ -2067,13 +2096,13 @@ def set_config(cfg: PlatformConfig):
     return {"message": "Configuração atualizada"}
 
 
-@app.get("/limits")
+@app.get("/limits", tags=[TAG_LIMITS])
 def get_limits():
     """Limites reais da mecânica (físico), com a margem de operação e o alcance de cada eixo."""
     return platform.limits_info()
 
 
-@app.post("/limits")
+@app.post("/limits", tags=[TAG_LIMITS])
 def set_limits(values: dict):
     """Atualiza limits.json (cópia .bak) e recalcula o envelope. Não mexe durante a calibração."""
     ensure_not_calibrating()
@@ -2137,11 +2166,11 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
     )
 
 
-@app.post("/calculate", response_model=PlatformResponse)
+@app.post("/calculate", tags=[TAG_KINEMATICS], response_model=PlatformResponse)
 def calculate_position(pose: PoseInput):
     return build_platform_response(pose)
 
-@app.post("/apply_pose")
+@app.post("/apply_pose", tags=[TAG_KINEMATICS])
 def apply_pose(req: ApplyPoseRequest):
     ensure_manual_allowed()
    # print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
@@ -2172,7 +2201,7 @@ class MPUControlRequest(BaseModel):
     z: Optional[float] = Field(None, description="Altura Z (mm), default=h0")
     scale: float = Field(1.0, ge=0.0, le=1.0, description="Fator de escala para os ângulos (0.0-1.0)")
 
-@app.post("/mpu/control")
+@app.post("/mpu/control", tags=[TAG_CONTROL])
 def mpu_control(req: MPUControlRequest):
     ensure_manual_allowed()
     """
@@ -2235,7 +2264,7 @@ def mpu_control(req: MPUControlRequest):
         "platform_points": platform_points
     }
 
-@app.post("/flight-simulation/start")
+@app.post("/flight-simulation/start", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_start():
     ensure_not_calibrating()
     FLIGHT_SIMULATION_STATE["enabled"] = True
@@ -2246,7 +2275,7 @@ def flight_simulation_start():
         "started_at": FLIGHT_SIMULATION_STATE["started_at"],
     }
 
-@app.post("/flight-simulation/stop")
+@app.post("/flight-simulation/stop", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_stop():
     FLIGHT_SIMULATION_STATE["enabled"] = False
     return {
@@ -2255,21 +2284,21 @@ def flight_simulation_stop():
         "started_at": FLIGHT_SIMULATION_STATE["started_at"],
     }
 
-@app.post("/flight-simulation/preview")
+@app.post("/flight-simulation/preview", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_preview_store(data: PlatformResponse):
     payload = model_to_dict(data)
     payload["timestamp"] = time.time()
     FLIGHT_SIMULATION_STATE["last_preview"] = payload
     return {"stored": True, "timestamp": payload["timestamp"]}
 
-@app.get("/flight-simulation/preview")
+@app.get("/flight-simulation/preview", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_preview_get():
     preview = FLIGHT_SIMULATION_STATE.get("last_preview")
     if preview is None:
         raise HTTPException(status_code=404, detail="No preview pose available")
     return preview
 
-@app.get("/flight-simulation/status")
+@app.get("/flight-simulation/status", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_status():
     return {
         "enabled": FLIGHT_SIMULATION_STATE["enabled"],
@@ -2321,7 +2350,7 @@ fg_manager = FlightGearManager(flight_start=cueing_engine.flight_start)
 app.include_router(create_fg_router(fg_manager))
 
 # -------------------- Joystick Control --------------------
-@app.post("/joystick/pose")
+@app.post("/joystick/pose", tags=[TAG_CONTROL])
 def joystick_pose(req: JoystickPoseRequest):
     """
     Endpoint para controle por joystick (gamepad).
@@ -2436,7 +2465,7 @@ async def ws_telemetry(ws: WebSocket):
         await ws_mgr.disconnect(ws)
 
 # -------------------- Raiz / Frontend --------------------
-@app.get("/api/info")
+@app.get("/api/info", tags=[TAG_SYSTEM])
 def api_info():
     """Nome, versão e rotas da API (a documentação completa está em /docs)."""
     endpoints = []
