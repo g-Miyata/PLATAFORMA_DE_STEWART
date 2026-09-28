@@ -136,7 +136,7 @@ export const DIM = {
   bottomMargin: 0, // placa de baixo do mesmo tamanho do anel
   footHeight: 28,
   topPlateThickness: 8,
-  topPlateGap: 26, // da junta ao tampo
+  topPlateGap: 23, // do centro da cruzeta ao tampo: a face do cubo do cardã encosta no tampo (kardan.py)
   topMargin: 42,
   jointOffset: 22, // do centro da junta até o começo do atuador
   housingLength: 300,

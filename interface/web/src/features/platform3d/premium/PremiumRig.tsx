@@ -11,6 +11,7 @@ import { applyPose, usePlateGeometry } from '../TopPlate';
 import { PM } from './assets';
 import { PremiumBase } from './PremiumBase';
 import { ACT, ActuatorBody, ActuatorRod, UJoint } from './PremiumParts';
+import { cardanFrame, PlateBolts, TopCardan, type CardanFrame } from './TopJoint';
 
 type PoseSource = () => Pose;
 
@@ -19,6 +20,7 @@ function RigActuator({ index, geometry, getPose }: { index: number; geometry: Pl
   const rod = useRef<THREE.Group>(null);
   const top = useRef<THREE.Group>(null);
   const tubeMat = useMemo(() => PM.aluminum.clone(), []);
+  const frame = useRef<CardanFrame | null>(null);
 
   useFrame(() => {
     if (!group.current || !rod.current || !top.current) return;
@@ -28,19 +30,22 @@ function RigActuator({ index, geometry, getPose }: { index: number; geometry: Pl
     rod.current.position.set(0, L - ACT.joint - ACT.rodLength / 2, 0);
     top.current.position.set(0, L, 0);
     tubeMat.emissive.copy(STATUS_EMISSIVE[poseStatus(pose, geometry)[index]]);
+    frame.current = cardanFrame(p, geometry.base_points[index], pose, frame.current ?? undefined);
   });
 
   return (
+    <>
     <group ref={group}>
       <UJoint />
       <ActuatorBody index={index} highlighted={false} selected={false} tubeMaterial={tubeMat} />
       <group ref={rod}>
         <ActuatorRod />
       </group>
-      <group ref={top}>
-        <UJoint />
-      </group>
+      <group ref={top} />
     </group>
+    {/* cardã do tampo: garfo de cima no tampo, de baixo na perna (no mundo, fora do sistema da perna) */}
+    <TopCardan get={() => frame.current} />
+    </>
   );
 }
 
@@ -55,11 +60,7 @@ function RigTop({ geometry, getPose }: { geometry: PlatformGeometry; getPose: Po
     <group ref={group}>
       <mesh geometry={plate} material={PM.powderBlack} position={[0, 0, DIM.topPlateGap]} castShadow receiveShadow />
       <mesh geometry={underside} material={PM.plateUnderside} position={[0, 0, DIM.topPlateGap - 0.3]} />
-      {geometry.platform_points_local.map(([x, y], i) => (
-        <mesh key={i} position={[x, y, DIM.topPlateGap / 2 + 5]} material={PM.aluminumMatte} castShadow>
-          <boxGeometry args={[30, 30, DIM.topPlateGap - 10]} />
-        </mesh>
-      ))}
+      <PlateBolts points={geometry.platform_points_local} plateBottom={DIM.topPlateGap} plateThickness={DIM.topPlateThickness} />
     </group>
   );
 }

@@ -10,7 +10,7 @@ import { extrudeAlongY, lazyMaterials, PM, pistonNumberTexture, roundedRectShape
 export const ACT = {
   joint: 22, // centro da junta até o início do atuador
   tubeStart: 36,
-  tubeLength: 300,
+  tubeLength: 396, // fotos: recolhido (500 mm entre juntas), o tubo termina a ~432 mm da junta de baixo
   // perfil do tubo em "D" (vista de cima): curvo do lado do motor, quase reto do lado de fora
   tubeDepth: 44, // ao longo de X (direção do motor)
   tubeW: 42, // ao longo de Z
@@ -29,6 +29,9 @@ export const ACT = {
   motorLen: 86,
   rodR: 10,
   rodLength: 400,
+  // terminal da haste (onde entra o garfo do cardã): Ø22 com o furo do pino
+  rodEndR: 11,
+  rodEndLength: 40,
 } as const;
 
 function Yoke({ flip }: { flip: boolean }) {
@@ -199,15 +202,20 @@ function ActuatorHousingProcedural({ tubeMaterial }: { tubeMaterial: THREE.Mater
   );
 }
 
-/** Haste cromada com ponteira; o dono posiciona o grupo ao longo de +Y. */
+/** Haste cromada com o terminal do cardã na ponta; o dono posiciona o grupo ao longo de +Y. */
 export function ActuatorRod() {
+  const endY = ACT.rodLength / 2 - ACT.rodEndLength / 2;
   return (
     <group>
       <mesh material={PM.chrome} castShadow>
         <cylinderGeometry args={[ACT.rodR, ACT.rodR, ACT.rodLength, 32]} />
       </mesh>
-      <mesh material={PM.chrome} position={[0, ACT.rodLength / 2 - 6, 0]}>
-        <cylinderGeometry args={[ACT.rodR + 2, ACT.rodR, 12, 32]} />
+      <mesh material={PM.aluminum} position={[0, endY, 0]} castShadow>
+        <cylinderGeometry args={[ACT.rodEndR, ACT.rodEndR, ACT.rodEndLength, 32]} />
+      </mesh>
+      {/* furo do pino do garfo, atravessando o terminal */}
+      <mesh material={PM.darkSteel} position={[0, endY + 8, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[3.5, 3.5, ACT.rodEndR * 2 + 0.6, 16]} />
       </mesh>
     </group>
   );

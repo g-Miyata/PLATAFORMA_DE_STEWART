@@ -14,6 +14,7 @@ import { applyLegFrame } from '@/features/platform3d/legFrame';
 import { PM } from '@/features/platform3d/premium/assets';
 import { PREMIUM_FLOOR_Z, PremiumBase } from '@/features/platform3d/premium/PremiumBase';
 import { ACT, ActuatorBody, ActuatorRod, UJoint } from '@/features/platform3d/premium/PremiumParts';
+import { cardanFrame, PlateBolts, TopCardan, type CardanFrame } from '@/features/platform3d/premium/TopJoint';
 import { StudioLights, StudioStage } from '@/features/platform3d/premium/Studio';
 import { Invalidator } from '@/features/platform3d/Invalidator';
 import { CameraRig, type CameraView } from '@/features/platform3d/Scene';
@@ -41,6 +42,7 @@ function BenchActuator({ index, hovered, selected, onHover }: { index: number; h
   const arrow = useRef<THREE.Group>(null);
   const tubeMat = useMemo(() => PM.aluminum.clone(), []);
   const invalidate = useThree((s) => s.invalidate);
+  const frame = useRef<CardanFrame | null>(null);
 
   useFrame(() => {
     if (!group.current || !rod.current || !top.current) return;
@@ -49,6 +51,7 @@ function BenchActuator({ index, hovered, selected, onHover }: { index: number; h
     const L = applyLegFrame(group.current, geometry.base_points[index], p);
     rod.current.position.set(0, L - ACT.joint - ACT.rodLength / 2, 0);
     top.current.position.set(0, L, 0);
+    frame.current = cardanFrame(p, geometry.base_points[index], pose, frame.current ?? undefined);
     // seta no trecho visível da haste, do lado de dentro (oposto ao motor)
     arrow.current?.position.set(-ACT.tubeDepth / 2 - 42, (ACT.tubeStart + ACT.tubeLength + L - ACT.joint) / 2, 0);
 
@@ -63,6 +66,7 @@ function BenchActuator({ index, hovered, selected, onHover }: { index: number; h
   });
 
   return (
+    <>
     <group
       ref={group}
       onPointerOver={(e: ThreeEvent<PointerEvent>) => {
@@ -80,15 +84,16 @@ function BenchActuator({ index, hovered, selected, onHover }: { index: number; h
       <group ref={rod}>
         <ActuatorRod />
       </group>
-      <group ref={top}>
-        <UJoint />
-      </group>
+      <group ref={top} />
       {selected && (
         <group ref={arrow}>
           <PistonArrow index={index} color={PISTON_COLORS[index]} />
         </group>
       )}
     </group>
+    {/* cardã do tampo no mundo: garfo de cima no tampo, de baixo na perna */}
+    <TopCardan get={() => frame.current} />
+    </>
   );
 }
 
@@ -120,11 +125,7 @@ function BenchTop({ geometry, hovered, onHover }: { geometry: PlatformGeometry; 
       <group ref={plateGroup}>
         <mesh geometry={plate} material={PM.powderBlack} position={[0, 0, DIM.topPlateGap]} castShadow receiveShadow />
         <mesh geometry={underside} material={PM.plateUnderside} position={[0, 0, DIM.topPlateGap - 0.3]} />
-        {geometry.platform_points_local.map(([x, y], i) => (
-          <mesh key={i} position={[x, y, DIM.topPlateGap / 2 + 5]} material={PM.aluminumMatte} castShadow>
-            <boxGeometry args={[30, 30, DIM.topPlateGap - 10]} />
-          </mesh>
-        ))}
+        <PlateBolts points={geometry.platform_points_local} plateBottom={DIM.topPlateGap} plateThickness={DIM.topPlateThickness} />
         {/* ponto central: clique seleciona a plataforma e alterna Z → roll → pitch → yaw */}
         <mesh
           position={[0, 0, HANDLE_Z]}

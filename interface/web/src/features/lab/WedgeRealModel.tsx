@@ -12,6 +12,7 @@ import { PM } from '@/features/platform3d/premium/assets';
 import { PremiumBase } from '@/features/platform3d/premium/PremiumBase';
 import { ACT, ActuatorBody, ActuatorRod, UJoint } from '@/features/platform3d/premium/PremiumParts';
 import { StudioLights, StudioStage } from '@/features/platform3d/premium/Studio';
+import { Yoke } from '@/features/platform3d/premium/TopJoint';
 import { usePlateGeometry } from '@/features/platform3d/TopPlate';
 import { cn } from '@/lib/cn';
 import { checkPose, REASON_TEXT } from '@/lib/limits';
@@ -35,32 +36,6 @@ function basisQuat(axis: THREE.Vector3, pin: THREE.Vector3) {
   const x = pin.clone().addScaledVector(y, -pin.dot(y)).normalize();
   const z = new THREE.Vector3().crossVectors(x, y);
   return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
-}
-
-/** Garfo do cardã (medidas de 3D-drawings-archives/blender/kardan.py), eixo +Y, orelhas em ±X. */
-function Yoke({ neck }: { neck: boolean }) {
-  return (
-    <group>
-      <mesh material={PM.chrome} position={[0, 17, 0]} castShadow>
-        <cylinderGeometry args={[9.5, 9.5, 12, 28]} />
-      </mesh>
-      {neck && (
-        <mesh material={PM.chrome} position={[0, 26, 0]} castShadow>
-          <cylinderGeometry args={[7, 7, 10, 24]} />
-        </mesh>
-      )}
-      {[-11.5, 11.5].map((x) => (
-        <group key={x}>
-          <mesh material={PM.chrome} position={[x, 7.5, 0]} castShadow>
-            <boxGeometry args={[5.5, 15, 16]} />
-          </mesh>
-          <mesh material={PM.chrome} position={[x, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
-            <cylinderGeometry args={[8, 8, 5.5, 24]} />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
 }
 
 /** Cardã articulado: garfo de cima no eixo do assento, garfo de baixo na perna. */

@@ -16,7 +16,7 @@ import bpy
 
 TUBE_X, TUBE_Y = 44, 42                  # perfil do tubo: profundidade (lado do motor) x largura
 TUBE_R_NEAR, TUBE_R_FAR = 16, 4          # cantos: curvos do lado do motor, vivos do lado de fora
-TUBE_Z0, TUBE_Z1 = 36, 336               # ACT.tubeStart .. tubeStart + tubeLength
+TUBE_Z0, TUBE_Z1 = 36, 432               # ACT.tubeStart .. tubeStart + tubeLength (fotos: recolhido, o tubo vai a ~432 mm da junta)
 MOTOR_R, MOTOR_X = 21, 46
 HOUSE_X0, HOUSE_X1, HOUSE_D, HOUSE_R = -24, 69, 46, 6
 LOW_Z0, HOUSE_Z1 = 20, 98
