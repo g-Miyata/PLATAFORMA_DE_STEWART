@@ -122,11 +122,16 @@ test('menu lateral: escondido, abre pelo botão ou pela borda e pode ser fixado'
   await expect(menu).toHaveAttribute('inert', '');
   // pela borda esquerda: abre com o mouse e fecha quando ele sai
   await page.mouse.move(1, 450);
-  await expect(nav.getByRole('link', { name: 'Rotinas' })).toBeVisible();
-  await page.mouse.move(900, 450);
+  await page.mouse.move(3, 460, { steps: 3 });
+  await expect(menu).not.toHaveAttribute('inert', '');
+  await expect(nav.getByRole('link', { name: 'Rotinas' })).toBeInViewport({ ratio: 1 });
+  await page.mouse.move(900, 450, { steps: 4 });
   await expect(menu).toHaveAttribute('inert', '');
+  await expect(nav.getByRole('link', { name: 'Rotinas' })).not.toBeInViewport();
   // fixar: fica aberto ao lado do conteúdo, também depois de recarregar
   await page.getByRole('button', { name: 'Abrir menu' }).click();
+  await expect(menu).not.toHaveAttribute('inert', '');
+  await expect(nav.getByRole('button', { name: 'Fixar' })).toBeInViewport({ ratio: 1 });
   await nav.getByRole('button', { name: 'Fixar' }).click();
   await page.reload();
   await expect(nav.getByRole('link', { name: 'Rotinas' })).toBeVisible();

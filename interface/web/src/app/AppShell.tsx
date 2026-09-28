@@ -69,6 +69,8 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 const PIN_KEY = 'stewart-nav-pinned';
+/** largura do menu (w-64): o fundo só conta como "saiu do menu" à direita dele */
+const MENU_WIDTH = 256;
 function readPinned() {
   try {
     return localStorage.getItem(PIN_KEY) === '1';
@@ -86,12 +88,18 @@ function useSideMenu() {
   const [open, setOpen] = useState(false);
   // aberto pelo hover fecha quando o mouse sai; pelo botão, só com clique fora ou navegando
   const byHover = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clear = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancel = (t: typeof openTimer) => {
+    if (t.current) clearTimeout(t.current);
+    t.current = null;
+  };
+  const clearAll = () => {
+    cancel(openTimer);
+    cancel(closeTimer);
   };
   const setPinned = (v: boolean) => {
+    clearAll();
     setPinnedState(v);
     setOpen(false);
     try {
@@ -101,34 +109,46 @@ function useSideMenu() {
     }
   };
   const toggle = () => {
-    clear();
+    clearAll();
     byHover.current = false;
     setOpen((v) => !v);
   };
   const close = useCallback(() => {
-    clear();
+    if (openTimer.current) clearTimeout(openTimer.current);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    openTimer.current = closeTimer.current = null;
     byHover.current = false;
     setOpen(false);
   }, []);
-  const hoverEnter = () => {
-    clear();
-    if (open) return;
-    // pequena espera: passar o mouse de relance pela borda não abre
-    timer.current = setTimeout(() => {
+  /** mouse na borda esquerda (entrar ou mexer): abre depois de uma pequena espera */
+  const edgeHover = () => {
+    if (open || openTimer.current) return;
+    openTimer.current = setTimeout(() => {
+      openTimer.current = null;
       byHover.current = true;
       setOpen(true);
     }, 140);
   };
-  const hoverLeave = () => {
-    clear();
-    if (!byHover.current) return;
-    timer.current = setTimeout(() => {
+  /** passou de relance pela borda: não abre */
+  const edgeLeave = () => cancel(openTimer);
+  const menuEnter = () => cancel(closeTimer);
+  /** saiu do menu (ou mexeu no fundo): fecha, se ele abriu pelo hover */
+  const menuLeave = () => {
+    if (!byHover.current || closeTimer.current) return;
+    closeTimer.current = setTimeout(() => {
+      closeTimer.current = null;
       byHover.current = false;
       setOpen(false);
     }, 280);
   };
-  useEffect(() => clear, []);
-  return { pinned, setPinned, open, toggle, close, hoverEnter, hoverLeave };
+  useEffect(
+    () => () => {
+      if (openTimer.current) clearTimeout(openTimer.current);
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    },
+    [],
+  );
+  return { pinned, setPinned, open, toggle, close, edgeHover, edgeLeave, menuEnter, menuLeave };
 }
 
 export function AppShell() {
@@ -192,17 +212,17 @@ export function AppShell() {
 
       {/* borda esquerda: passar o mouse abre o menu (só com mouse; no toque, o botão) */}
       {!menu.pinned && !menuOpen && (
-        <div aria-hidden className="fixed inset-y-0 left-0 z-40 hidden w-2 [@media(hover:hover)]:block" onMouseEnter={menu.hoverEnter} onMouseLeave={menu.hoverLeave} />
+        <div aria-hidden className="fixed inset-y-0 left-0 z-40 hidden w-2 [@media(hover:hover)]:block" onMouseEnter={menu.edgeHover} onMouseMove={menu.edgeHover} onMouseLeave={menu.edgeLeave} />
       )}
-      {!menu.pinned && menuOpen && <div aria-hidden className="fixed inset-0 z-40 bg-black/25" onClick={menu.close} />}
+      {!menu.pinned && menuOpen && <div aria-hidden className="fixed inset-0 z-40 bg-black/25" onClick={menu.close} onMouseMove={(e) => e.clientX > MENU_WIDTH + 16 && menu.menuLeave()} />}
 
       <div className="flex">
         <nav
           id="menu-principal"
           aria-label="Principal"
           inert={!menu.pinned && !menuOpen}
-          onMouseEnter={menu.pinned ? undefined : menu.hoverEnter}
-          onMouseLeave={menu.pinned ? undefined : menu.hoverLeave}
+          onMouseEnter={menu.pinned ? undefined : menu.menuEnter}
+          onMouseLeave={menu.pinned ? undefined : menu.menuLeave}
           className={cn(
             'w-64 shrink-0 overflow-y-auto border-r border-border bg-surface p-3',
             menu.pinned
