@@ -8,7 +8,6 @@ import { Card } from '@/components/ui/card';
 import { SwitchField } from '@/components/ui/field';
 import { Alert, StatusPill } from '@/components/ui/status';
 import { PoseEditor } from '@/features/control/PoseEditor';
-import { AddKeyButton } from '@/features/recorder/AddKeyButton';
 import { useBackendValidation } from '@/features/control/useBackendValidation';
 import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate';
 import { useGeometry } from '@/features/platform3d/geometry';
@@ -98,7 +97,6 @@ export default function KinematicsPage() {
                 <Send aria-hidden />
                 Aplicar {simulated ? 'no simulador' : 'na plataforma'}
               </Button>
-              <AddKeyButton getPose={() => pose} />
             </div>
             <div className="min-w-[18rem] flex-1">
               <SwitchField

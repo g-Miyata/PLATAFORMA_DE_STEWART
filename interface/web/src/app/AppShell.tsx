@@ -7,7 +7,6 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Alert } from '@/components/ui/status';
 import { Button } from '@/components/ui/button';
 import { CalibrationIndicator } from '@/features/calibration/CalibrationIndicator';
-import { RecordingIndicator } from '@/features/recorder/RecordingIndicator';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { SerialConnect } from '@/features/serial/SerialConnect';
 import { cn } from '@/lib/cn';
@@ -176,7 +175,6 @@ export function AppShell() {
             </span>
           </NavLink>
           <ModeBadge />
-          <RecordingIndicator />
           <CalibrationIndicator />
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <div className="hidden md:block">

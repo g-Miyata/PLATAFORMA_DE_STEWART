@@ -1,8 +1,7 @@
-// Gravador global: enquanto liga, amostra a 20 Hz a última pose comandada (qualquer
-// página que aplique poses) ou a medida pela telemetria. Ao parar, a gravação é
-// simplificada em poses-chave e vai para a biblioteca.
+// Gravador da página Gravar e reproduzir: enquanto liga, amostra a 20 Hz a pose do
+// controle da própria página (capture) ou a medida pela telemetria. Ao parar, a
+// gravação é simplificada em poses-chave e vai para a biblioteca.
 import { create } from 'zustand';
-import { onPoseCommanded } from '@/lib/api';
 import type { Pose } from '@/lib/types';
 import { useTelemetry } from '@/stores/telemetry';
 import { useLibrary, type Recording } from './library';
@@ -12,7 +11,8 @@ export const SAMPLE_MS = 50;
 /** 30 min a 20 Hz */
 export const MAX_SAMPLES = 36_000;
 
-export type RecordSource = 'comandos' | 'medido';
+/** manual: a página entrega as poses (capture); medido: a pose da telemetria */
+export type RecordSource = 'manual' | 'medido';
 
 interface RecorderState {
   status: 'idle' | 'recording';
@@ -41,21 +41,19 @@ function teardown() {
 
 export const useRecorder = create<RecorderState>((set, get) => ({
   status: 'idle',
-  source: 'comandos',
+  source: 'manual',
   startedAt: null,
   samples: 0,
   truncated: false,
   capture: (pose) => {
     latest = { ...pose };
   },
-  start: (source = 'comandos') => {
+  start: (source = 'manual') => {
     if (get().status === 'recording') return;
     buffer = [];
     latest = null;
     const startedAt = Date.now();
-    if (source === 'comandos') {
-      unsubs.push(onPoseCommanded((pose) => get().capture(pose)));
-    } else {
+    if (source === 'medido') {
       unsubs.push(
         useTelemetry.subscribe((s) => {
           const p = s.telemetry?.pose_live;

@@ -246,7 +246,7 @@ test.describe('Gravar e reproduzir', () => {
     await page.getByRole('textbox', { name: 'Nome' }).fill('e2e');
     // 2ª pose-chave: 3 s depois, 10 mm mais alta
     await page.getByRole('button', { name: 'No instante' }).click();
-    await page.getByRole('spinbutton', { name: 'Z (altura) (milímetros)' }).fill('580');
+    await page.getByRole('region', { name: 'Pose-chave 2' }).getByRole('spinbutton', { name: 'Z (altura) (milímetros)' }).fill('580');
     await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem')).toHaveCount(2);
     await expect(page.getByText('Viável', { exact: true }).first()).toBeVisible();
 
@@ -257,23 +257,42 @@ test.describe('Gravar e reproduzir', () => {
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
   });
 
-  test('grava comandos de outra página com o indicador REC', async ({ page }) => {
-    await serial(page, 'open');
+  test('ponto a ponto: posiciona a plataforma e grava os pontos na própria página', async ({ page }) => {
     await page.goto('/gravar');
-    await page.getByRole('button', { name: 'Começar a gravar' }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'REC' })).toBeVisible();
-    await page.getByRole('link', { name: 'Cinemática', exact: true }).click();
-    await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('3');
-    await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
-    await page.waitForTimeout(600);
-    await page.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('-3');
-    await page.getByRole('button', { name: 'Aplicar no simulador' }).click();
-    await page.waitForTimeout(600);
-    await page.getByRole('button', { name: 'Parar', exact: true }).click();
+    const create = page.getByRole('region', { name: '1. Criar' });
+    const keys = page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem');
+    // o exemplo aberto não muda: o primeiro ponto começa uma rotina nova
+    await create.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('5');
+    await create.getByRole('button', { name: 'Gravar ponto 1' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: /^2\. Ajustar · Rotina / })).toBeVisible();
+    await expect(keys).toHaveCount(1);
+    await create.getByRole('spinbutton', { name: 'Roll (em torno de X) (graus)' }).fill('-5');
+    await create.getByRole('spinbutton', { name: /^Tempo até este ponto/ }).fill('3');
+    await create.getByRole('button', { name: 'Gravar ponto 2' }).click();
+    await expect(keys).toHaveCount(2);
+    await expect(keys.nth(1)).toContainText('3,0 s');
+    await expect(keys.nth(1)).toContainText('roll -5,0°');
+  });
+
+  test('ao vivo: liga o controle, grava dirigindo e salva uma rotina nova', async ({ page }) => {
+    await page.goto('/gravar');
+    await page.getByRole('tab', { name: 'Ao vivo (controle)' }).click();
+    const create = page.getByRole('region', { name: '1. Criar' });
+    await create.getByRole('button', { name: 'Começar a gravar' }).click();
+    await expect(create.getByRole('status').filter({ hasText: 'REC' })).toBeVisible();
+    const stick = create.getByRole('application', { name: /Inclinar \(roll \/ pitch\)/ });
+    const box = (await stick.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 8, box.y + box.height / 2, { steps: 6 });
+    await page.waitForTimeout(700);
+    await page.mouse.move(box.x + box.width / 2, box.y + 8, { steps: 6 });
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+    await create.getByRole('button', { name: 'Parar e salvar' }).click();
     await expect(page.getByText('Gravação salva')).toBeVisible();
-    await page.getByRole('link', { name: 'Gravar e reproduzir' }).click();
-    await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem').first()).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: /Gravação / })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: /^2\. Ajustar · Gravação / })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Lista de poses-chave' }).getByRole('listitem').nth(1)).toBeVisible();
   });
 });
 

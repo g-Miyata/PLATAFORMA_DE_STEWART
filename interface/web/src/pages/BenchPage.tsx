@@ -14,7 +14,6 @@ import { useAutoDisable, useCanCommand } from '@/features/control/useControlGate
 import { useThrottledTelemetry } from '@/features/control/useThrottled';
 import { PoseEditor } from '@/features/control/PoseEditor';
 import { useGeometry } from '@/features/platform3d/geometry';
-import { AddKeyButton } from '@/features/recorder/AddKeyButton';
 import { CAMERA_VIEWS, type CameraView } from '@/features/platform3d/Scene';
 import { EmergencyStopButton } from '@/features/safety/EmergencyStopButton';
 import { api } from '@/lib/api';
@@ -359,7 +358,6 @@ export default function BenchPage() {
             <Send aria-hidden />
             Aplicar {simulated ? 'no simulador' : 'na plataforma'}
           </Button>
-          <AddKeyButton size="sm" variant="ghost" getPose={() => useBench.getState().pose} />
           <div className="rounded-lg px-2">
             <SwitchField label="Ao vivo" checked={live} onCheckedChange={setLive} disabled={!canCommand} tone="danger" />
           </div>

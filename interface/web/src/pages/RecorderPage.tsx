@@ -1,4 +1,5 @@
-import { Circle, Copy, Download, FilePlus2, FileUp, ListRestart, Pause, Play, Plus, Send, Square, Trash2, Wand2 } from 'lucide-react';
+import { Copy, Download, FilePlus2, FileUp, Gamepad2, ListRestart, MapPin, Pause, Play, Plus, Send, Trash2, Wand2 } from 'lucide-react';
+import { Tabs } from 'radix-ui';
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/PageLayout';
@@ -11,7 +12,8 @@ import { useCanCommand } from '@/features/control/useControlGate';
 import { useGeometry } from '@/features/platform3d/geometry';
 import { PlatformViewer } from '@/features/platform3d/PlatformViewer';
 import { EXAMPLES, exportJson, findRecording, useLibrary, type Recording } from '@/features/recorder/library';
-import { useRecorder, type RecordSource } from '@/features/recorder/recorderStore';
+import { LiveComposer } from '@/features/recorder/LiveComposer';
+import { PointComposer } from '@/features/recorder/PointComposer';
 import { TimelinePlot } from '@/features/recorder/TimelinePlot';
 import { usePreviewClock } from '@/features/recorder/usePreviewClock';
 import {
@@ -29,6 +31,7 @@ import { MotionStatusCard, mmss, useMotionStatus } from '@/features/routines/Mot
 import { TrackingChart } from '@/features/routines/TrackingChart';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/cn';
+import type { Pose } from '@/lib/types';
 import { downloadText, timestampName, toCsv } from '@/lib/csv';
 import { fmt } from '@/lib/pistons';
 import { useConnection } from '@/stores/connection';
@@ -102,34 +105,6 @@ function Library({ activeId, onOpen }: { activeId: string | null; onOpen: (id: s
   );
 }
 
-// ---------------- gravação global ----------------
-function RecorderCard() {
-  const status = useRecorder((s) => s.status);
-  const [source, setSource] = useState<RecordSource>('comandos');
-  const recording = status === 'recording';
-  return (
-    <Card title="Gravar" icon={<Circle aria-hidden />} description="Grava o que você comandar em qualquer página (Joystick, Bancada 3D, Cinemática, IMU). O indicador ● REC fica no topo até você parar.">
-      <div className="flex flex-wrap items-end gap-3">
-        <SelectField label="O que gravar" value={source} onChange={(e) => setSource(e.target.value as RecordSource)} disabled={recording}>
-          <option value="comandos">Poses comandadas</option>
-          <option value="medido">Pose medida (telemetria)</option>
-        </SelectField>
-        {recording ? (
-          <Button variant="danger" onClick={() => useRecorder.getState().stop()}>
-            <Square aria-hidden />
-            Parar gravação
-          </Button>
-        ) : (
-          <Button variant="primary" onClick={() => useRecorder.getState().start(source)}>
-            <Circle aria-hidden />
-            Começar a gravar
-          </Button>
-        )}
-      </div>
-    </Card>
-  );
-}
-
 // ---------------- editor ----------------
 function Feasibility({ rec, geometryValid }: { rec: Recording; geometryValid: ReturnType<typeof analyzeTrajectory> }) {
   const a = geometryValid;
@@ -160,6 +135,7 @@ export default function RecorderPage() {
   const items = useLibrary((s) => s.items);
   const rec = useMemo(() => findRecording(activeId) ?? EXAMPLES[0], [activeId, items]); // eslint-disable-line react-hooks/exhaustive-deps
   const [selected, setSelected] = useState<number | null>(0);
+  const [mode, setMode] = useState<'pontos' | 'ao-vivo'>('pontos');
   const motion = useMotionStatus();
   const running = !!motion.data?.running;
 
@@ -230,6 +206,23 @@ export default function RecorderPage() {
     setKeys(rec.keys.map((k, n) => (n === i ? { ...k, t: value } : k)));
   }
 
+  /** Ponto a ponto: acrescenta ao fim da rotina aberta (um exemplo vira uma rotina nova). */
+  function recordPoint(pose: Pose, gap: number) {
+    if (rec.example) {
+      const when = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+      useLibrary.getState().create({ name: `Rotina ${when}`, keys: [{ t: 0, pose }] });
+      setTime(0);
+      setSelected(0);
+      toast.success('Nova rotina começada', { description: 'Os exemplos não mudam: os pontos vão para uma rotina sua.' });
+      return;
+    }
+    const last = rec.keys[rec.keys.length - 1];
+    const t = last ? Math.round((last.t + gap) * 20) / 20 : 0;
+    const keys = [...rec.keys, { t, pose }];
+    setKeys(keys, keys.length - 1);
+    setTime(t);
+  }
+
   function simplifyKeys() {
     const before = rec.keys.length;
     const keys = simplify(rec.keys, 1, 0.3);
@@ -258,17 +251,53 @@ export default function RecorderPage() {
     <>
       <PageHeader
         title="Gravar e reproduzir"
-        description="Grave movimentos, edite as poses-chave numa linha do tempo e reproduza na plataforma. A prévia roda só no modelo, sem mover nada."
+        description="Crie a rotina aqui mesmo: posicione a plataforma e grave pontos, ou dirija com o controle e grave o movimento. Depois ajuste a linha do tempo e reproduza."
       />
       <div className="grid gap-5 xl:grid-cols-[18rem_minmax(0,1fr)]">
         <div className="space-y-5">
           <Library activeId={rec.id} onOpen={open} />
-          <RecorderCard />
         </div>
 
         <div className="min-w-0 space-y-5">
           <Card
-            title={rec.example ? `${rec.name} (exemplo)` : rec.name}
+            title="1. Criar"
+            description={
+              mode === 'pontos'
+                ? `Deixe a plataforma numa posição e grave o ponto; a rotina liga os pontos. Os pontos vão para “${rec.example ? 'uma rotina nova' : rec.name}”.`
+                : 'Ligue o controle, comece a gravar e dirija. Ao parar, a gravação vira uma rotina nova.'
+            }
+          >
+            <Tabs.Root value={mode} onValueChange={(v) => setMode(v as 'pontos' | 'ao-vivo')}>
+              <Tabs.List aria-label="Como criar" className="mb-4 inline-flex rounded-lg border border-border bg-surface-2 p-1">
+                <Tabs.Trigger value="pontos" className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted data-[state=active]:bg-primary data-[state=active]:text-on-primary">
+                  <MapPin aria-hidden className="size-4" />
+                  Ponto a ponto
+                </Tabs.Trigger>
+                <Tabs.Trigger value="ao-vivo" className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-muted data-[state=active]:bg-primary data-[state=active]:text-on-primary">
+                  <Gamepad2 aria-hidden className="size-4" />
+                  Ao vivo (controle)
+                </Tabs.Trigger>
+              </Tabs.List>
+              <Tabs.Content value="pontos" className="outline-none">
+                {mode === 'pontos' && <PointComposer canCommand={canCommand && !running} points={rec.example ? 0 : rec.keys.length} onRecordPoint={recordPoint} />}
+              </Tabs.Content>
+              <Tabs.Content value="ao-vivo" className="outline-none">
+                {mode === 'ao-vivo' && (
+                  <LiveComposer
+                    canCommand={canCommand && !running}
+                    onSaved={(r) => {
+                      setTime(0);
+                      setSelected(0);
+                      useLibrary.getState().setActive(r.id);
+                    }}
+                  />
+                )}
+              </Tabs.Content>
+            </Tabs.Root>
+          </Card>
+
+          <Card
+            title={`2. Ajustar · ${rec.example ? `${rec.name} (exemplo)` : rec.name}`}
             actions={
               <>
                 {!rec.example && (
@@ -455,7 +484,7 @@ export default function RecorderPage() {
             </Card>
           </div>
 
-          <Card title="Na plataforma" icon={<Send aria-hidden />} actions={check.valid ? <StatusPill tone={check.tooFast ? 'warning' : 'success'}>{check.tooFast ? 'Rápida' : 'Viável'}</StatusPill> : <StatusPill tone="danger">Fora do curso</StatusPill>}>
+          <Card title="3. Reproduzir" icon={<Send aria-hidden />} actions={check.valid ? <StatusPill tone={check.tooFast ? 'warning' : 'success'}>{check.tooFast ? 'Rápida' : 'Viável'}</StatusPill> : <StatusPill tone="danger">Fora do curso</StatusPill>}>
             <div className="space-y-4">
               <Feasibility rec={rec} geometryValid={check} />
               {!canCommand && <Alert tone="info">Conecte o simulador ou a porta serial no topo para reproduzir. A prévia funciona sem conexão.</Alert>}
