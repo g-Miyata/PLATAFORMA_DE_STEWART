@@ -1,5 +1,5 @@
-import { Menu, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Menu, Pin, PinOff, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { ModeBadge } from '@/components/ModeBadge';
 import { LanChip } from '@/components/LanChip';
@@ -69,21 +69,87 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+const PIN_KEY = 'stewart-nav-pinned';
+function readPinned() {
+  try {
+    return localStorage.getItem(PIN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Menu lateral: fica escondido e abre por cima da página ao passar o mouse na borda
+ * esquerda ou pelo botão de menu. "Fixar" deixa aberto ao lado do conteúdo (lembrado).
+ */
+function useSideMenu() {
+  const [pinned, setPinnedState] = useState(readPinned);
+  const [open, setOpen] = useState(false);
+  // aberto pelo hover fecha quando o mouse sai; pelo botão, só com clique fora ou navegando
+  const byHover = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clear = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  const setPinned = (v: boolean) => {
+    setPinnedState(v);
+    setOpen(false);
+    try {
+      localStorage.setItem(PIN_KEY, v ? '1' : '0');
+    } catch {
+      /* sem storage: vale só nesta sessão */
+    }
+  };
+  const toggle = () => {
+    clear();
+    byHover.current = false;
+    setOpen((v) => !v);
+  };
+  const close = useCallback(() => {
+    clear();
+    byHover.current = false;
+    setOpen(false);
+  }, []);
+  const hoverEnter = () => {
+    clear();
+    if (open) return;
+    // pequena espera: passar o mouse de relance pela borda não abre
+    timer.current = setTimeout(() => {
+      byHover.current = true;
+      setOpen(true);
+    }, 140);
+  };
+  const hoverLeave = () => {
+    clear();
+    if (!byHover.current) return;
+    timer.current = setTimeout(() => {
+      byHover.current = false;
+      setOpen(false);
+    }, 280);
+  };
+  useEffect(() => clear, []);
+  return { pinned, setPinned, open, toggle, close, hoverEnter, hoverLeave };
+}
+
 export function AppShell() {
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useSideMenu();
+  const menuOpen = menu.open;
   const backendOnline = useConnection((s) => s.backendOnline);
   const location = useLocation();
   const main = useRef<HTMLElement>(null);
 
   // Ao trocar de página, leva o foco para o conteúdo (leitores de tela anunciam o novo título)
   const first = useRef(true);
+  const closeMenu = menu.close;
   useEffect(() => {
+    closeMenu();
     if (first.current) {
       first.current = false;
       return;
     }
     main.current?.focus();
-  }, [location.pathname]);
+  }, [location.pathname, closeMenu]);
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -96,17 +162,11 @@ export function AppShell() {
 
       <header className="sticky top-0 z-40 border-b border-border bg-surface/95 backdrop-blur">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="lg:hidden"
-            aria-expanded={menuOpen}
-            aria-controls="menu-principal"
-            aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            {menuOpen ? <X aria-hidden /> : <Menu aria-hidden />}
-          </Button>
+          {!menu.pinned && (
+            <Button size="icon" variant="ghost" aria-expanded={menuOpen} aria-controls="menu-principal" aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'} onClick={menu.toggle}>
+              {menuOpen ? <X aria-hidden /> : <Menu aria-hidden />}
+            </Button>
+          )}
           <NavLink to="/" className="flex items-center gap-3 rounded-lg">
             <Logo />
             <span className="hidden border-l border-border pl-3 text-sm font-semibold leading-tight sm:block">
@@ -132,17 +192,41 @@ export function AppShell() {
         </div>
       </header>
 
+      {/* borda esquerda: passar o mouse abre o menu (só com mouse; no toque, o botão) */}
+      {!menu.pinned && !menuOpen && (
+        <div aria-hidden className="fixed inset-y-0 left-0 z-40 hidden w-2 [@media(hover:hover)]:block" onMouseEnter={menu.hoverEnter} onMouseLeave={menu.hoverLeave} />
+      )}
+      {!menu.pinned && menuOpen && <div aria-hidden className="fixed inset-0 z-40 bg-black/25" onClick={menu.close} />}
+
       <div className="flex">
         <nav
           id="menu-principal"
           aria-label="Principal"
+          inert={!menu.pinned && !menuOpen}
+          onMouseEnter={menu.pinned ? undefined : menu.hoverEnter}
+          onMouseLeave={menu.pinned ? undefined : menu.hoverLeave}
           className={cn(
-            'z-30 w-64 shrink-0 border-r border-border bg-surface p-3',
-            'lg:sticky lg:top-[57px] lg:block lg:h-[calc(100dvh-57px)] lg:overflow-y-auto',
-            menuOpen ? 'fixed inset-y-0 left-0 top-[57px] block overflow-y-auto shadow-xl' : 'hidden',
+            'w-64 shrink-0 overflow-y-auto border-r border-border bg-surface p-3',
+            menu.pinned
+              ? 'sticky top-[57px] z-30 hidden h-[calc(100dvh-57px)] md:block'
+              : cn('fixed inset-y-0 left-0 z-50 shadow-2xl transition-transform duration-200 motion-reduce:transition-none', menuOpen ? 'translate-x-0' : '-translate-x-full'),
           )}
         >
-          <Nav onNavigate={() => setMenuOpen(false)} />
+          <div className="mb-3 flex items-center justify-between gap-2 px-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted">Menu</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="hidden md:inline-flex"
+              aria-pressed={menu.pinned}
+              onClick={() => menu.setPinned(!menu.pinned)}
+              title={menu.pinned ? 'Soltar: o menu volta a abrir só pela borda ou pelo botão' : 'Fixar o menu aberto ao lado do conteúdo'}
+            >
+              {menu.pinned ? <PinOff aria-hidden /> : <Pin aria-hidden />}
+              {menu.pinned ? 'Soltar' : 'Fixar'}
+            </Button>
+          </div>
+          <Nav onNavigate={menu.close} />
           <p className="mt-6 px-3 text-xs text-muted">
             <a className="underline hover:text-fg" href="/antigo/">
               Interface antiga

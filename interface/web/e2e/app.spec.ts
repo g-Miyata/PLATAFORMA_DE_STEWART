@@ -110,6 +110,31 @@ test('Esc para a rotina mesmo quando um componente da página segura a tecla', a
   await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
 });
 
+test('menu lateral: escondido, abre pelo botão ou pela borda e pode ser fixado', async ({ page }) => {
+  await page.goto('/cinematica');
+  const menu = page.locator('#menu-principal');
+  const nav = page.getByRole('navigation', { name: 'Principal' });
+  await expect(menu).toHaveAttribute('inert', '');
+  // pelo botão: abre, e escolher uma página fecha
+  await page.getByRole('button', { name: 'Abrir menu' }).click();
+  await nav.getByRole('link', { name: 'Joystick' }).click();
+  await expect(page).toHaveURL(/\/joystick$/);
+  await expect(menu).toHaveAttribute('inert', '');
+  // pela borda esquerda: abre com o mouse e fecha quando ele sai
+  await page.mouse.move(1, 450);
+  await expect(nav.getByRole('link', { name: 'Rotinas' })).toBeVisible();
+  await page.mouse.move(900, 450);
+  await expect(menu).toHaveAttribute('inert', '');
+  // fixar: fica aberto ao lado do conteúdo, também depois de recarregar
+  await page.getByRole('button', { name: 'Abrir menu' }).click();
+  await nav.getByRole('button', { name: 'Fixar' }).click();
+  await page.reload();
+  await expect(nav.getByRole('link', { name: 'Rotinas' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Abrir menu' })).toHaveCount(0);
+  await nav.getByRole('button', { name: 'Soltar' }).click();
+  await expect(menu).toHaveAttribute('inert', '');
+});
+
 test('hardware real pede confirmação', async ({ page }) => {
   await page.route('**/serial/ports', (route) =>
     route.fulfill({
