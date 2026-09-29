@@ -13,12 +13,17 @@ O algoritmo é o **washout clássico** (Reid & Nahon), com um detalhe próprio d
 
 Dá para usar de dois jeitos:
 
-- **Voos gravados:** clique em Play. O FlightGear é opcional (só para ver o avião). O repositório já traz uma rotina, `interface/simulation/flights/demo-erj145-sbgr-decolagem-e-manobras.json` (3 min 51 s): decolagem do SBGR no ERJ145 do IFSP, subida com recolhimento do trem, curvas de 30° para os dois lados, puxada e picada, balanço de asas, curva de 45° e descida.
+- **Voos gravados:** clique em Play. O FlightGear é opcional (só para ver o avião). O repositório já traz uma rotina, `interface/simulation/flights/demo-erj145-sbgr-circuito.json` (5 min 58 s), gravada de dia na pista 27R de Guarulhos:
+  - apresentação do ERJ145 do IFSP (~30 s), com a câmera girando em volta do avião parado e mostrando a pintura enquanto os motores dão partida;
+  - decolagem e subida com recolhimento do trem;
+  - circuito de tráfego pela esquerda, sobre a cidade, com puxada e picada, balanço de asas e curva em S na perna do vento;
+  - base e final pela rampa de 3°;
+  - arredondamento, pouso no eixo, frenagem e parada.
 - **Ao vivo:** o FlightGear manda os dados por UDP e a plataforma segue o voo em tempo real. Também dá para gravar voos novos por aqui.
 
 ### O que esperar do movimento
 
-O Simulador de voo é fiel às **sensações**: numa curva coordenada de 45°, o piloto não é empurrado para o lado (a inclinação compensa a força centrífuga), então a plataforma quase não inclina. Ela dá o início da rolagem e volta devagar ao centro, como os simuladores profissionais. O que mais aparece é a inclinação sustentada da decolagem e da subida. Na rotina do ERJ, com os parâmetros padrão, a plataforma chega a ~1° de roll e ~7° de pitch, e o comando traz até 10 mm de surge e 25 mm de heave. Com pistões a ~9 mm/s, essas translações ficam abaixo do que o corpo percebe. Para uma apresentação em que o público compara com o avião na tela, a **Orientação do avião** é a que "bate com o que se vê" (até 12° de roll no mesmo voo).
+O Simulador de voo é fiel às **sensações**: numa curva coordenada de 45°, o piloto não é empurrado para o lado (a inclinação compensa a força centrífuga), então a plataforma quase não inclina. Ela dá o início da rolagem e volta devagar ao centro, como os simuladores profissionais. O que mais aparece é a inclinação sustentada da decolagem e da subida. Na rotina do ERJ, com os parâmetros padrão, a plataforma chega a ~2° de roll e ~8° de pitch, e o comando traz até 23 mm de surge e 24 mm de heave. O pouso aparece como o toque (pico de ~2,8 g no piloto) e a frenagem (−5 m/s², a plataforma recua ~11 mm). Com pistões a ~9 mm/s, essas translações ficam abaixo do que o corpo percebe. Para uma apresentação em que o público compara com o avião na tela, a **Orientação do avião** é a que "bate com o que se vê" (até 12° de roll no mesmo voo).
 
 ## Arquitetura e Fluxo de Dados
 
@@ -49,7 +54,8 @@ O Telnet é pergunta e resposta: cada propriedade custa uma ida e volta, e a pon
 `interface/simulation/flights/*.json`, formato `stewart-cueing-flight`:
 
 - **v1:** colunas `t, fx, fy, fz, p, q, r, roll, pitch, heading, ias, agl, alt, wow`. Movem a plataforma.
-- **v2:** as mesmas colunas mais `lat, lon, gear, flaps, elevator, aileron, rudder, speedbrake`. O FlightGear também consegue redesenhar o voo. Toda gravação feita com o protocolo atual já sai em v2.
+- **v2:** as mesmas colunas mais `lat, lon, gear, flaps, elevator, aileron, rudder, speedbrake`. O FlightGear também consegue redesenhar o voo.
+- **v3:** v2 mais a câmera (`cam_view, cam_hdg, cam_pitch, cam_fov, cam_dist`: vista, giro, inclinação, zoom e distância da Chase View). No replay, o FlightGear repete o mesmo enquadramento, inclusive a apresentação do avião; nos voos v1 e v2 a câmera fica livre. Toda gravação feita com o protocolo atual já sai em v3.
 
 ## Algoritmo
 
@@ -94,7 +100,7 @@ O launcher abre na **Chase View** (terceira pessoa, atrás do avião), para quem
 
 O launcher usa o ERJ145 do IFSP por padrão (`-Aircraft c172p` para o Cessna). Na aba **Ao vivo**, confira "Recebendo do FlightGear". **Gravar voo** guarda um arquivo novo em `interface/simulation/flights/`.
 
-Para refazer a rotina de demonstração, `python fly-demo.py` (na mesma pasta) liga o motor, decola e faz as manobras sozinho. O piloto está em `demo-flight.nas` e vai pela API HTTP do FlightGear, porque o Nasal não lê arquivos fora das pastas do simulador.
+Para refazer a rotina de demonstração, `python fly-demo.py` (na mesma pasta) faz tudo sozinho com o ERJ145: a apresentação com a câmera enquanto os motores dão partida, a decolagem, o circuito com as manobras e o pouso (o C172P só decola e faz manobras). O piloto está em `demo-flight.nas` e vai pela API HTTP do FlightGear, porque o Nasal não lê arquivos fora das pastas do simulador.
 
 ### Variáveis de ambiente da ponte
 

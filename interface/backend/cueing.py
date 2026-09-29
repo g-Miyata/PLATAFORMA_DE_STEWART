@@ -54,6 +54,16 @@ FLIGHT_DECIMALS = [3, 3, 3, 3, 2, 2, 2, 2, 2, 1, 1, 1, 1, 0]
 VISUAL_COLUMNS = ["lat", "lon", "gear", "flaps", "elevator", "aileron", "rudder", "speedbrake"]
 VISUAL_DECIMALS = [7, 7, 3, 3, 3, 3, 3, 3]
 FLIGHT_COLUMNS_V2 = FLIGHT_COLUMNS + VISUAL_COLUMNS
+# v3: câmera (vista, giro, inclinação, zoom, distância da Chase View), para o replay repetir o enquadramento
+CAMERA_COLUMNS = ["cam_view", "cam_hdg", "cam_pitch", "cam_fov", "cam_dist"]
+CAMERA_DECIMALS = [0, 2, 2, 2, 2]
+FLIGHT_COLUMNS_V3 = FLIGHT_COLUMNS_V2 + CAMERA_COLUMNS
+VISUAL_LAYOUTS = (FLIGHT_COLUMNS_V2, FLIGHT_COLUMNS_V3)
+DECIMALS = {
+    len(FLIGHT_COLUMNS): FLIGHT_DECIMALS,
+    len(FLIGHT_COLUMNS_V2): FLIGHT_DECIMALS + VISUAL_DECIMALS,
+    len(FLIGHT_COLUMNS_V3): FLIGHT_DECIMALS + VISUAL_DECIMALS + CAMERA_DECIMALS,
+}
 FLIGHT_FORMAT = "stewart-cueing-flight"
 
 # Cada tela usa o motor com um perfil; só um perfil manda na plataforma por vez
@@ -293,8 +303,12 @@ VISUAL_FIELDS = ("lat", "lon", "alt", "roll", "pitch", "heading", "gear0", "gear
 def interpolate(a: Dict[str, float], b: Dict[str, float], frac: float) -> Dict[str, float]:
     """Amostra entre a e b; a proa dá a volta por 0/360 pelo lado curto."""
     out = {k: a[k] + frac * (b[k] - a[k]) for k in a}
-    dh = (b["heading"] - a["heading"] + 180.0) % 360.0 - 180.0
-    out["heading"] = (a["heading"] + frac * dh) % 360.0
+    for k in ("heading", "cam_hdg"):
+        if k in a:
+            dh = (b[k] - a[k] + 180.0) % 360.0 - 180.0
+            out[k] = (a[k] + frac * dh) % 360.0
+    if "cam_view" in a:
+        out["cam_view"] = a["cam_view"] if frac < 0.5 else b["cam_view"]
     return out
 
 
@@ -303,6 +317,11 @@ def visual_datagram(s: Dict[str, float]) -> bytes:
     vals = [s["lat"], s["lon"], s["alt"], s["roll"], s["pitch"], s["heading"] % 360.0,
             s["gear"], s["gear"], s["gear"], s["flaps"], s["elevator"], s["aileron"], -s["aileron"],
             s["rudder"], s["speedbrake"], s["ias"]]
+    # câmera gravada (v3) liga o controle da câmera no FlightGear; sem ela, a câmera fica livre
+    if "cam_view" in s:
+        vals += [1, round(s["cam_view"]), s["cam_hdg"] % 360.0, s["cam_pitch"], s["cam_fov"], s["cam_dist"]]
+    else:
+        vals += [0, 0, 0, 0, 0, 0]
     return (",".join(f"{v:.7f}" if i < 2 else f"{v:.3f}" for i, v in enumerate(vals)) + "\n").encode("ascii")
 
 
@@ -391,6 +410,9 @@ def parse_sample(data: Dict[str, Any]) -> Dict[str, float]:
     if data.get("lat") is not None:
         for k in VISUAL_COLUMNS:
             s[k] = float(data.get(k) or 0.0)
+        if data.get("cam_view") is not None:
+            for k in CAMERA_COLUMNS:
+                s[k] = float(data.get(k) or 0.0)
     for k, v in s.items():
         if isinstance(v, float) and not math.isfinite(v):
             raise ValueError(f"valor inválido em {k}")
@@ -531,7 +553,8 @@ class CueingEngine:
             self._process(sample, now)
             if self.recording is not None and not sample["hold"]:
                 if not self.recording:
-                    self.recording_columns = FLIGHT_COLUMNS_V2 if "lat" in sample else FLIGHT_COLUMNS
+                    self.recording_columns = (FLIGHT_COLUMNS_V3 if "cam_view" in sample
+                                              else FLIGHT_COLUMNS_V2 if "lat" in sample else FLIGHT_COLUMNS)
                 self.recording.append([sample.get(k, 0.0) for k in self.recording_columns])
                 if sample["t"] - self.recording[0][0] > MAX_RECORD_S:
                     self._event("Gravação chegou a 30 min e parou de acumular.", "warning")
@@ -610,7 +633,7 @@ class CueingEngine:
             columns = self.recording_columns
         if not rows or len(rows) < 2:
             raise RuntimeError("A gravação está vazia.")
-        decimals = FLIGHT_DECIMALS + (VISUAL_DECIMALS if columns == FLIGHT_COLUMNS_V2 else [])
+        decimals = DECIMALS[len(columns)]
         t0 = rows[0][0]
         data = []
         for r in rows:
@@ -624,7 +647,7 @@ class CueingEngine:
         flight_id = self._new_flight_id(name)
         doc = {
             "format": FLIGHT_FORMAT,
-            "version": 2 if columns == FLIGHT_COLUMNS_V2 else 1,
+            "version": 3 if columns == FLIGHT_COLUMNS_V3 else 2 if columns == FLIGHT_COLUMNS_V2 else 1,
             "name": name.strip() or flight_id,
             "description": description.strip(),
             "aircraft": aircraft,
@@ -661,7 +684,7 @@ class CueingEngine:
 
     def load_flight(self, flight_id: str) -> Dict[str, Any]:
         doc = json.loads(self.flight_path(flight_id).read_text(encoding="utf-8"))
-        if doc.get("format") != FLIGHT_FORMAT or doc.get("columns") not in (FLIGHT_COLUMNS, FLIGHT_COLUMNS_V2):
+        if doc.get("format") != FLIGHT_FORMAT or doc.get("columns") not in (FLIGHT_COLUMNS, FLIGHT_COLUMNS_V2, FLIGHT_COLUMNS_V3):
             raise HTTPException(status_code=400, detail="Arquivo de voo em formato desconhecido.")
         return doc
 
@@ -673,7 +696,7 @@ class CueingEngine:
                 doc = self.load_flight(fid)
             except HTTPException:
                 continue
-            if doc["columns"] == FLIGHT_COLUMNS_V2:
+            if doc["columns"] in VISUAL_LAYOUTS:
                 s = sample_from_row(doc["data"][0], doc["columns"])
                 return {"lat": s["lat"], "lon": s["lon"], "alt": s["alt"], "heading": s["heading"]}
         return None
@@ -705,8 +728,8 @@ class CueingEngine:
             self.replay = {
                 "id": flight_id, "name": doc.get("name", flight_id), "t": 0.0,
                 "duration": float(rows[-1][0]), "speed": speed, "loop": loop, "paused": False,
-                "profile": profile, "has_visual": columns == FLIGHT_COLUMNS_V2,
-                "visual": bool(visual and columns == FLIGHT_COLUMNS_V2),
+                "profile": profile, "has_visual": columns in VISUAL_LAYOUTS,
+                "visual": bool(visual and columns in VISUAL_LAYOUTS),
             }
             self._replay_stop.clear()
             self._replay_thread = threading.Thread(target=self._replay_loop, args=(rows, columns),
@@ -932,7 +955,7 @@ def flight_meta(flight_id: str, doc: Dict[str, Any]) -> Dict[str, Any]:
         "duration_s": doc.get("duration_s") or (doc["data"][-1][0] if doc.get("data") else 0.0),
         "samples": len(doc.get("data") or []),
         # com posição e superfícies gravadas: o FlightGear consegue redesenhar o voo
-        "visual": doc.get("columns") == FLIGHT_COLUMNS_V2,
+        "visual": doc.get("columns") in VISUAL_LAYOUTS,
     }
 
 

@@ -33,6 +33,14 @@
       <chunk><name>rudder</name><type>float</type><node>/surface-positions/rudder-pos-norm</node></chunk>
       <chunk><name>speedbrake</name><type>float</type><node>/surface-positions/speedbrake-pos-norm</node></chunk>
       <chunk><name>ias</name><type>float</type><node>/velocities/airspeed-kt</node></chunk>
+
+      <!-- câmera gravada (voos v3); o backend injeta um Nasal que só aplica quando active = 1 -->
+      <chunk><name>cam_active</name><type>int</type><node>/stewart-visual/camera/active</node></chunk>
+      <chunk><name>cam_view</name><type>int</type><node>/stewart-visual/camera/view</node></chunk>
+      <chunk><name>cam_hdg</name><type>float</type><node>/stewart-visual/camera/hdg</node></chunk>
+      <chunk><name>cam_pitch</name><type>float</type><node>/stewart-visual/camera/pitch</node></chunk>
+      <chunk><name>cam_fov</name><type>float</type><node>/stewart-visual/camera/fov</node></chunk>
+      <chunk><name>cam_dist</name><type>float</type><node>/stewart-visual/camera/dist</node></chunk>
     </input>
   </generic>
 </PropertyList>

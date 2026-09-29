@@ -26,6 +26,8 @@ FIELDS = ["t", "fx", "fy", "fz", "p", "q", "r", "roll", "pitch", "heading", "ias
           "wow", "paused", "replay", "aircraft"]
 # v2: posição e superfícies, para o FlightGear redesenhar o voo gravado depois
 VISUAL_FIELDS = ["lat", "lon", "gear", "flaps", "elevator", "aileron", "rudder", "speedbrake"]
+# v3: câmera, para o replay repetir o enquadramento (inclusive a apresentação do avião)
+CAMERA_FIELDS = ["cam_view", "cam_hdg", "cam_pitch", "cam_fov", "cam_dist"]
 
 UDP_HOST = os.getenv("FG_CUEING_UDP_HOST", "127.0.0.1")
 UDP_PORT = int(os.getenv("FG_CUEING_UDP_PORT", "5510"))
@@ -61,11 +63,15 @@ def parse_line(line: str) -> Optional[Dict]:
         "wow": flags[0], "paused": flags[1], "replay": flags[2],
         "aircraft": parts[16].strip() if len(parts) > 16 else None,
     }
-    if len(parts) >= len(FIELDS) + len(VISUAL_FIELDS):
+    n = len(FIELDS)
+    for extra in (VISUAL_FIELDS, CAMERA_FIELDS):
+        if len(parts) < n + len(extra):
+            break
         try:
-            sample.update({k: float(x) for k, x in zip(VISUAL_FIELDS, parts[len(FIELDS):])})
+            sample.update({k: float(x) for k, x in zip(extra, parts[n:n + len(extra)])})
         except ValueError:
-            pass
+            break
+        n += len(extra)
     return sample
 
 

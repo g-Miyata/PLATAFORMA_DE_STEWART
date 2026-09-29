@@ -301,7 +301,8 @@ def test_visual_datagram_matches_protocol():
     s = {"lat": -23.4323456, "lon": -46.4695, "alt": 2500.0, "roll": 10.0, "pitch": 3.0, "heading": 370.0,
          "gear": 1.0, "flaps": 0.25, "elevator": -0.1, "aileron": 0.2, "rudder": 0.0, "speedbrake": 0.0, "ias": 150.0}
     fields = visual_datagram(s).decode().strip().split(",")
-    assert len(fields) == 16  # mesma quantidade de <chunk> de stewart-visual.xml
+    assert len(fields) == 22  # mesma quantidade de <chunk> de stewart-visual.xml
+    assert fields[16] == "0.000"  # voo sem câmera gravada: câmera livre no FlightGear
     assert fields[0] == "-23.4323456" and float(fields[5]) == pytest.approx(10.0)
     assert float(fields[11]) == -float(fields[12])  # ailerons opostos
 
@@ -331,7 +332,7 @@ def test_v2_recording_and_visual_replay_over_udp(engine):
     engine.start_replay(meta["id"], speed=2.0, visual=True)
     data, _ = rx.recvfrom(512)
     fields = data.decode().strip().split(",")
-    assert len(fields) == 16 and float(fields[0]) == pytest.approx(-23.4, abs=0.01)
+    assert len(fields) == 22 and float(fields[0]) == pytest.approx(-23.4, abs=0.01)
     engine.stop_replay()
     rx.close()
 
@@ -348,3 +349,37 @@ def test_v1_flight_never_turns_visual_on(engine):
     engine.set_replay(visual=True)
     assert engine.replay["visual"] is False
     engine.stop_replay()
+
+
+# ---------------- câmera gravada (v3) ----------------
+from cueing import FLIGHT_COLUMNS_V3  # noqa: E402
+
+
+def test_camera_heading_interpolates_through_zero():
+    a = {"t": 0.0, "heading": 90.0, "cam_hdg": 350.0, "cam_view": 2.0}
+    b = {"t": 1.0, "heading": 90.0, "cam_hdg": 20.0, "cam_view": 2.0}
+    mid = interpolate(a, b, 0.5)
+    assert mid["cam_hdg"] == pytest.approx(5.0)
+    assert mid["cam_view"] == 2.0
+
+
+def test_visual_datagram_turns_camera_on_for_v3():
+    s = {"lat": -23.4, "lon": -46.4, "alt": 2500.0, "roll": 0.0, "pitch": 0.0, "heading": 254.0,
+         "gear": 1.0, "flaps": 0.0, "elevator": 0.0, "aileron": 0.0, "rudder": 0.0, "speedbrake": 0.0, "ias": 0.0,
+         "cam_view": 2.0, "cam_hdg": 370.0, "cam_pitch": -9.0, "cam_fov": 34.0, "cam_dist": -14.0}
+    fields = visual_datagram(s).decode().strip().split(",")
+    assert len(fields) == 22
+    assert fields[16:18] == ["1.000", "2.000"]
+    assert float(fields[18]) == pytest.approx(10.0) and float(fields[21]) == pytest.approx(-14.0)
+
+
+def test_v3_recording_keeps_camera(engine):
+    for i in range(60):
+        engine.ingest({**_v2(i, i * DT), "cam_view": 2.0, "cam_hdg": (i * 3.0) % 360, "cam_pitch": -5.0,
+                       "cam_fov": 40.0, "cam_dist": -20.0})
+        if i == 5:
+            engine.start_recording()
+    meta = engine.stop_recording("v3")
+    doc = engine.load_flight(meta["id"])
+    assert doc["version"] == 3 and doc["columns"] == FLIGHT_COLUMNS_V3 and meta["visual"]
+    assert doc["data"][0][FLIGHT_COLUMNS_V3.index("cam_view")] == 2

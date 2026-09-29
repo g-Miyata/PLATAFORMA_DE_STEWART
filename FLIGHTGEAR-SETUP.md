@@ -47,7 +47,7 @@ O avião fica em `%USERPROFILE%\FlightGear\Downloads\Aircraft\org.flightgear.fga
 2. No cartão **FlightGear**, confira **Pré-requisitos ok**. Se faltar algo, a lista mostra o item e como resolver (tabela da seção 6).
 3. Clique em **Rodar no FlightGear**. A janela do FlightGear abre e, em 20 s a 1 min, a imagem aparece no cartão com o selo **No ar**.
 4. Conecte a bancada (ou o **Simulador**) no topo da página e clique em **Engatar**.
-5. Em **Voos gravados**, clique em **Play**. Voos com o selo "Aparece no FlightGear" são desenhados no FlightGear; a rotina pronta é **ERJ145 IFSP: decolagem e manobras em SBGR**.
+5. Em **Voos gravados**, clique em **Play**. Voos com o selo "Aparece no FlightGear" são desenhados no FlightGear; a rotina pronta é **ERJ145 IFSP: decolagem, manobras e pouso em SBGR** (~6 min). Ela começa com uma apresentação do avião, com a câmera girando em volta e mostrando a pintura, e depois segue em terceira pessoa.
 
 Dicas:
 - **Imagem fluida:** a imagem que o FlightGear manda pelo servidor dele (MJPEG) tem ~7 fps e compressão JPEG. Para projetar, clique em **Imagem fluida (capturar a janela)** e escolha a janela do FlightGear na lista do navegador. A página passa a mostrar a janela em até 60 fps, na resolução real, e o FlightGear fica mais leve. Funciona no Chrome e no Edge; a escolha vale para as duas telas até você fechar o FlightGear ou clicar em "Voltar para a imagem do servidor".
@@ -67,7 +67,7 @@ cd interface\simulation
 python fg-bridge.py --cueing
 ```
 
-O primeiro comando abre o ERJ145 do IFSP no SBGR com a física ligada, a saída UDP a 60 Hz e a câmera de terceira pessoa. Use `-Aircraft c172p` para o Cessna e `-View 0` para a cabine. O segundo repassa os dados ao backend.
+O primeiro comando abre o ERJ145 do IFSP no SBGR com a física ligada, a saída UDP a 60 Hz e a câmera de terceira pessoa. Por padrão, é meio-dia na pista 27R, a da rotina de demonstração. Sem isso, o FlightGear usa a hora real (à noite não se vê nada) e escolhe a pista pelo vento. Use `-TimeOfDay morning`, `-Runway 09L`, `-Aircraft c172p` (Cessna) ou `-View 0` (cabine) para mudar. O segundo repassa os dados ao backend.
 
 Na aba **Ao vivo**, confira "Recebendo do FlightGear", engate e voe. **Gravar voo** salva em `interface/simulation/flights/`; voos gravados assim já trazem posição e superfícies para o botão do FlightGear.
 

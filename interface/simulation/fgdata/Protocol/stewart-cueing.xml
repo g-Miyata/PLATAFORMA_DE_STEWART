@@ -49,6 +49,13 @@
       <chunk><name>aileron</name><type>float</type><format>%.3f</format><node>/surface-positions/left-aileron-pos-norm</node></chunk>
       <chunk><name>rudder</name><type>float</type><format>%.3f</format><node>/surface-positions/rudder-pos-norm</node></chunk>
       <chunk><name>speedbrake</name><type>float</type><format>%.3f</format><node>/surface-positions/speedbrake-pos-norm</node></chunk>
+
+      <!-- v3: câmera (vista, giro, inclinação, zoom e distância da Chase View), para o replay mostrar o mesmo enquadramento -->
+      <chunk><name>cam_view</name><type>int</type><node>/sim/current-view/view-number</node></chunk>
+      <chunk><name>cam_hdg</name><type>float</type><format>%.2f</format><node>/sim/current-view/heading-offset-deg</node></chunk>
+      <chunk><name>cam_pitch</name><type>float</type><format>%.2f</format><node>/sim/current-view/pitch-offset-deg</node></chunk>
+      <chunk><name>cam_fov</name><type>float</type><format>%.2f</format><node>/sim/current-view/field-of-view</node></chunk>
+      <chunk><name>cam_dist</name><type>float</type><format>%.2f</format><node>/sim/chase-distance-m</node></chunk>
     </output>
   </generic>
 </PropertyList>

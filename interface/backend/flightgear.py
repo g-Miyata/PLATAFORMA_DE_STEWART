@@ -47,6 +47,25 @@ ASSETS_DIR = SIM_DIR / "assets"
 EXTRA_DATA_DIR = SIM_DIR / "fgdata"
 SETUP_DOC = "FLIGHTGEAR-SETUP.md"
 
+# Aplica a câmera gravada (voos v3) a cada frame, só enquanto o backend manda active = 1;
+# sem ela (voos v1/v2), a câmera fica livre para quem estiver no FlightGear.
+CAMERA_NASAL = """
+var cam = props.globals.getNode("/stewart-visual/camera", 1);
+var apply = func {
+    if (!cam.getValue("active")) return;
+    var v = cam.getValue("view");
+    if (v != nil and getprop("/sim/current-view/view-number") != v) setprop("/sim/current-view/view-number", v);
+    setprop("/sim/current-view/heading-offset-deg", cam.getValue("hdg") or 0);
+    setprop("/sim/current-view/pitch-offset-deg", cam.getValue("pitch") or 0);
+    var fov = cam.getValue("fov");
+    if (fov != nil and fov > 1) setprop("/sim/current-view/field-of-view", fov);
+    var dist = cam.getValue("dist");
+    if (dist != nil and dist != 0) setprop("/sim/chase-distance-m", dist);
+};
+var timer = maketimer(0, apply);
+timer.start();
+"""
+
 
 @dataclass
 class CheckItem:
@@ -257,6 +276,7 @@ class FlightGearManager:
         self.lock = threading.Lock()
         self.last_error: Optional[Dict[str, Any]] = None
         self.view_set = False
+        self.camera_ready = False
         self._http = httpx.Client(timeout=1.0)
         # backend fechando não deixa um FlightGear órfão segurando as portas
         atexit.register(self._kill_on_exit)
@@ -350,6 +370,7 @@ class FlightGearManager:
             f"--aircraft={AIRCRAFT}",
             f"--prop:/sim/model/livery/name={LIVERY_NAME}",
             f"--prop:/sim/current-view/view-number={CHASE_VIEW}",
+            "--prop:/sim/menubar/visibility=false",  # imagem limpa para a apresentação
             "--fdm=null",
             f"--generic=socket,in,60,127.0.0.1,{VISUAL_PORT},udp,stewart-visual",
             f"--httpd={HTTP_PORT}",
@@ -386,6 +407,7 @@ class FlightGearManager:
             self.stopping = False
             self.last_error = None
             self.view_set = False
+            self.camera_ready = False
             return self.status()
 
     def stop(self) -> Dict[str, Any]:
@@ -402,6 +424,13 @@ class FlightGearManager:
             self.proc = None
             self.last_error = None
         return self.status()
+
+    def _nasal(self, code: str, module: str) -> bool:
+        body = {"children": [{"name": "script", "value": code}, {"name": "module", "value": module}]}
+        try:
+            return self._http.post(f"http://127.0.0.1:{HTTP_PORT}/run.cgi", params={"value": "nasal"}, json=body).status_code == 200
+        except httpx.HTTPError:
+            return False
 
     def _set_prop(self, path: str, value) -> bool:
         parts = path.strip("/").split("/")
@@ -446,6 +475,8 @@ class FlightGearManager:
         if loaded and not self.view_set:
             # o ERJ145 volta para a cabine ao iniciar: terceira pessoa depois do carregamento
             self.view_set = self._set_prop("/sim/current-view/view-number", CHASE_VIEW)
+        if loaded and not self.camera_ready:
+            self.camera_ready = self._nasal(CAMERA_NASAL, "stewartcamera")
         return {"state": "ready" if loaded else "loading", "pid": proc.pid, "uptime": uptime}
 
     def ready(self) -> bool:

@@ -6,10 +6,14 @@
 #               assiste ver a orientação do avião de fora. 0 = cabine, 1 = helicóptero (órbita livre)
 # Para só reproduzir um voo gravado, use o botão "Rodar no FlightGear" nas telas Simulador de voo
 # ou Orientação do avião: o backend abre o FlightGear sozinho. Passo a passo em FLIGHTGEAR-SETUP.md.
-# Uso: .\start-flightgear-cueing.ps1 [-Aircraft erj145] [-Airport SBGR] [-UdpPort 5510] [-View 2] [outros args do fgfs]
+#   -Runway     pista de partida; padrão 27R (a do voo de demonstração, circuito pela esquerda sobre a cidade)
+#   -TimeOfDay  noon (padrão), morning, afternoon, dusk... ou real (hora local, que à noite não mostra nada)
+# Uso: .\start-flightgear-cueing.ps1 [-Aircraft erj145] [-Airport SBGR] [-Runway 27R] [-TimeOfDay noon] [-View 2] [outros args do fgfs]
 param(
     [string]$Aircraft = "erj145",
     [string]$Airport = "SBGR",
+    [string]$Runway = "27R",
+    [string]$TimeOfDay = "noon",
     [int]$UdpPort = 5510,
     [int]$HttpPort = 8080,
     [int]$TelnetPort = 5050,
@@ -36,8 +40,11 @@ $fgArgs = @(
     "--telnet=$TelnetPort",
     "--aircraft=$Aircraft",
     "--airport=$Airport",
+    "--timeofday=$TimeOfDay",
     "--prop:/sim/current-view/view-number=$View"
 )
+
+if ($Runway -and $Airport -eq "SBGR") { $fgArgs += "--runway=$Runway" }
 
 if ($Aircraft -eq "erj145") {
     # ERJ145 instalado pelo launcher (Downloads\Aircraft) ou à mão (Custom Aircraft)

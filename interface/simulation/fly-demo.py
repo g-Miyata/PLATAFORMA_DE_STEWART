@@ -54,6 +54,9 @@ def start_engines(client: httpx.Client) -> bool:
         return True
     print(f"Ligando os motores de {aircraft}...")
     nasal(client, command, module="stewartdemo_ctl")
+    if aircraft == "erj145":
+        # o piloto do ERJ abre com a apresentação do avião, que espera os motores pegarem
+        return True
     t0 = time.monotonic()
     while time.monotonic() - t0 < wait_s:
         if running():
@@ -81,7 +84,7 @@ def main() -> int:
         except httpx.HTTPError as exc:
             print(f"FlightGear inacessível em {FG}: {exc}", file=sys.stderr)
             return 1
-        print("Decolando. Acompanhe a fase em /stewart-demo/phase (Ctrl+C só sai deste script).")
+        print("Voo iniciado. Acompanhe a fase em /stewart-demo/phase (Ctrl+C só sai deste script).")
         last = None
         while True:
             phase = prop(client, "/stewart-demo/phase")
