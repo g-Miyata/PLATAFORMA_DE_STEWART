@@ -14,6 +14,8 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // confirmações usam o modal do app (confirmDialog em components/ui/confirm.tsx)
+      'no-alert': 'error',
       // rótulos que envolvem o input com o texto num <span> aninhado
       'jsx-a11y/label-has-associated-control': ['error', { depth: 3 }],
       // regiões roláveis (tabelas e equações largas) precisam de foco para rolar pelo teclado;

@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, ClipboardCheck, Download, Save, Sparkles, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, StatusPill } from '@/components/ui/status';
@@ -52,7 +53,13 @@ export function ReportView({ report, previous }: ReportViewProps) {
   const prevLive = previous ? previous.rms_live_mm.reduce((a, b) => a + b, 0) / 6 : null;
 
   async function apply() {
-    if (!window.confirm('Gravar os novos parâmetros no simulador? O arquivo atual fica guardado como sim_params.json.bak.')) return;
+    const ok = await confirmDialog({
+      title: 'Gravar os novos parâmetros no simulador?',
+      description: 'O simulador passa a usar os valores medidos nesta calibração. O arquivo atual fica guardado como sim_params.json.bak.',
+      confirmLabel: 'Gravar parâmetros',
+      tone: 'warning',
+    });
+    if (!ok) return;
     try {
       const r = await api.calibrationApply(report.id);
       toast.success('Parâmetros aplicados', { description: `Cópia anterior: ${r.backup}. Rode a calibração de novo para confirmar a melhora.` });

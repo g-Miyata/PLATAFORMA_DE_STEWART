@@ -3,6 +3,7 @@ import { BarChart3, Circle, Pause, Plane, Play, Radio, Repeat, Save, Square, Tra
 import { Tabs } from 'radix-ui';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { inputClass, SelectField, SwitchField } from '@/components/ui/field';
@@ -129,7 +130,13 @@ function FlightsTab({ status, profile, onAnalyze }: TabProps) {
   const replay = (tick?.source === 'replay' ? tick.replay : null) ?? status?.replay ?? null;
 
   async function remove(id: string, label: string) {
-    if (!window.confirm(`Apagar o voo "${label}"? O arquivo em interface/simulation/flights é removido.`)) return;
+    const ok = await confirmDialog({
+      title: `Apagar o voo “${label}”?`,
+      description: 'O arquivo em interface/simulation/flights é removido. Não dá para desfazer.',
+      confirmLabel: 'Apagar voo',
+      tone: 'danger',
+    });
+    if (!ok) return;
     if (await run(() => api.cueingDeleteFlight(id), 'Voo apagado')) qc.invalidateQueries({ queryKey: ['cueing-flights'] });
   }
 

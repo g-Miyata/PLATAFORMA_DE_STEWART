@@ -2,6 +2,7 @@ import { Copy, Download, FilePlus2, FileUp, Gamepad2, ListRestart, MapPin, Pause
 import { Tabs } from 'radix-ui';
 import { useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -318,8 +319,14 @@ export default function RecorderPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      if (window.confirm(`Apagar "${rec.name}"?`)) useLibrary.getState().remove(rec.id);
+                    onClick={async () => {
+                      const ok = await confirmDialog({
+                        title: `Apagar “${rec.name}”?`,
+                        description: 'A gravação sai da biblioteca deste navegador. Se quiser guardar, exporte o JSON antes.',
+                        confirmLabel: 'Apagar',
+                        tone: 'danger',
+                      });
+                      if (ok) useLibrary.getState().remove(rec.id);
                     }}
                   >
                     <Trash2 aria-hidden />

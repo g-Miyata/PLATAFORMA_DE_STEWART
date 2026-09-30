@@ -3,6 +3,7 @@ import { CheckCircle2, Circle, History, Loader2, Play, RotateCcw, Square, Stetho
 import { Tabs } from 'radix-ui';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -77,7 +78,13 @@ function RunTab({ onShowReport }: { onShowReport: (id: string) => void }) {
   }, [st?.phase, st?.report_id, qc]);
 
   async function start() {
-    if (!window.confirm('A plataforma vai se mover sozinha por 3 a 4 minutos. Rotinas, joystick, IMU e simulação de voo em andamento serão interrompidos. Começar?')) return;
+    const ok = await confirmDialog({
+      title: 'Começar a calibração?',
+      description: 'A plataforma vai se mover sozinha por 3 a 4 minutos. Rotinas, joystick, IMU e simulação de voo em andamento serão interrompidos. Deixe a área em volta livre; Esc para tudo.',
+      confirmLabel: 'Começar',
+      tone: 'warning',
+    });
+    if (!ok) return;
     try {
       await api.calibrationStart();
       await qc.invalidateQueries({ queryKey: ['calibration-status'] });

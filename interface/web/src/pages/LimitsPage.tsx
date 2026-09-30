@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Save, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { PageHeader, WithViewer } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -41,7 +42,14 @@ export default function LimitsPage() {
   const dirty = Object.keys(draft).length > 0;
 
   async function save() {
-    if (!values || !window.confirm('Os novos limites passam a valer para todos os comandos. Confira as medidas antes. Salvar?')) return;
+    if (!values) return;
+    const ok = await confirmDialog({
+      title: 'Salvar os novos limites?',
+      description: 'Eles passam a valer para todos os comandos da bancada. Confira as medidas antes; a versão anterior fica em limits.json.bak.',
+      confirmLabel: 'Salvar limites',
+      tone: 'warning',
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await api.setLimits(draft);

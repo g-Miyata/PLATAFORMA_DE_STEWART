@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { Toaster } from 'sonner';
+import { ConfirmHost } from '@/components/ui/confirm';
 import { useEmergencyStop } from '@/features/safety/useEmergencyStop';
 import { refreshSerialStatus } from '@/features/serial/status';
 import { TelemetrySocket, telemetryUrl } from '@/lib/ws';
@@ -59,6 +60,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <Background />
       {children}
+      <ConfirmHost />
       <Toaster
         theme={theme}
         position="bottom-right"

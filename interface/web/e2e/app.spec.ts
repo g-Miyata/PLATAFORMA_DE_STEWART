@@ -37,6 +37,14 @@ async function setTheme(page: Page, theme: 'light' | 'dark') {
   }, theme);
 }
 
+/** Confirma no modal de confirmação do app (o navegador não mostra mais window.confirm). */
+async function confirmModal(page: Page, action: string | RegExp) {
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: action }).click();
+  await expect(dialog).toHaveCount(0);
+}
+
 async function serial(page: Page, action: 'open' | 'close') {
   await page.request.post(`/serial/${action}`, action === 'open' ? { data: { port: 'SIMULADOR' } } : {});
 }
@@ -262,6 +270,22 @@ test.describe('Gravar e reproduzir', () => {
     await expect.poll(async () => (await (await page.request.get('/motion/status')).json()).running).toBe(false);
   });
 
+  test('apagar pede confirmação num modal do app; cancelar mantém a gravação', async ({ page }) => {
+    await page.goto('/gravar');
+    await page.getByRole('button', { name: 'Nova', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Nome' }).fill('para apagar');
+    await page.getByRole('button', { name: 'Apagar', exact: true }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Apagar “para apagar”?' });
+    await expect(dialog).toBeVisible();
+    // Esc fecha o modal (e não é a parada de emergência)
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 2, name: /para apagar/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Apagar', exact: true }).click();
+    await confirmModal(page, 'Apagar');
+    await expect(page.getByRole('heading', { level: 2, name: /para apagar/ })).toHaveCount(0);
+  });
+
   test('ponto a ponto: posiciona a plataforma e grava os pontos na própria página', async ({ page }) => {
     await page.goto('/gravar');
     const create = page.getByRole('region', { name: '1. Criar' });
@@ -303,9 +327,9 @@ test.describe('Gravar e reproduzir', () => {
 
 test('programação em blocos: abre um exemplo, mostra os passos e reproduz no simulador', async ({ page }) => {
   await serial(page, 'open');
-  page.on('dialog', (d) => d.accept());
   await page.goto('/blocos');
   await page.getByRole('combobox', { name: 'Exemplos' }).selectOption('quadrado');
+  await confirmModal(page, 'Abrir exemplo');
   const steps = page.getByRole('list', { name: 'Passos do programa' });
   await expect(steps).toContainText('Mover para X 20 · Y -20');
   await expect(steps).toContainText('Repetir 2 vezes:');
@@ -766,9 +790,9 @@ test.describe('Calibração', () => {
   test('roda autoteste + recalibração no simulador, bloqueia o resto e mostra o relatório', async ({ page }) => {
     test.setTimeout(200_000);
     await serial(page, 'open');
-    page.on('dialog', (d) => d.accept());
     await page.goto('/calibracao');
     await page.getByRole('button', { name: 'Iniciar calibração (simulador)' }).click();
+    await confirmModal(page, 'Começar');
     await expect(page.getByRole('progressbar', { name: 'Progresso da calibração' })).toBeVisible();
     await expect(page.getByRole('status').filter({ hasText: 'Calibrando' })).toBeVisible();
     // mostra o que está sendo testado agora e o curso de cada pistão
@@ -785,9 +809,9 @@ test.describe('Calibração', () => {
 
   test('cancelar volta ao home e avisa', async ({ page }) => {
     await serial(page, 'open');
-    page.on('dialog', (d) => d.accept());
     await page.goto('/calibracao');
     await page.getByRole('button', { name: /Iniciar calibração|Calibrar de novo/ }).click();
+    await confirmModal(page, 'Começar');
     await page.getByRole('button', { name: 'Cancelar e voltar ao home' }).click();
     await expect(page.getByText('A última calibração foi interrompida.')).toBeVisible();
   });

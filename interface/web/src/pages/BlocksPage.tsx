@@ -2,6 +2,7 @@ import { Download, FileUp, ListRestart, Pause, Play, Save, Send } from 'lucide-r
 import { useCallback, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
+import { confirmDialog } from '@/components/ui/confirm';
 import { PageHeader } from '@/components/PageLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -129,10 +130,16 @@ export default function BlocksPage() {
                 label="Exemplos"
                 hideLabel
                 value={exampleId}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const ex = EXAMPLE_PROGRAMS.find((p) => p.id === e.target.value);
                   setExampleId('');
-                  if (ex && window.confirm(`Trocar o programa atual pelo exemplo "${ex.name}"?`)) loadProgram(ex.build(), `${ex.id}-${Date.now()}`);
+                  if (!ex) return;
+                  const ok = await confirmDialog({
+                    title: `Abrir o exemplo “${ex.name}”?`,
+                    description: 'O programa que está nos blocos agora é substituído pelo exemplo.',
+                    confirmLabel: 'Abrir exemplo',
+                  });
+                  if (ok) loadProgram(ex.build(), `${ex.id}-${Date.now()}`);
                 }}
               >
                 <option value="">Abrir exemplo…</option>
