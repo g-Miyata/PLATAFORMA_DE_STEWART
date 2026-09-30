@@ -215,4 +215,17 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Ponte FlightGear -> Plataforma de Stewart")
+    parser.add_argument(
+        "--cueing",
+        action="store_true",
+        help="motion cueing (UDP -> backend /cueing, tela Motion cueing) em vez do roll/pitch via Telnet",
+    )
+    if parser.parse_args().cueing:
+        from cueing_bridge import run_cueing_bridge
+
+        asyncio.run(run_cueing_bridge())
+    else:
+        asyncio.run(main())

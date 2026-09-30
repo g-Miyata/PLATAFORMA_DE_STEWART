@@ -1,0 +1,182 @@
+@import '@fontsource-variable/inter';
+@import 'tailwindcss';
+
+/*
+ * Tema IFSP
+ * Cores institucionais dos Institutos Federais: verde #2F9E41 e vermelho #CD191E.
+ * O verde institucional sobre branco tem ~3,3:1 de contraste, suficiente para
+ * ícones/bordas (WCAG 1.4.11) mas não para texto (1.4.3). Por isso o tema claro
+ * usa um verde escurecido para texto e botões, e o tema escuro um verde claro.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --c-bg: #f4f6f4;
+  --c-surface: #ffffff;
+  --c-surface-2: #eef2ef;
+  --c-surface-3: #e2e8e3;
+  --c-border: #cfd8d1;
+  --c-border-strong: #9aa89e;
+  --c-text: #14201a;
+  --c-text-muted: #4a5a50;
+
+  --c-brand: #2f9e41;         /* verde IFSP (ícones, bordas, acentos) */
+  --c-brand-text: #1b6e2b;    /* verde para texto (6,1:1 no branco) */
+  --c-primary: #1f7a30;       /* fundo de botão primário (5,4:1 com branco) */
+  --c-primary-hover: #196628;
+  --c-on-primary: #ffffff;
+
+  --c-danger: #cd191e;        /* vermelho IFSP (5,0:1 no branco) */
+  --c-danger-hover: #a91418;
+  --c-on-danger: #ffffff;
+  --c-danger-soft: #fde8e8;
+
+  --c-warning: #9a4a00;
+  --c-warning-soft: #fff1dc;
+  --c-info: #1d4ed8;
+  --c-info-soft: #e3ebff;
+  --c-success-soft: #e3f4e6;
+
+  --c-focus: #1d4ed8;
+  --c-scene-bg: #e9eeea;
+  --c-scene-grid: #b9c4bb;
+  --shadow-card: 0 1px 2px rgb(16 24 20 / 6%), 0 1px 3px rgb(16 24 20 / 8%);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --c-bg: #0c1210;
+  --c-surface: #141c18;
+  --c-surface-2: #1a241f;
+  --c-surface-3: #233029;
+  --c-border: #2b3a32;
+  --c-border-strong: #4b5f53;
+  --c-text: #e7eee9;
+  --c-text-muted: #a2b2a8;
+
+  --c-brand: #3fb654;
+  --c-brand-text: #62d275;
+  --c-primary: #3fb654;
+  --c-primary-hover: #52c566;
+  --c-on-primary: #05140a;    /* texto escuro sobre verde claro (8:1) */
+
+  --c-danger: #f05257;
+  --c-danger-hover: #ff6d71;
+  --c-on-danger: #1a0304;
+  --c-danger-soft: #3a1416;
+
+  --c-warning: #f5a524;
+  --c-warning-soft: #3a2a0c;
+  --c-info: #7aa2ff;
+  --c-info-soft: #16223f;
+  --c-success-soft: #13301b;
+
+  --c-focus: #7aa2ff;
+  --c-scene-bg: #0f1613;
+  --c-scene-grid: #2c3b33;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 40%);
+}
+
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-surface-3: var(--c-surface-3);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-fg: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-brand: var(--c-brand);
+  --color-brand-text: var(--c-brand-text);
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-on-primary: var(--c-on-primary);
+  --color-danger: var(--c-danger);
+  --color-danger-hover: var(--c-danger-hover);
+  --color-on-danger: var(--c-on-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-info: var(--c-info);
+  --color-info-soft: var(--c-info-soft);
+  --color-success-soft: var(--c-success-soft);
+  --color-focus: var(--c-focus);
+
+  /* Paleta dos pistões (mesma dos gráficos e do modelo 3D) */
+  --color-p1: #3b82f6;
+  --color-p2: #a855f7;
+  --color-p3: #ec4899;
+  --color-p4: #f97316;
+  --color-p5: #14b8a6;
+  --color-p6: #6366f1;
+
+  --shadow-card: var(--shadow-card);
+}
+
+@layer base {
+  html {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--c-bg);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--c-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Sem as setas nativas do input numérico: ficam sob o rótulo da unidade e
+     os sliders já cumprem esse papel (setas do teclado continuam funcionando) */
+  input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+  /* Logo com a variante certa para cada tema */
+  [data-theme='dark'] .logo-for-light { display: none; }
+  [data-theme='light'] .logo-for-dark { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Painéis de vidro da Bancada 3D (sólidos quando o sistema pede menos transparência) */
+.glass {
+  background: color-mix(in srgb, var(--c-surface) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass {
+    background: var(--c-surface);
+    backdrop-filter: none;
+  }
+}
+
+/* entrada das cenas da apresentação */
+@keyframes scene-enter {
+  from { opacity: 0; transform: translateY(24px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.scene-enter { animation: scene-enter 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-enter { animation: none; }
+}

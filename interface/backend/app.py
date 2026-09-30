@@ -1,10 +1,24 @@
 # server_serial_steweart.py
 # FastAPI + Serial + WebSocket de telemetria com reconstrução de pose (LSQ)
 
+import os
+import re
+import sys
 import threading
 import time
 import json
+from datetime import datetime
 import asyncio
+
+# Os logs usam emoji; sem isto o backend cai ao iniciar quando a saída não é um
+# console (pipe, arquivo de log, serviço), pois o Windows usa cp1252 nesse caso.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List, Optional, Dict, Any, Tuple
 from math import sin, cos, tau
 
@@ -16,28 +30,113 @@ import serial.tools.list_ports
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+
+import sim_fit
+from simulated_device import PARAMS_FILE as SIM_PARAMS_FILE, SIM_PORT_NAME, SimulatedSerial, load_params
+from twin import TwinShadow
+from lan import LanGuard, install as install_lan, lan_enabled
+from limits import LIMIT_RANGES, JointLimits, LimitChecker, balanced_home_z, compute_envelope, load_limits, reason_text, save_limits
+from calibration import CalibrationRunner
+from cueing import CueingEngine, create_router as create_cueing_router
+from flightgear import FlightGearManager, VISUAL_PORT, create_router as create_fg_router
 
 # -------------------- Config API --------------------
 API_TITLE = "Stewart Platform API + Serial + WS"
-API_VERSION = "1.1.0"
-CORS_ORIGINS = ["*"]
+API_VERSION = "1.2.0"
 
-app = FastAPI(title=API_TITLE, version=API_VERSION)
+# Origens liberadas: o próprio backend (que serve o frontend), o dev server do
+# Vite e o http.server legado. "null" cobre o frontend antigo aberto via file://
+# e deve sair quando interface/frontend for removido.
+CORS_ORIGINS = [
+    "http://localhost:8001", "http://127.0.0.1:8001",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:8080", "http://127.0.0.1:8080",
+    "null",
+]
+
+# Geometria da bancada (fonte única de verdade para backend e frontend)
+BASE_POINTS = np.array([
+    [305.5, -17, 0],
+    [305.5,  17, 0],
+    [-137.7, 273.23, 0],
+    [-168,   255.7, 0],
+    [-167.2, -256.2, 0],
+    [-136.8, -273.6, 0],
+])
+PLATFORM_POINTS = np.array([
+    [191.1, -241.5, 0],
+    [191.1,  241.5, 0],
+    [113.6,  286.2, 0],
+    [-304.7,  44.8, 0],
+    [-304.7, -44.8, 0],
+    [113.1, -286.4, 0],
+])
+# Limites reais (curso de 250 mm, cardãs e folga entre pernas) e margem de operação: limits.json
+JOINT_LIMITS = load_limits()
+STROKE_MIN_MM = JOINT_LIMITS.stroke_min
+STROKE_MAX_MM = JOINT_LIMITS.stroke_max
+# Altura de repouso: centro do curso de operação com o tampo nivelado (mesma folga para
+# subir e para descer), a menos que limits.json fixe outra.
+HOME_Z_MM = float(JOINT_LIMITS.home_z) if JOINT_LIMITS.home_z else balanced_home_z(BASE_POINTS, PLATFORM_POINTS, JOINT_LIMITS)
+
+BACKEND_DIR = Path(__file__).resolve().parent
+WEB_DIST_DIR = BACKEND_DIR.parent / "web" / "dist"
+LEGACY_FRONTEND_DIR = BACKEND_DIR.parent / "frontend"
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Entrega o event loop ao SerialManager (a thread serial publica no WS por ele)."""
+    serial_mgr.set_event_loop(asyncio.get_running_loop())
+    print("✅ FastAPI startup: event loop configurado")
+    yield
+    await lan_guard.stop_server()
+    serial_mgr.close()
+
+
+# Grupos do /docs (um por recurso, como os routers de motion cueing, FlightGear e rede local)
+TAG_SERIAL = "serial e telemetria"
+TAG_SAFETY = "segurança"
+TAG_KINEMATICS = "cinemática"
+TAG_LIMITS = "limites da mecânica"
+TAG_PID = "atuadores (PID)"
+TAG_MOTION = "rotinas e trajetórias"
+TAG_CONTROL = "controle ao vivo"
+TAG_CALIBRATION = "calibração"
+TAG_TWIN = "gêmeo digital"
+TAG_FLIGHT_LEGACY = "simulação de voo (legado)"
+TAG_SYSTEM = "sistema"
+OPENAPI_TAGS = [
+    {"name": TAG_SERIAL, "description": "Porta serial (bancada real ou SIMULADOR), status, envio de comandos crus e a última telemetria."},
+    {"name": TAG_SAFETY, "description": "Parada de emergência: interrompe rotinas, cueing e calibração e congela os atuadores."},
+    {"name": TAG_KINEMATICS, "description": "Geometria da plataforma, cinemática inversa (calcular) e aplicar uma pose."},
+    {"name": TAG_LIMITS, "description": "Limites reais (curso, cardãs, folga entre pernas), margem de operação e envelope."},
+    {"name": TAG_PID, "description": "Ganhos, feedforward, offsets, setpoints manuais e modo manual de cada pistão."},
+    {"name": TAG_MOTION, "description": "Rotinas prontas e reprodução de trajetórias gravadas (60 Hz)."},
+    {"name": TAG_CONTROL, "description": "Controle contínuo: joystick e IMU (MPU/BNO) mapeados para poses dentro do envelope."},
+    {"name": TAG_CALIBRATION, "description": "Autoteste da bancada e recalibração do simulador, com relatórios."},
+    {"name": TAG_TWIN, "description": "Simulador sombra (gêmeo digital): simular, ajustar e gravar parâmetros dos atuadores."},
+    {"name": "motion cueing", "description": "Washout e orientação do avião: fontes (FlightGear ao vivo ou voo gravado), engate e gravação."},
+    {"name": "flightgear", "description": "Instância do FlightGear embutida: iniciar, parar, conferir e o vídeo da janela."},
+    {"name": "rede local", "description": "Modo rede (celular no mesmo Wi-Fi): PIN, aparelhos conectados e ligar/desligar."},
+    {"name": TAG_FLIGHT_LEGACY, "description": "Rotas da interface antiga de simulação de voo (mantidas para /antigo)."},
+    {"name": TAG_SYSTEM, "description": "Nome, versão e a lista de rotas."},
+]
+
+app = FastAPI(title=API_TITLE, version=API_VERSION, lifespan=lifespan, openapi_tags=OPENAPI_TAGS)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-async def startup_event():
-    """Configura o event loop no SerialManager quando o servidor inicia"""
-    loop = asyncio.get_event_loop()
-    serial_mgr.set_event_loop(loop)
-    print("✅ FastAPI startup: event loop configurado")
+# Rede local (STEWART_LAN=1, serve.py): PIN para comandos que vêm de fora do PC (lan.py)
+lan_guard = LanGuard(lan_enabled())
+install_lan(app, lan_guard)
 
 BAUD = 115200
 CSV_DELIM = ';'
@@ -63,6 +162,10 @@ class ActuatorData(BaseModel):
     length: float
     percentage: float
     valid: bool
+    #: motivos de recusa desta perna: curso, cardan_base, cardan_topo, folga
+    reasons: List[str] = []
+    cardan_base_deg: Optional[float] = None
+    cardan_top_deg: Optional[float] = None
 
 class PlatformResponse(BaseModel):
     pose: PoseInput
@@ -70,11 +173,23 @@ class PlatformResponse(BaseModel):
     valid: bool
     base_points: List[List[float]]
     platform_points: List[List[float]]
+    #: frase com o primeiro motivo de recusa
+    reason: Optional[str] = None
+    #: folgas até cada limite de operação e o par de pernas mais próximo
+    limits: Optional[dict] = None
 
 class PlatformConfig(BaseModel):
-    h0: float
-    stroke_min: float
-    stroke_max: float
+    h0: float = Field(..., gt=0, le=1000)
+    stroke_min: float = Field(..., gt=0, le=2000)
+    stroke_max: float = Field(..., gt=0, le=2000)
+
+class PlatformGeometry(PlatformConfig):
+    """Tudo o que o frontend precisa para desenhar e validar a plataforma."""
+    home_z: float
+    base_points: List[List[float]]
+    platform_points_local: List[List[float]]
+    #: limites físicos, de operação e o alcance de cada eixo (envelope)
+    limits: Optional[dict] = None
 
 class SerialOpenRequest(BaseModel):
     port: str
@@ -118,6 +233,22 @@ class MotionRequest(BaseModel):
     z_amp_mm: Optional[float] = None  # Amplitude em Z para helix (mm)
     z_cycles: Optional[float] = None  # Número de ciclos completos em Z durante uma volta no círculo XY
 
+class TrajectorySample(BaseModel):
+    t: float = Field(..., ge=0)
+    x: float = 0
+    y: float = 0
+    z: float
+    roll: float = 0
+    pitch: float = 0
+    yaw: float = 0
+
+class TrajectoryRequest(BaseModel):
+    """Trajetória arbitrária (gravação, linha do tempo ou programa em blocos)."""
+    samples: List[TrajectorySample] = Field(..., min_length=2, max_length=72_000)
+    loop: bool = False
+    speed: float = Field(1.0, ge=0.25, le=2.0)
+    name: str = Field("trajetória", max_length=80)
+
 class JoystickPoseRequest(BaseModel):
     """Modelo para controle por joystick (gamepad)"""
     lx: float = Field(0.0, ge=-1.0, le=1.0)  # left stick X, -1..1
@@ -128,30 +259,84 @@ class JoystickPoseRequest(BaseModel):
     rt: Optional[float] = Field(None, ge=-1.0, le=1.0)  # right trigger
     apply: bool = False  # Se True, envia comando serial para ESP32
     z_base: Optional[float] = None  # Z base (default = platform.h0)
+    #: sensibilidade: fração do alcance de operação que o curso total do stick cobre
+    scale: float = Field(1.0, ge=0.1, le=1.0)
 
 # -------------------- Stewart Platform --------------------
 class StewartPlatform:
-    def __init__(self, h0=432, stroke_min=500, stroke_max=680):
+    def __init__(self, h0=HOME_Z_MM, stroke_min=STROKE_MIN_MM, stroke_max=STROKE_MAX_MM, limits: Optional[JointLimits] = None):
         self.h0 = h0
+        # stroke_min/max: curso FÍSICO (converte comprimento ↔ curso do atuador, Y = L − stroke_min)
         self.stroke_min = stroke_min
         self.stroke_max = stroke_max
+        self.B = BASE_POINTS.copy()
+        self.P0 = PLATFORM_POINTS.copy()
+        # validade de uma pose: curso de operação, cardãs e folga entre pernas (limits.py)
+        self.checker = LimitChecker(self.B, self.P0, limits or JOINT_LIMITS)
+        self._envelope: Optional[dict] = None
 
-        self.B = np.array([
-            [305.5, -17, 0],
-            [305.5,  17, 0],
-            [-137.7, 273.23, 0],
-            [-168,   255.7, 0],
-            [-167.2, -256.2, 0],
-            [-136.8, -273.6, 0],
-        ])
-        self.P0 = np.array([
-            [191.1, -241.5, 0],
-            [191.1,  241.5, 0],
-            [113.6,  286.2, 0],
-            [-304.7,  44.8, 0],
-            [-304.7, -44.8, 0],
-            [113.1, -286.4, 0],
-        ])
+    def set_limits(self, limits: JointLimits):
+        self.checker.set_limits(limits)
+        self.stroke_min = limits.stroke_min
+        self.stroke_max = limits.stroke_max
+        self._envelope = None
+
+    def _arrays(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0):
+        z = self.h0 if z is None else z
+        Rm = R.from_euler('ZYX', [yaw, pitch, roll], degrees=True).as_matrix()
+        return (self.P0 @ Rm.T) + np.array([x, y, z]), Rm
+
+    def check_pose(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0) -> dict:
+        """Medidas e motivos de recusa de uma pose (curso, cardãs, folga entre pernas)."""
+        P, Rm = self._arrays(x, y, z, roll, pitch, yaw)
+        return self.checker.detail(P, Rm)
+
+    def validate_batch(self, poses: np.ndarray) -> np.ndarray:
+        """Máscara de poses aceitas (N×6: x, y, z, roll, pitch, yaw)."""
+        Rm = R.from_euler('ZYX', poses[:, [5, 4, 3]], degrees=True).as_matrix()
+        P = np.einsum('nij,kj->nki', Rm, self.P0) + poses[:, None, :3]
+        return self.checker.valid(P, Rm)
+
+    def limit_pose(self, pose: dict, neutral: Optional[dict] = None, steps: int = 14):
+        """Traz a pose para dentro dos limites ao longo da reta até o neutro (controles ao vivo).
+        Devolve (pose, limitada?). Se nem o neutro for válido, devolve None."""
+        keys = ("x", "y", "z", "roll", "pitch", "yaw")
+        neutral = neutral or {"x": 0.0, "y": 0.0, "z": pose.get("z", self.h0), "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+        if self.inverse_kinematics(**pose)[1]:
+            return pose, False
+        if not self.inverse_kinematics(**neutral)[1]:
+            return None, True
+        lo, hi = 0.0, 1.0
+        for _ in range(steps):
+            m = (lo + hi) / 2
+            cand = {k: neutral[k] + (pose[k] - neutral[k]) * m for k in keys}
+            if self.inverse_kinematics(**cand)[1]:
+                lo = m
+            else:
+                hi = m
+        return {k: neutral[k] + (pose[k] - neutral[k]) * lo for k in keys}, True
+
+    def envelope(self) -> dict:
+        """Alcance de operação de cada eixo a partir do home e a inclinação máxima."""
+        if self._envelope is None:
+            home = {"x": 0.0, "y": 0.0, "z": float(self.h0), "roll": 0.0, "pitch": 0.0, "yaw": 0.0}
+            self._envelope = compute_envelope(lambda p: self.inverse_kinematics(**p)[1], home)
+        return self._envelope
+
+    def limits_info(self) -> dict:
+        """O que vai para o frontend: físico, operação, alcance e as faixas editáveis."""
+        lim = self.checker.limits
+        env = self.envelope()
+        return {
+            "physical": lim.physical(),
+            "operational": self.checker.op,
+            "values": lim.to_dict(),
+            "ranges": {k: list(v) for k, v in LIMIT_RANGES.items()},
+            "reach": env["reach"],
+            "tilt_deg": env["tilt_deg"],
+            "home_z": float(self.h0),
+            "seat_normals": self.checker.normals.tolist(),
+        }
 
     def inverse_kinematics(self, x=0, y=0, z=None, roll=0, pitch=0, yaw=0):
         # Define altura padrão se 'z' não for passado
@@ -191,8 +376,8 @@ class StewartPlatform:
         # Norma Euclidiana do vetor s_i
         # -------------------------------
         L = np.linalg.norm(Lvec, axis=1)
-        # Verifica se todos os comprimentos respeitam os limites mecânicos
-        valid = np.all((L >= self.stroke_min) & (L <= self.stroke_max))
+        # Limites reais (limits.py): curso de operação, cardãs da base e do tampo e folga entre pernas
+        valid = self.checker.valid(P, Rm)
         # 🐛 DEBUG: Log detalhado da validação
         # print(f"\n🔍 VALIDAÇÃO - Pose: x={x}, y={y}, z={z}, roll={roll}, pitch={pitch}, yaw={yaw}")
         # print(f"   Limites: {self.stroke_min}mm <= L <= {self.stroke_max}mm")
@@ -207,6 +392,11 @@ class StewartPlatform:
         # P → pontos móveis (p + R b_i)
         return L, bool(valid), P
 
+    def leg_lengths_batch(self, poses: np.ndarray) -> np.ndarray:
+        """Comprimentos das 6 pernas para N poses de uma vez. poses: (N, 6) x, y, z, roll, pitch, yaw."""
+        Rm = R.from_euler('ZYX', poses[:, [5, 4, 3]], degrees=True).as_matrix()  # (N, 3, 3)
+        P = np.einsum('nij,kj->nki', Rm, self.P0) + poses[:, None, :3]            # (N, 6, 3)
+        return np.linalg.norm(P - self.B[None], axis=2)                           # (N, 6)
 
     def stroke_percentages(self, lengths: np.ndarray):
         rng = self.stroke_max - self.stroke_min
@@ -284,8 +474,10 @@ class StewartPlatform:
                 residuals,   # função de resíduos
                 x0,          # chute inicial
                 bounds=(
+                    # Z precisa cobrir toda a faixa alcançável (433..631 mm nivelada);
+                    # com teto em 600 a pose estimada travava acima disso.
                     [-100, -100, 300, -30, -30, -30],  # limites inferiores  [x,y,z,roll,pitch,yaw]
-                    [ 100,  100, 600,  30,  30,  30]   # limites superiores
+                    [ 100,  100, 750,  30,  30,  30]   # limites superiores
                 ),
                 ftol=1e-6,   # tolerância no valor da função
                 xtol=1e-6,   # tolerância nas variáveis
@@ -332,7 +524,12 @@ class StewartPlatform:
             print(f"   ❌ Exceção em estimate_pose_from_lengths: {e}")
             return None, None
 
-platform = StewartPlatform(h0=432, stroke_min=500, stroke_max=680)  # 182mm de curso útil
+platform = StewartPlatform()  # 250 mm de curso; limites reais em limits.json
+
+
+def format_spmm6x(course_mm) -> str:
+    """Comando do firmware com os 6 setpoints de curso (mm)."""
+    return "spmm6x=" + ",".join(f"{float(c):.3f}" for c in course_mm)
 
 # -------------------- WS Manager --------------------
 class WSManager:
@@ -374,10 +571,15 @@ class SerialManager:
         self.reader_thread: Optional[threading.Thread] = None
         self.stop_evt = threading.Event()
         self.lock = threading.Lock()
+        # Serializa sequências "sel=N" + comando, para duas requisições
+        # simultâneas não aplicarem um ganho/offset no pistão errado.
+        self.seq_lock = threading.RLock()
         self.latest: Dict[str, Any] = {}
         self.loop = None  # Será configurado quando o servidor iniciar
         # memória para LSQ partir de último chute
         self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
+        # gêmeo digital: simulador sombra, só enquanto a calibração roda
+        self.twin: Optional[TwinShadow] = None
 
     def set_event_loop(self, loop):
         """Configura o event loop do FastAPI"""
@@ -388,22 +590,36 @@ class SerialManager:
         with self.lock:
             if self.ser and self.ser.is_open:
                 raise RuntimeError("Serial já aberta")
-            self.ser = serial.Serial(port, baud, timeout=0.2)
+            if port == SIM_PORT_NAME:
+                self.ser = SimulatedSerial(timeout=0.2)
+            else:
+                self.ser = serial.Serial(port, baud, timeout=0.2)
+            self._last_pose_guess = np.array([0, 0, platform.h0, 0, 0, 0], dtype=float)
+            self.twin = None
             self.stop_evt.clear()
             self.reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
             self.reader_thread.start()
             print(f"🔌 Serial ABERTA: {port} @ {baud} baud")
             print(f"📖 Thread de leitura iniciada, aguardando dados...")
 
+    @property
+    def is_open(self) -> bool:
+        return self.ser is not None and self.ser.is_open
+
+    @property
+    def simulated(self) -> bool:
+        return isinstance(self.ser, SimulatedSerial) and self.ser.is_open
+
     def close(self):
         self.stop_evt.set()
-        if self.reader_thread:
+        if self.reader_thread and self.reader_thread is not threading.current_thread():
             self.reader_thread.join(timeout=1.0)
         with self.lock:
             if self.ser:
                 try: self.ser.close()
                 except Exception: pass
                 self.ser = None
+            self.twin = None
 
     def list_ports(self):
         """Lista portas seriais com informações detalhadas para identificar ESP32-S3"""
@@ -522,14 +738,33 @@ class SerialManager:
 
         # Ordena: ESP32 primeiro (por confiança), depois outros
         ports.sort(key=lambda x: (-x["is_esp32"], -x["confidence"], x["device"]))
+
+        # Dispositivo virtual sempre disponível, por último
+        ports.append({
+            "device": SIM_PORT_NAME,
+            "description": "Plataforma virtual (sem hardware)",
+            "display_name": "Simulador",
+            "hwid": "",
+            "vid": None,
+            "pid": None,
+            "manufacturer": "",
+            "is_esp32": False,
+            "confidence": 0,
+            "simulated": True,
+        })
         return ports
 
 
     def write_line(self, s: str, ending: bytes = b"\n"):
+        if "\n" in s or "\r" in s:
+            raise ValueError("Comando não pode conter quebra de linha")
         with self.lock:
             if not self.ser or not self.ser.is_open:
                 raise RuntimeError("Serial não aberta")
             self.ser.write(s.encode("utf-8", errors="replace") + ending)
+        twin = self.twin
+        if twin:
+            twin.on_tx(s)
 
     def _reader_loop(self):
         print(f"🔄 Thread de leitura iniciada")
@@ -540,7 +775,13 @@ class SerialManager:
                     break
                 data = self.ser.read(1024)
             except Exception as e:
+                # Cabo desconectado/porta sumiu: fecha para /serial/status refletir
                 print(f"❌ Erro ao ler serial: {e}")
+                with self.lock:
+                    if self.ser:
+                        try: self.ser.close()
+                        except Exception: pass
+                        self.ser = None
                 break
             if not data:
                 continue
@@ -579,8 +820,7 @@ class SerialManager:
         # Formato BNO085: 21 campos (ms;SP;Y1-Y6;PWM1-PWM6;Roll;Pitch;Yaw;Qw;Qx;Qy;Qz)
         
         if len(parts) < 14:
-            print(f"   ⚠️ Linha NÃO é telemetria (tem {len(parts)} campos, esperado 14+)")
-            # Broadcast raw mínimo
+            # Não é telemetria (respostas "OK ...", header, etc.): broadcast raw mínimo
             self.latest = {"raw": text, "ts": now}
             if self.loop:
                 asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json({
@@ -596,6 +836,8 @@ class SerialManager:
             sp = float(parts[1].replace(",", "."))
             Y = [float(parts[2+i].replace(",", ".")) for i in range(6)]
             PWM = [int(float(parts[8+i].replace(",", "."))) for i in range(6)]
+            twin = self.twin
+            y_sim = twin.on_rx(time.monotonic(), ms_esp / 1000.0, Y, PWM) if twin else None
 
             # OTIMIZAÇÃO: Detectar formato (MPU-6050 ou BNO085)
             has_mpu = len(parts) >= 17
@@ -681,6 +923,7 @@ class SerialManager:
                 "pose_live": pose_live,  # dict ou None
                 "platform_points_live": P_live.tolist() if P_live is not None else None,
                 "base_points": platform.B.tolist(),
+                "twin": {"Y_sim": y_sim} if y_sim is not None else None,
             }
             
             
@@ -723,6 +966,8 @@ class MotionRunner:
         self.platform = stewart_platform
         self.thread: Optional[threading.Thread] = None
         self.stop_evt = threading.Event()
+        # Parada de emergência: interrompe inclusive o movimento para HOME
+        self.abort_evt = threading.Event()
         self.status_dict = {
             "running": False,
             "routine": None,
@@ -734,7 +979,7 @@ class MotionRunner:
 
         # --- limites dinâmicos derivados da HOME ---
         self._z_limits_mm: Optional[Tuple[float, float]] = None  # (z_min, z_max)
-        self._home_z_mm: float = 520 # Altura Z absoluta para HOME
+        self._home_z_mm: float = HOME_Z_MM  # Altura Z absoluta para HOME
         self._z_safety_mm: float = 5.0    # margem de segurança contra batente
     
     def _home_pose(self) -> dict:
@@ -762,8 +1007,9 @@ class MotionRunner:
         # print(f"📏 Comprimentos L0 na HOME: {L0}")
         # print(f"📏 stroke_min={self.platform.stroke_min}, stroke_max={self.platform.stroke_max}")
         
-        up_margin  = float(np.min(self.platform.stroke_max - L0))   # mm até batente superior
-        down_margin = float(np.min(L0 - self.platform.stroke_min))  # mm até batente inferior
+        op = self.platform.checker.op
+        up_margin  = float(np.min(op["stroke_max"] - L0))   # mm até o limite de operação superior
+        down_margin = float(np.min(L0 - op["stroke_min"]))  # mm até o limite de operação inferior
         
         # print(f"📏 Margens brutas: up_margin={up_margin:.2f}mm, down_margin={down_margin:.2f}mm")
 
@@ -798,41 +1044,46 @@ class MotionRunner:
         with self.lock:
             if self.status_dict["running"]:
                 raise RuntimeError("Rotina já está rodando. Pare primeiro.")
-            
+
             self.stop_evt.clear()
-        self.status_dict = {
-            "running": True,
-            "routine": req.routine,
-            "params": model_to_dict(req),
-            "started_at": time.time(),  # ✅ Define antes da thread (HOME será feito dentro dela)
-            "elapsed": 0.0
-        }
-            
-        self.thread = threading.Thread(
+            self.abort_evt.clear()
+            # Marca como rodando ainda dentro do lock: duas requisições simultâneas
+            # não conseguem iniciar duas threads.
+            self.status_dict = {
+                "running": True,
+                "routine": req.routine,
+                "params": model_to_dict(req),
+                "started_at": time.time(),  # HOME é feito dentro da thread
+                "elapsed": 0.0
+            }
+            self.thread = threading.Thread(
                 target=self._run_routine,
                 args=(req,),
                 daemon=True
             )
-
-        self.thread.start()
+            self.thread.start()
 
     
-    def stop(self):
-        """Para a rotina e retorna suavemente para home"""
+    def stop(self, go_home: bool = True):
+        """Para a rotina. Com go_home=False (emergência) não volta para HOME."""
         with self.lock:
             if not self.status_dict["running"]:
                 return
-            
+
             self.stop_evt.set()
-        
+            if not go_home:
+                self.abort_evt.set()
+
         if self.thread:
             self.thread.join(timeout=2.0)
-        
+
         with self.lock:
             self.status_dict["running"] = False
-        
-        # Retornar suavemente para home (0,0,h0+bias,0,0,0)
-        # print(f"🏠 Retornando para home...")
+
+        if not go_home:
+            return
+
+        # Retornar suavemente para home
         try:
             self._go_home_smooth(duration=1.5)
         except Exception as e:
@@ -844,7 +1095,112 @@ class MotionRunner:
             if self.status_dict["running"] and self.status_dict["started_at"] is not None:
                 self.status_dict["elapsed"] = time.time() - self.status_dict["started_at"]
             return self.status_dict.copy()
-    
+
+    def is_running(self) -> bool:
+        with self.lock:
+            return bool(self.status_dict["running"])
+
+    # ---------------- trajetória arbitrária ----------------
+    def start_trajectory(self, req: TrajectoryRequest, track: np.ndarray):
+        """Reproduz uma trajetória já validada. track: (N, 7) com t, x, y, z, roll, pitch, yaw."""
+        with self.lock:
+            if self.status_dict["running"]:
+                raise RuntimeError("Rotina já está rodando. Pare primeiro.")
+            self.stop_evt.clear()
+            self.abort_evt.clear()
+            duration = float(track[-1, 0])
+            self.status_dict = {
+                "running": True,
+                "routine": "trajectory",
+                "params": {"name": req.name, "loop": req.loop, "speed": req.speed,
+                           "samples": int(track.shape[0])},
+                "name": req.name,
+                "duration_s": duration / req.speed,
+                "started_at": time.time(),
+                "elapsed": 0.0,
+            }
+            self.thread = threading.Thread(
+                target=self._run_trajectory, args=(req, track), daemon=True
+            )
+            self.thread.start()
+
+    def _send_pose(self, pose: dict, t: float, routine: str) -> bool:
+        """IK + envio serial + motion_tick. Retorna False se a pose não puder ser enviada."""
+        L, valid, P_cmd = self.platform.inverse_kinematics(
+            x=pose["x"], y=pose["y"], z=pose["z"],
+            roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
+        )
+        if not valid:
+            print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
+            return False
+        stroke_range = self.platform.stroke_max - self.platform.stroke_min
+        course_mm = np.clip(self.platform.lengths_to_stroke_mm(L), 0.0, stroke_range)
+        try:
+            self.serial_mgr.write_line(format_spmm6x(course_mm))
+        except Exception as e:
+            print(f"❌ Erro ao enviar comando serial: {e}")
+            return False
+        try:
+            latest_Y = (self.serial_mgr.latest or {}).get("Y")
+            payload = {
+                "type": "motion_tick",
+                "t": float(t),
+                "elapsed_ms": int(t * 1000),
+                "pose_cmd": pose,
+                "routine": routine,
+                "actuators_cmd": np.asarray(L, dtype=float).tolist(),
+                "actuators_real": (
+                    [self.platform.stroke_min + float(y) for y in latest_Y] if latest_Y else None
+                ),
+                "platform_points_cmd": P_cmd.tolist(),
+            }
+            asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(payload), self.serial_mgr.loop)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+        return True
+
+    def _run_trajectory(self, req: TrajectoryRequest, track: np.ndarray):
+        """HOME → aproximação suave até a 1ª amostra → reprodução a 60 Hz (interpolação linear)."""
+        keys = ("x", "y", "z", "roll", "pitch", "yaw")
+        try:
+            dt = 1.0 / 60.0
+            self._go_home_smooth(duration=1.2)
+            if self.stop_evt.is_set():
+                return
+
+            home = self._home_pose()
+            first = {k: float(track[0, i + 1]) for i, k in enumerate(keys)}
+            approach_s = 1.5
+            t = 0.0
+            while t < approach_s and not self.stop_evt.is_set():
+                a = (1.0 - cos(tau * 0.5 * t / approach_s)) / 2.0
+                pose = {k: home[k] + (first[k] - home[k]) * a for k in keys}
+                if not self._send_pose(pose, 0.0, "trajectory"):
+                    return
+                t += dt
+                time.sleep(dt)
+
+            duration = float(track[-1, 0])
+            times = track[:, 0]
+            t = 0.0
+            print(f"▶️  Trajetória '{req.name}' ({duration:.1f}s, x{req.speed}, loop={req.loop})")
+            while not self.stop_evt.is_set():
+                if t > duration:
+                    if not req.loop:
+                        break
+                    t -= duration
+                pose = {k: float(np.interp(t, times, track[:, i + 1])) for i, k in enumerate(keys)}
+                if not self._send_pose(pose, t, "trajectory"):
+                    break
+                t += dt * req.speed
+                time.sleep(dt)
+        except Exception as e:
+            print(f"❌ Erro na trajetória: {e}")
+        finally:
+            with self.lock:
+                self.status_dict["running"] = False
+
     def _run_routine(self, req: MotionRequest):
         """Thread principal que executa a rotina"""
         try:
@@ -891,63 +1247,10 @@ class MotionRunner:
                 # Limitar pose (com limites dinâmicos de Z, se disponíveis)
                 pose = self._clamp_pose(pose)
                 
-                # Validar com inverse kinematics
-                z_val = pose.get("z", self.platform.h0)
-                L, valid, _ = self.platform.inverse_kinematics(
-                    x=pose["x"], y=pose["y"], z=z_val,
-                    roll=pose["roll"], pitch=pose["pitch"], yaw=pose["yaw"]
-                )
-                
-                if not valid:
-                    print(f"❌ Pose inválida em t={t:.2f}s: {pose}")
+                pose["z"] = pose.get("z", self.platform.h0)
+                if not self._send_pose(pose, t, routine_name):
                     break
-                
-                # Converter para curso (mm)
-                course_mm = self.platform.lengths_to_stroke_mm(L)
-                stroke_range = self.platform.stroke_max - self.platform.stroke_min
-                course_mm = np.clip(course_mm, 0.0, stroke_range)
-                
-                
-                # Enviar setpoints via serial 
-                try:
-                    cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-                    self.serial_mgr.write_line(cmd)
-                except Exception as e:
-                    print(f"❌ Erro ao enviar comando serial: {e}")
-                    break
-                
-                # Broadcast via WebSocket
-                try:
-                    # Pegar valores reais da telemetria
-                    latest_telem = self.serial_mgr.latest or {}
-                    actuators_real = [
-                        latest_telem.get(f"Y{i+1}", 0.0) for i in range(6)
-                    ]
-                    
-                    # Converter L para lista Python
-                    if hasattr(L, 'tolist'):
-                        actuators_cmd = L.tolist()
-                    else:
-                        actuators_cmd = list(L)
-                    
-                    payload = {
-                        "type": "motion_tick",
-                        "t": float(t),
-                        "elapsed_ms": int(t * 1000),
-                        "pose_cmd": pose,
-                        "routine": routine_name,
-                        "actuators_cmd": actuators_cmd,
-                        "actuators_real": actuators_real
-                    }
-                    
-                    asyncio.run_coroutine_threadsafe(
-                        ws_mgr.broadcast_json(payload),
-                        self.serial_mgr.loop
-                    )
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                
+
                 # Aguardar próximo tick
                 t += dt
                 step += 1
@@ -1052,32 +1355,24 @@ class MotionRunner:
             return {"x": 0, "y": 0, "z": z_base, "roll": 0, "pitch": 0, "yaw": 0}
     
     def _clamp_pose(self, pose: dict) -> dict:
-        """Limita a pose para valores seguros.
-           OBS: Se _z_limits_mm foi calibrado na HOME, priorizamos esse intervalo para Z.
-        """
+        """Prende cada eixo no alcance de operação a partir do home (limits.py): o mesmo
+        clamp de routinePose no frontend. Combinações de eixos são conferidas no envio."""
         z_base = self._home_z_mm  # Altura base do HOME
         
         z_original = pose.get("z", z_base)
         
-        pose["x"] = float(np.clip(pose["x"], -50.0, 50.0))
-        pose["y"] = float(np.clip(pose["y"], -50.0, 50.0))
+        # alcance de operação de cada eixo a partir do home (limites reais, não números fixos)
+        reach = self.platform.envelope()["reach"]
+        pose["x"] = float(np.clip(pose["x"], *reach["x"]))
+        pose["y"] = float(np.clip(pose["y"], *reach["y"]))
 
-        # Z: usar limites dinâmicos calculados a partir da HOME quando disponíveis
-        if self._z_limits_mm is not None:
-            z_min, z_max = self._z_limits_mm
-            pose["z"] = float(np.clip(z_original, z_min, z_max))
-            if abs(pose["z"] - z_original) > 0.1:  # Se clipou mais de 0.1mm
-                print(f"⚠️ Z clipado: {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_min:.2f}, {z_max:.2f}])")
-        else:
-            # Fallback: permite oscilação razoável em torno da altura base (±30mm)
-            pose["z"] = float(np.clip(z_original, z_base - 30.0, z_base + 30.0))
-            if abs(pose["z"] - z_original) > 0.1:
-                print(f"⚠️ Z clipado (fallback): {z_original:.2f} -> {pose['z']:.2f} (limites: [{z_base-30:.2f}, {z_base+30:.2f}])")
+        # Z: alcance de operação a partir do home (curso com margem, cardãs e folga entre pernas)
+        pose["z"] = float(np.clip(z_original, z_base + reach["z"][0], z_base + reach["z"][1]))
 
-        pose["roll"]  = float(np.clip(pose["roll"],  -10.0, 10.0))
-        pose["pitch"] = float(np.clip(pose["pitch"], -10.0, 10.0))
-        pose["yaw"]   = float(np.clip(pose["yaw"],   -10.0, 10.0))
-        
+        pose["roll"]  = float(np.clip(pose["roll"],  *reach["roll"]))
+        pose["pitch"] = float(np.clip(pose["pitch"], *reach["pitch"]))
+        pose["yaw"]   = float(np.clip(pose["yaw"],   *reach["yaw"]))
+
         return pose
     
     def _go_home_smooth(self, duration: float = 1.5):
@@ -1103,6 +1398,9 @@ class MotionRunner:
         
         sent_commands = 0
         for i in range(steps):
+            if self.abort_evt.is_set():
+                print("🛑 HOME interrompido (parada de emergência)")
+                return
             # curva suave apenas para marcar o ritmo de envio (HOME é fixa)
             L, valid, _ = self.platform.inverse_kinematics(**pose)
             if not valid:
@@ -1138,12 +1436,29 @@ class MotionRunner:
 
 motion_runner = MotionRunner(serial_mgr, platform)
 
+# -------------------- Calibração --------------------
+CALIBRATION_DIR = BACKEND_DIR / "calibration_reports"
+calibration_runner = CalibrationRunner(
+    serial_mgr, platform, format_spmm6x,
+    params_file=lambda: SIM_PARAMS_FILE,
+    reports_dir=lambda: CALIBRATION_DIR,
+)
+# modo de teste (e2e): tempos 5× menores e acomodação frouxa → ~1,5 min no simulador
+if os.environ.get("STEWART_CALIBRATION_FAST") == "1":
+    calibration_runner.time_scale = 0.2
+    calibration_runner.settle_tol = 6.0
+
+def ensure_not_calibrating():
+    """Durante a calibração nada mais pode comandar a bancada."""
+    if calibration_runner.is_running():
+        raise HTTPException(status_code=409, detail="Calibração em andamento. Aguarde terminar ou cancele em Ajustes → Calibração.")
+
 # -------------------- Endpoints Serial --------------------
-@app.get("/serial/ports")
+@app.get("/serial/ports", tags=[TAG_SERIAL])
 def api_list_ports():
     return {"ports": serial_mgr.list_ports()}
 
-@app.post("/serial/open")
+@app.post("/serial/open", tags=[TAG_SERIAL])
 def api_open_serial(req: SerialOpenRequest):
     try:
         serial_mgr.open(req.port, req.baud or BAUD)
@@ -1151,7 +1466,7 @@ def api_open_serial(req: SerialOpenRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/serial/close")
+@app.post("/serial/close", tags=[TAG_SERIAL])
 def api_close_serial():
     try:
         serial_mgr.close()
@@ -1159,29 +1474,32 @@ def api_close_serial():
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/serial/status")
+@app.get("/serial/status", tags=[TAG_SERIAL])
 def api_serial_status():
     """Retorna o status da conexão serial"""
     try:
-        is_open = serial_mgr.ser is not None and serial_mgr.ser.is_open
+        is_open = serial_mgr.is_open
         port_name = serial_mgr.ser.port if is_open else None
         return {
             "connected": is_open,
-            "port": port_name
+            "port": port_name,
+            "simulated": serial_mgr.simulated,
         }
-    except Exception as e:
+    except Exception:
         return {
             "connected": False,
-            "port": None
+            "port": None,
+            "simulated": False,
         }
 
-@app.get("/telemetry")
+@app.get("/telemetry", tags=[TAG_SERIAL])
 def api_telemetry():
     return serial_mgr.latest or {}
 
-@app.post("/serial/send")
+@app.post("/serial/send", tags=[TAG_SERIAL])
 def api_send_command(cmd: PIDCommand):
     """Envia comando livre pela serial"""
+    ensure_not_calibrating()
     try:
         serial_mgr.write_line(cmd.command)
         return {"message": "OK", "sent": cmd.command}
@@ -1189,9 +1507,33 @@ def api_send_command(cmd: PIDCommand):
         raise HTTPException(status_code=400, detail=str(e))
 
 # -------------------- Endpoints PID Control --------------------
-@app.post("/pid/setpoint")
+def check_manual_courses(piston: Optional[int], value: float):
+    """Setpoint manual (um pistão ou todos): o curso precisa estar na faixa de operação e a
+    pose que resulta (cinemática direta, com os outros pistões onde estão) nos limites."""
+    op = platform.checker.op
+    lo, hi = op["stroke_min"] - platform.stroke_min, op["stroke_max"] - platform.stroke_min
+    if not lo <= value <= hi:
+        raise HTTPException(status_code=400, detail=f"Curso de operação: {lo:.0f} a {hi:.0f} mm.")
+    Y = (serial_mgr.latest or {}).get("Y")
+    home_L, _, _ = platform.inverse_kinematics(z=platform.h0)
+    L = np.array([platform.stroke_min + float(y) for y in Y], dtype=float) if Y and len(Y) == 6 else np.asarray(home_L, dtype=float)
+    if piston is None:
+        L[:] = platform.stroke_min + value
+    elif 1 <= piston <= 6:
+        L[piston - 1] = platform.stroke_min + value
+    pose, _ = platform.estimate_pose_from_lengths(L)
+    if pose is None:
+        raise HTTPException(status_code=400, detail="Esses cursos não fecham a geometria da bancada.")
+    detail = platform.check_pose(**{k: pose[k] for k in ("x", "y", "z", "roll", "pitch", "yaw")})
+    if not detail["valid"]:
+        raise HTTPException(status_code=400, detail=f"A pose resultante passa dos limites: {reason_text(detail)}.")
+
+
+@app.post("/pid/setpoint", tags=[TAG_PID])
 def set_pid_setpoint(sp: PIDSetpoint):
     """Define setpoint em mm (global ou individual)"""
+    ensure_not_calibrating()
+    check_manual_courses(sp.piston, sp.value)
     try:
         if sp.piston is None:
             # Global
@@ -1206,49 +1548,52 @@ def set_pid_setpoint(sp: PIDSetpoint):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/gains")
+@app.post("/pid/gains", tags=[TAG_PID])
 def set_pid_gains(gains: PIDGains):
     """Define ganhos PID para um pistão específico"""
+    ensure_not_calibrating()
     try:
         if not 1 <= gains.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
-        
-        # Seleciona o pistão
-        serial_mgr.write_line(f"sel={gains.piston}")
-        time.sleep(0.01)
-        
-        if gains.kp is not None:
-            serial_mgr.write_line(f"kpmm={gains.kp:.4f}")
+
+        with serial_mgr.seq_lock:
+            # Seleciona o pistão
+            serial_mgr.write_line(f"sel={gains.piston}")
             time.sleep(0.01)
-            pid_gains_cache[gains.piston]["kp"] = gains.kp
-        if gains.ki is not None:
-            serial_mgr.write_line(f"kimm={gains.ki:.4f}")
-            time.sleep(0.01)
-            pid_gains_cache[gains.piston]["ki"] = gains.ki
-        if gains.kd is not None:
-            serial_mgr.write_line(f"kdmm={gains.kd:.4f}")
-            time.sleep(0.01)
-            pid_gains_cache[gains.piston]["kd"] = gains.kd
+
+            if gains.kp is not None:
+                serial_mgr.write_line(f"kpmm={gains.kp:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["kp"] = gains.kp
+            if gains.ki is not None:
+                serial_mgr.write_line(f"kimm={gains.ki:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["ki"] = gains.ki
+            if gains.kd is not None:
+                serial_mgr.write_line(f"kdmm={gains.kd:.4f}")
+                time.sleep(0.01)
+                pid_gains_cache[gains.piston]["kd"] = gains.kd
         
         return {"message": f"Ganhos atualizados para pistão {gains.piston}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/pid/gains")
+@app.get("/pid/gains", tags=[TAG_PID])
 def get_all_pid_gains():
     """Retorna os ganhos PID de todos os pistões do cache"""
     return pid_gains_cache
 
-@app.get("/pid/gains/{piston}")
+@app.get("/pid/gains/{piston}", tags=[TAG_PID])
 def get_pid_gains(piston: int):
     """Retorna os ganhos PID de um pistão específico do cache"""
     if not 1 <= piston <= 6:
         raise HTTPException(status_code=400, detail="Pistão deve ser 1-6")
     return pid_gains_cache[piston]
 
-@app.post("/pid/gains/all")
+@app.post("/pid/gains/all", tags=[TAG_PID])
 def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd: Optional[float] = None):
     """Define ganhos PID para todos os pistões"""
+    ensure_not_calibrating()
     try:
         if kp is not None:
             serial_mgr.write_line(f"kpall={kp:.4f}")
@@ -1270,30 +1615,33 @@ def set_pid_gains_all(kp: Optional[float] = None, ki: Optional[float] = None, kd
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/feedforward")
+@app.post("/pid/feedforward", tags=[TAG_PID])
 def set_pid_feedforward(ff: PIDFeedforward):
     """Define feedforward para um pistão específico"""
+    ensure_not_calibrating()
     try:
         if not 1 <= ff.piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={ff.piston}")
-        time.sleep(0.01)
-        
-        if ff.u0_adv is not None:
-            serial_mgr.write_line(f"u0a={ff.u0_adv:.2f}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={ff.piston}")
             time.sleep(0.01)
-        if ff.u0_ret is not None:
-            serial_mgr.write_line(f"u0r={ff.u0_ret:.2f}")
-            time.sleep(0.01)
+
+            if ff.u0_adv is not None:
+                serial_mgr.write_line(f"u0a={ff.u0_adv:.2f}")
+                time.sleep(0.01)
+            if ff.u0_ret is not None:
+                serial_mgr.write_line(f"u0r={ff.u0_ret:.2f}")
+                time.sleep(0.01)
         
         return {"message": f"Feedforward atualizado para pistão {ff.piston}"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/feedforward/all")
+@app.post("/pid/feedforward/all", tags=[TAG_PID])
 def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[float] = None):
     """Define feedforward para todos os pistões"""
+    ensure_not_calibrating()
     try:
         if u0_adv is not None:
             serial_mgr.write_line(f"u0aall={u0_adv:.2f}")
@@ -1306,9 +1654,10 @@ def set_pid_feedforward_all(u0_adv: Optional[float] = None, u0_ret: Optional[flo
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/settings")
+@app.post("/pid/settings", tags=[TAG_PID])
 def set_pid_settings(settings: PIDSettings):
     """Ajusta configurações gerais do PID"""
+    ensure_not_calibrating()
     try:
         if settings.dbmm is not None:
             serial_mgr.write_line(f"dbmm={settings.dbmm:.3f}")
@@ -1323,14 +1672,15 @@ def set_pid_settings(settings: PIDSettings):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/pid/settings")
+@app.get("/pid/settings", tags=[TAG_PID])
 def get_pid_settings():
     """Retorna as configurações gerais do PID do cache"""
     return pid_settings_cache
 
-@app.post("/pid/manual/{action}")
+@app.post("/pid/manual/{action}", tags=[TAG_PID])
 def pid_manual_control(action: str):
     """Controle manual: A (avanço), R (recuo), ok (parar)"""
+    ensure_not_calibrating()
     try:
         if action.upper() not in ["A", "R", "OK"]:
             raise ValueError("Ação deve ser A, R ou ok")
@@ -1340,36 +1690,41 @@ def pid_manual_control(action: str):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/select/{piston}")
+@app.post("/pid/select/{piston}", tags=[TAG_PID])
 def pid_select_piston(piston: int):
     """Seleciona pistão para operações manuais"""
+    ensure_not_calibrating()
     try:
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={piston}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={piston}")
         return {"message": f"Pistão {piston} selecionado"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/offset")
+@app.post("/pid/offset", tags=[TAG_PID])
 def set_pid_offset(piston: int, offset: float):
     """Define offset de calibração para um pistão específico (compensação de erro sistemático)"""
+    ensure_not_calibrating()
     try:
         if not 1 <= piston <= 6:
             raise ValueError("Pistão deve ser 1-6")
         
-        serial_mgr.write_line(f"sel={piston}")
-        time.sleep(0.01)
-        serial_mgr.write_line(f"offset={offset:.3f}")
+        with serial_mgr.seq_lock:
+            serial_mgr.write_line(f"sel={piston}")
+            time.sleep(0.01)
+            serial_mgr.write_line(f"offset={offset:.3f}")
         
         return {"message": f"Offset do pistão {piston} = {offset:.3f} mm"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/pid/offset/all")
+@app.post("/pid/offset/all", tags=[TAG_PID])
 def set_pid_offset_all(offset: float):
     """Define offset de calibração para todos os pistões"""
+    ensure_not_calibrating()
     try:
         serial_mgr.write_line(f"offsetall={offset:.3f}")
         return {"message": f"Offset aplicado para todos = {offset:.3f} mm"}
@@ -1429,9 +1784,10 @@ Exemplos de uso das rotinas de movimento:
    GET /motion/status
 """
 
-@app.post("/motion/start")
+@app.post("/motion/start", tags=[TAG_MOTION])
 def motion_start(req: MotionRequest):
     """Inicia uma rotina de movimento"""
+    ensure_not_calibrating()
     try:
         # Validar routine
         valid_routines = ["sine_axis", "circle_xy", "helix", "heave_pitch"]
@@ -1475,7 +1831,201 @@ def motion_start(req: MotionRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/motion/stop")
+MAX_TRAJECTORY_S = 3600.0
+
+@app.post("/motion/trajectory", tags=[TAG_MOTION])
+def motion_trajectory(req: TrajectoryRequest):
+    """Reproduz uma trajetória arbitrária (lista de poses com tempo).
+
+    Valida tudo antes de mover: tempos crescentes a partir de 0, duração máxima
+    e cinemática inversa de cada amostra. Entre amostras a pose é interpolada
+    linearmente a 60 Hz; Parar, Esc e /emergency-stop valem como nas rotinas.
+    """
+    ensure_not_calibrating()
+    track = np.array(
+        [[s.t, s.x, s.y, s.z, s.roll, s.pitch, s.yaw] for s in req.samples], dtype=float
+    )
+    times = track[:, 0]
+    if times[0] != 0:
+        raise HTTPException(status_code=400, detail="A primeira amostra precisa ter t = 0.")
+    bad = np.nonzero(np.diff(times) <= 0)[0]
+    if bad.size:
+        i = int(bad[0]) + 1
+        raise HTTPException(status_code=400, detail=f"Tempos precisam ser crescentes (amostra {i}, t={times[i]:.3f} s).")
+    if times[-1] > MAX_TRAJECTORY_S:
+        raise HTTPException(status_code=400, detail=f"Duração máxima: {MAX_TRAJECTORY_S:.0f} s.")
+
+    L = platform.leg_lengths_batch(track[:, 1:])
+    out = ~platform.validate_batch(track[:, 1:])
+    if out.any():
+        i = int(np.nonzero(out)[0][0])
+        why = reason_text(platform.check_pose(**dict(zip(("x", "y", "z", "roll", "pitch", "yaw"), map(float, track[i, 1:]))))) or "fora dos limites"
+        raise HTTPException(
+            status_code=400,
+            detail=f"Amostra {i} (t={times[i]:.2f} s) fora dos limites da bancada: {why}.",
+        )
+    # velocidade de pico das pernas (mm/s), já considerando o fator de velocidade
+    peak = float(np.max(np.abs(np.diff(L, axis=0)) / np.diff(times)[:, None])) * req.speed
+
+    if not (serial_mgr.ser and serial_mgr.ser.is_open):
+        raise HTTPException(status_code=409, detail="Serial não conectada. Conecte primeiro.")
+    try:
+        motion_runner.start_trajectory(req, track)
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {
+        "message": f"Trajetória '{req.name}' iniciada",
+        "duration_s": float(times[-1]) / req.speed,
+        "peak_speed_mm_s": peak,
+        "samples": int(track.shape[0]),
+    }
+
+# -------------------- Gêmeo digital --------------------
+class TwinSimulateRequest(BaseModel):
+    t: List[float] = Field(..., min_length=2, max_length=72_000)
+    sp: List[List[float]] = Field(..., min_length=2, max_length=72_000)
+    y0: List[float] = Field(..., min_length=6, max_length=6)
+
+class TwinFitRequest(BaseModel):
+    """Sem dados: usa o histórico ao vivo do gêmeo. Com dados: t (N), Y/PWM com sinal/sp (N×6)."""
+    t: Optional[List[float]] = None
+    Y: Optional[List[List[float]]] = None
+    PWM: Optional[List[List[float]]] = None
+    sp: Optional[List[List[float]]] = None
+
+class TwinParamsRequest(BaseModel):
+    params: Dict[str, List[float]]
+
+PARAM_RANGES = {
+    "vmax_adv_mm_s": (1.0, 80.0),
+    "vmax_ret_mm_s": (1.0, 80.0),
+    "deadzone_adv_pwm": (0.0, 200.0),
+    "deadzone_ret_pwm": (0.0, 200.0),
+}
+
+def _check_rows(name: str, rows: List[List[float]], n: int):
+    if len(rows) != n or any(len(r) != 6 for r in rows):
+        raise HTTPException(status_code=400, detail=f"'{name}' precisa ter {n} linhas de 6 valores.")
+
+@app.post("/twin/simulate", tags=[TAG_TWIN])
+def twin_simulate(req: TwinSimulateRequest):
+    """Reproduz setpoints (mm de curso) no simulador, a partir de y0; devolve as posições."""
+    _check_rows("sp", req.sp, len(req.t))
+    t = np.asarray(req.t, dtype=float)
+    if np.any(np.diff(t) < 0):
+        raise HTTPException(status_code=400, detail="Tempos precisam ser crescentes.")
+    Y = sim_fit.replay(load_params(SIM_PARAMS_FILE), t, np.asarray(req.sp), req.y0)
+    return {"Y_sim": np.round(Y, 3).tolist()}
+
+@app.post("/twin/fit", tags=[TAG_TWIN])
+def twin_fit(req: TwinFitRequest):
+    """Identifica vmax e zona morta de cada pistão a partir de dados (t, Y, PWM com sinal, sp)."""
+    if req.t is None:
+        raise HTTPException(status_code=400, detail="Envie os dados (t, Y, PWM, sp) ou use a Calibração.")
+    n = len(req.t)
+    for name in ("Y", "PWM", "sp"):
+        if getattr(req, name) is None:
+            raise HTTPException(status_code=400, detail=f"Faltou '{name}'.")
+        _check_rows(name, getattr(req, name), n)
+    t, Y, U, SP = (np.asarray(v, dtype=float) for v in (req.t, req.Y, req.PWM, req.sp))
+    return sim_fit.fit_all(t, Y, U, SP, load_params(SIM_PARAMS_FILE))
+
+def save_sim_params(params: Dict[str, List[float]]) -> str:
+    """Valida e salva vmax/zona morta no sim_params.json (cópia .bak). Devolve o nome da cópia."""
+    for k, v in params.items():
+        if k not in PARAM_RANGES:
+            raise HTTPException(status_code=400, detail=f"Parâmetro desconhecido: {k}")
+        lo, hi = PARAM_RANGES[k]
+        if len(v) != 6 or not all(lo <= float(x) <= hi for x in v):
+            raise HTTPException(status_code=400, detail=f"'{k}' precisa de 6 valores entre {lo} e {hi}.")
+    path = Path(SIM_PARAMS_FILE)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    backup = path.with_suffix(".json.bak")
+    backup.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    for k, v in params.items():
+        data[k] = [round(float(x), 2) for x in v]
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return backup.name
+
+@app.post("/twin/params", tags=[TAG_TWIN])
+def twin_params(req: TwinParamsRequest):
+    """Salva vmax/zona morta no sim_params.json (com cópia .bak). Vale para as próximas conexões."""
+    return {"saved": True, "backup": save_sim_params(req.params)}
+
+@app.post("/calibration/start", tags=[TAG_CALIBRATION])
+def calibration_start():
+    """Interrompe o que estiver rodando e inicia autoteste + recalibração (3 a 4 min)."""
+    if not serial_mgr.is_open:
+        raise HTTPException(status_code=409, detail="Conecte a bancada (ou o simulador) primeiro.")
+    if calibration_runner.is_running():
+        raise HTTPException(status_code=409, detail="A calibração já está em andamento.")
+    motion_runner.stop(go_home=False)
+    FLIGHT_SIMULATION_STATE["enabled"] = False
+    try:
+        serial_mgr.write_line("OK")  # tira o firmware do modo manual
+    except Exception:
+        pass
+    calibration_runner.start()
+    return calibration_runner.status()
+
+@app.get("/calibration/status", tags=[TAG_CALIBRATION])
+def calibration_status():
+    return calibration_runner.status()
+
+@app.post("/calibration/cancel", tags=[TAG_CALIBRATION])
+def calibration_cancel():
+    calibration_runner.cancel()
+    return calibration_runner.status()
+
+def _report_path(report_id: str) -> Path:
+    if not re.fullmatch(r"\d{8}-\d{6}", report_id):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+    path = CALIBRATION_DIR / f"{report_id}.json"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Relatório não encontrado.")
+    return path
+
+@app.get("/calibration/reports", tags=[TAG_CALIBRATION])
+def calibration_reports():
+    """Relatórios salvos, do mais novo para o mais antigo (resumo)."""
+    items = []
+    if CALIBRATION_DIR.is_dir():
+        for f in sorted(CALIBRATION_DIR.glob("*.json"), reverse=True):
+            try:
+                r = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            items.append({k: r.get(k) for k in ("id", "created_at", "duration_s", "simulated", "alerts", "improvement_pct", "has_changes", "applied", "applied_at")})
+    return {"reports": items}
+
+@app.get("/calibration/reports/{report_id}", tags=[TAG_CALIBRATION])
+def calibration_report(report_id: str):
+    return json.loads(_report_path(report_id).read_text(encoding="utf-8"))
+
+@app.post("/calibration/reports/{report_id}/apply", tags=[TAG_CALIBRATION])
+def calibration_apply(report_id: str):
+    """Grava no simulador os parâmetros propostos pelo relatório (cópia .bak do anterior)."""
+    ensure_not_calibrating()
+    path = _report_path(report_id)
+    report = json.loads(path.read_text(encoding="utf-8"))
+    if not report.get("has_changes"):
+        raise HTTPException(status_code=400, detail="Este relatório não propõe mudanças.")
+    backup = save_sim_params(report["fit"]["proposed"])
+    report["applied"] = True
+    report["applied_at"] = datetime.now().isoformat(timespec="seconds")
+    path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"applied": True, "backup": backup}
+
+def ensure_manual_allowed():
+    """Comandos manuais não podem brigar com uma rotina/trajetória em execução."""
+    ensure_not_calibrating()
+    if motion_runner.is_running():
+        raise HTTPException(
+            status_code=409,
+            detail="Uma rotina está em execução. Pare-a antes de comandar manualmente.",
+        )
+
+@app.post("/motion/stop", tags=[TAG_MOTION])
 def motion_stop():
     """Para a rotina de movimento atual"""
     try:
@@ -1484,7 +2034,31 @@ def motion_stop():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/motion/status")
+@app.post("/emergency-stop", tags=[TAG_SAFETY])
+def emergency_stop():
+    """Parada de emergência.
+
+    Interrompe rotina e simulação de voo (sem voltar para HOME), tira o firmware
+    do modo manual e congela os atuadores na posição medida mais recente.
+    """
+    calibration_runner.abort()
+    cueing_engine.emergency_stop()
+    motion_runner.stop(go_home=False)
+    FLIGHT_SIMULATION_STATE["enabled"] = False
+    held = None
+    if serial_mgr.is_open:
+        try:
+            serial_mgr.write_line("OK")
+            Y = (serial_mgr.latest or {}).get("Y")
+            if Y:
+                rng = platform.stroke_max - platform.stroke_min
+                held = np.clip(np.array(Y, dtype=float), 0.0, rng)
+                serial_mgr.write_line(format_spmm6x(held))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro TX serial: {e}")
+    return {"stopped": True, "held_mm": held.tolist() if held is not None else None}
+
+@app.get("/motion/status", tags=[TAG_MOTION])
 def motion_status():
     """Retorna o status da rotina de movimento"""
     try:
@@ -1493,19 +2067,57 @@ def motion_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 # -------------------- Plataforma (REST iguais) --------------------
-@app.get("/config", response_model=PlatformConfig)
+@app.get("/config", tags=[TAG_KINEMATICS], response_model=PlatformGeometry)
 def get_config():
-    return PlatformConfig(
+    return PlatformGeometry(
         h0=platform.h0,
         stroke_min=platform.stroke_min,
-        stroke_max=platform.stroke_max
+        stroke_max=platform.stroke_max,
+        home_z=motion_runner._home_z_mm,
+        base_points=platform.B.tolist(),
+        platform_points_local=platform.P0.tolist(),
+        limits=platform.limits_info(),
     )
 
-@app.post("/config")
+@app.post("/config", tags=[TAG_KINEMATICS])
 def set_config(cfg: PlatformConfig):
-    global platform
-    platform = StewartPlatform(cfg.h0, cfg.stroke_min, cfg.stroke_max)
+    if cfg.stroke_max <= cfg.stroke_min:
+        raise HTTPException(status_code=400, detail="stroke_max deve ser maior que stroke_min")
+    # Não permite ampliar o curso além do limite mecânico (limits.json)
+    phys = platform.checker.limits
+    if cfg.stroke_min < phys.stroke_min or cfg.stroke_max > phys.stroke_max:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Curso deve ficar dentro de {phys.stroke_min:.0f}..{phys.stroke_max:.0f} mm",
+        )
+    # Atualiza no lugar: motion_runner e serial_mgr guardam a mesma instância
+    platform.h0 = cfg.h0
+    platform.set_limits(JointLimits.from_dict({**phys.to_dict(), "stroke_min": cfg.stroke_min, "stroke_max": cfg.stroke_max}))
     return {"message": "Configuração atualizada"}
+
+
+@app.get("/limits", tags=[TAG_LIMITS])
+def get_limits():
+    """Limites reais da mecânica (físico), com a margem de operação e o alcance de cada eixo."""
+    return platform.limits_info()
+
+
+@app.post("/limits", tags=[TAG_LIMITS])
+def set_limits(values: dict):
+    """Atualiza limits.json (cópia .bak) e recalcula o envelope. Não mexe durante a calibração."""
+    ensure_not_calibrating()
+    current = platform.checker.limits.to_dict()
+    try:
+        lim = JointLimits.from_dict({**current, **{k: v for k, v in values.items() if k in current}})
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    probe = StewartPlatform(h0=platform.h0, stroke_min=lim.stroke_min, stroke_max=lim.stroke_max, limits=lim)
+    if not probe.inverse_kinematics(z=platform.h0)[1]:
+        raise HTTPException(status_code=400, detail="Com esses limites nem o home é válido.")
+    backup = save_limits(lim)
+    platform.set_limits(lim)
+    motion_runner._calibrate_limits_from_home()
+    return {**platform.limits_info(), "backup": backup}
 
 
 def model_to_dict(model):
@@ -1523,12 +2135,16 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
         roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw,
     )
     perc = platform.stroke_percentages(L)
+    detail = platform.check_pose(x=pose.x, y=pose.y, z=z_value, roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw)
     actuators = [
         ActuatorData(
             id=i + 1,
             length=float(L[i]),
             percentage=float(perc[i]),
-            valid=platform.stroke_min <= L[i] <= platform.stroke_max,
+            valid=not detail["legs"][i]["reasons"],
+            reasons=detail["legs"][i]["reasons"],
+            cardan_base_deg=detail["legs"][i]["cardan_base_deg"],
+            cardan_top_deg=detail["legs"][i]["cardan_top_deg"],
         )
         for i in range(6)
     ]
@@ -1545,42 +2161,18 @@ def build_platform_response(pose: PoseInput) -> PlatformResponse:
         valid=bool(valid),
         base_points=platform.B.tolist(),
         platform_points=P.tolist(),
+        reason=reason_text(detail),
+        limits={"margins": detail["margins"], "closest_pair": detail["closest_pair"], "closest_distance_mm": detail["closest_distance_mm"], "physical_ok": detail["physical_ok"]},
     )
 
 
-@app.post("/calculate", response_model=PlatformResponse)
+@app.post("/calculate", tags=[TAG_KINEMATICS], response_model=PlatformResponse)
 def calculate_position(pose: PoseInput):
-    z_value = pose.z if pose.z is not None else platform.h0
-    L, valid, P = platform.inverse_kinematics(
-        x=pose.x, y=pose.y, z=z_value,
-        roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw
-    )
-    perc = platform.stroke_percentages(L)
-    
-    # 🐛 DEBUG: Verificar validação individual
-    #print(f"\n📊 ENDPOINT /calculate:")
-    #print(f"   valid_global = {valid}")
-    
-    acts = [ActuatorData(id=i+1, length=float(L[i]),
-                         percentage=float(perc[i]),
-                         valid=platform.stroke_min <= L[i] <= platform.stroke_max)
-            for i in range(6)]
-    
-    # 🐛 DEBUG: Mostrar o que será retornado
-    #for act in acts:
-        #print(f"   Atuador {act.id}: L={act.length:.2f}mm, valid={act.valid}")
-    
-    return PlatformResponse(
-        pose=PoseInput(x=pose.x, y=pose.y, z=z_value,
-                       roll=pose.roll, pitch=pose.pitch, yaw=pose.yaw),
-        actuators=acts,
-        valid=bool(valid),
-        base_points=platform.B.tolist(),
-        platform_points=P.tolist()
-    )
+    return build_platform_response(pose)
 
-@app.post("/apply_pose")
+@app.post("/apply_pose", tags=[TAG_KINEMATICS])
 def apply_pose(req: ApplyPoseRequest):
+    ensure_manual_allowed()
    # print(f"🚀 apply_pose recebido: x={req.x}, y={req.y}, z={req.z}, roll={req.roll}, pitch={req.pitch}, yaw={req.yaw}")
     z_value = req.z if req.z is not None else platform.h0
     L, valid, _ = platform.inverse_kinematics(
@@ -1588,18 +2180,14 @@ def apply_pose(req: ApplyPoseRequest):
         roll=req.roll, pitch=req.pitch, yaw=req.yaw
     )
     if not valid:
-        print("❌ Pose inválida")
-        return {"applied": False, "valid": False, "message": "Pose inválida."}
+        why = reason_text(platform.check_pose(x=req.x, y=req.y, z=z_value, roll=req.roll, pitch=req.pitch, yaw=req.yaw))
+        return {"applied": False, "valid": False, "message": f"Pose fora dos limites da bancada: {why}." if why else "Pose inválida."}
     course_mm = platform.lengths_to_stroke_mm(L)
     #print(f"✅ Cursos calculados (mm): {course_mm}")
     try:
         # Enviar todos os 6 setpoints de uma vez
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
-       # print(f"📤 Enviando comando: {cmd}")
-        serial_mgr.write_line(cmd)
-        #print("✅ Comando enviado com sucesso")
+        serial_mgr.write_line(format_spmm6x(course_mm))
     except Exception as e:
-        #print(f"❌ Erro ao enviar comando: {e}")
         raise HTTPException(status_code=400, detail=f"Erro TX serial: {e}")
     return {"applied": True, "valid": True, "setpoints_mm": course_mm.tolist()}
 
@@ -1611,10 +2199,11 @@ class MPUControlRequest(BaseModel):
     x: float = Field(0, description="Translação X (mm)")
     y: float = Field(0, description="Translação Y (mm)")
     z: Optional[float] = Field(None, description="Altura Z (mm), default=h0")
-    scale: float = Field(1.0, description="Fator de escala para os ângulos (0.0-1.0)")
+    scale: float = Field(1.0, ge=0.0, le=1.0, description="Fator de escala para os ângulos (0.0-1.0)")
 
-@app.post("/mpu/control")
+@app.post("/mpu/control", tags=[TAG_CONTROL])
 def mpu_control(req: MPUControlRequest):
+    ensure_manual_allowed()
     """
     OTIMIZAÇÃO: Aplica controle da plataforma baseado em dados do MPU-6050.
     Calcula cinemática inversa e envia setpoints para os atuadores.
@@ -1626,25 +2215,27 @@ def mpu_control(req: MPUControlRequest):
     #print(f"   scale={req.scale}")
     
     # Aplica escala aos ângulos (para suavizar movimento se necessário)
-    roll_scaled = req.roll * req.scale
-    pitch_scaled = req.pitch * req.scale
-    yaw_scaled = req.yaw * req.scale
-    
+    reach = platform.envelope()["reach"]
+    roll_scaled = float(np.clip(req.roll * req.scale, *reach["roll"]))
+    pitch_scaled = float(np.clip(req.pitch * req.scale, *reach["pitch"]))
+    yaw_scaled = float(np.clip(req.yaw * req.scale, *reach["yaw"]))
+
     z_value = req.z if req.z is not None else platform.h0
-    
-    # Calcula cinemática inversa
-    L, valid, P = platform.inverse_kinematics(
-        x=req.x, y=req.y, z=z_value,
-        roll=roll_scaled, pitch=pitch_scaled, yaw=yaw_scaled
-    )
-    
+
+    # combinações (roll e pitch juntos, com translação) podem passar do limite: aproxima do neutro
+    target = {"x": req.x, "y": req.y, "z": z_value, "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled}
+    limited_pose, clipped = platform.limit_pose(target)
+    if limited_pose is None:
+        return {"applied": False, "valid": False, "message": "Pose inválida (fora dos limites da plataforma)"}
+    roll_scaled, pitch_scaled, yaw_scaled = limited_pose["roll"], limited_pose["pitch"], limited_pose["yaw"]
+    L, valid, P = platform.inverse_kinematics(**limited_pose)
     if not valid:
         return {
-            "applied": False, 
-            "valid": False, 
+            "applied": False,
+            "valid": False,
             "message": "Pose inválida (fora dos limites da plataforma)"
         }
-    
+
     course_mm = platform.lengths_to_stroke_mm(L)
     
     # Platform_points já vem do inverse_kinematics (terceiro retorno)
@@ -1652,9 +2243,8 @@ def mpu_control(req: MPUControlRequest):
     
     # OTIMIZAÇÃO: Envia todos os setpoints de uma vez (batch)
     try:
-        cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
         #print(f"📤 Enviando comando MPU: {cmd}")
-        serial_mgr.write_line(cmd)
+        serial_mgr.write_line(format_spmm6x(course_mm))
         #print(f"✅ Comando MPU enviado com sucesso")
     except Exception as e:
         #print(f"❌ Erro ao enviar comando MPU: {e}")
@@ -1665,16 +2255,18 @@ def mpu_control(req: MPUControlRequest):
         "valid": True,
         "setpoints_mm": course_mm.tolist(),
         "pose": {
-            "x": req.x, "y": req.y, "z": z_value,
+            "x": limited_pose["x"], "y": limited_pose["y"], "z": limited_pose["z"],
             "roll": roll_scaled, "pitch": pitch_scaled, "yaw": yaw_scaled
         },
+        "limited": clipped,
         "lengths_abs": L.tolist(),
-        "base_points": platform.base_points.tolist(),
+        "base_points": platform.B.tolist(),
         "platform_points": platform_points
     }
 
-@app.post("/flight-simulation/start")
+@app.post("/flight-simulation/start", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_start():
+    ensure_not_calibrating()
     FLIGHT_SIMULATION_STATE["enabled"] = True
     FLIGHT_SIMULATION_STATE["started_at"] = time.time()
     return {
@@ -1683,7 +2275,7 @@ def flight_simulation_start():
         "started_at": FLIGHT_SIMULATION_STATE["started_at"],
     }
 
-@app.post("/flight-simulation/stop")
+@app.post("/flight-simulation/stop", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_stop():
     FLIGHT_SIMULATION_STATE["enabled"] = False
     return {
@@ -1692,21 +2284,21 @@ def flight_simulation_stop():
         "started_at": FLIGHT_SIMULATION_STATE["started_at"],
     }
 
-@app.post("/flight-simulation/preview")
+@app.post("/flight-simulation/preview", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_preview_store(data: PlatformResponse):
     payload = model_to_dict(data)
     payload["timestamp"] = time.time()
     FLIGHT_SIMULATION_STATE["last_preview"] = payload
     return {"stored": True, "timestamp": payload["timestamp"]}
 
-@app.get("/flight-simulation/preview")
+@app.get("/flight-simulation/preview", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_preview_get():
     preview = FLIGHT_SIMULATION_STATE.get("last_preview")
     if preview is None:
         raise HTTPException(status_code=404, detail="No preview pose available")
     return preview
 
-@app.get("/flight-simulation/status")
+@app.get("/flight-simulation/status", tags=[TAG_FLIGHT_LEGACY])
 def flight_simulation_status():
     return {
         "enabled": FLIGHT_SIMULATION_STATE["enabled"],
@@ -1719,8 +2311,46 @@ def flight_simulation_status():
         ),
     }
 
+# -------------------- Motion cueing (tela nova; rotas em cueing.py) --------------------
+def _cueing_conflict() -> Optional[str]:
+    """Outro controlador mandando na plataforma impede o cueing de engatar (e o desengata)."""
+    if calibration_runner.is_running():
+        return "a calibração está em andamento"
+    if motion_runner.is_running():
+        return "uma rotina está em execução"
+    if FLIGHT_SIMULATION_STATE["enabled"]:
+        return "a simulação de voo antiga (roll/pitch) está liberada"
+    return None
+
+
+def _cueing_broadcast(obj: dict):
+    loop = serial_mgr.loop
+    if loop and not loop.is_closed():
+        try:
+            asyncio.run_coroutine_threadsafe(ws_mgr.broadcast_json(obj), loop)
+        except RuntimeError:
+            pass  # loop fechando junto com o servidor
+
+
+cueing_engine = CueingEngine(
+    platform,
+    send_course=lambda course: serial_mgr.write_line(format_spmm6x(course)),
+    serial_open=lambda: serial_mgr.is_open,
+    measured_pose=lambda: (serial_mgr.latest or {}).get("pose_live"),
+    broadcast=_cueing_broadcast,
+    conflict=_cueing_conflict,
+    flights_dir=BACKEND_DIR.parent / "simulation" / "flights",
+    params_file=BACKEND_DIR / "cueing_params.json",
+    visual_addr=("127.0.0.1", VISUAL_PORT),
+)
+app.include_router(create_cueing_router(cueing_engine))
+
+# FlightGear como tela do voo gravado (rotas em flightgear.py)
+fg_manager = FlightGearManager(flight_start=cueing_engine.flight_start)
+app.include_router(create_fg_router(fg_manager))
+
 # -------------------- Joystick Control --------------------
-@app.post("/joystick/pose")
+@app.post("/joystick/pose", tags=[TAG_CONTROL])
 def joystick_pose(req: JoystickPoseRequest):
     """
     Endpoint para controle por joystick (gamepad).
@@ -1728,13 +2358,13 @@ def joystick_pose(req: JoystickPoseRequest):
     Mapeia eixos normalizados do joystick (-1..1) para pose física da plataforma.
     
     Mapeamento:
-    - lx, ly: Stick esquerdo -> translação X, Y (±10mm)
-    - rx, ry: Stick direito -> rotação Pitch, Roll (±10°)
+    - lx, ly: Stick esquerdo -> translação X, Y (±30mm)
+    - rx, ry: Stick direito -> rotação Pitch, Roll (±8°)
     - lt, rt: Triggers -> controle de Yaw (futuro)
     
     Parâmetros:
     - apply: Se True, envia comando serial para ESP32
-    - z_base: Altura Z base (default = platform.h0 + 23mm, altura elevada segura)
+    - z_base: Altura Z base (default = HOME_Z_MM)
     
     Retorna:
     - valid: Se a pose calculada é válida
@@ -1747,37 +2377,34 @@ def joystick_pose(req: JoystickPoseRequest):
     """
 
     
-    # Constantes de mapeamento (limites físicos da plataforma)
-    MAX_TRANS_MM = 30.0   # ±30mm em X e Y
-    MAX_ANGLE_DEG = 8.0  # ±10° em roll, pitch, yaw
-    HOME_BIAS_MM = 68.0   # Altura elevada segura
-    
-    # Mapear eixos normalizados para valores físicos
-    # lx -> X (direita positivo)
-    # ly -> Y (para frente negativo, por isso inverte)
-    x = np.clip(req.lx * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    y = np.clip(-req.ly * MAX_TRANS_MM, -MAX_TRANS_MM, MAX_TRANS_MM)
-    
-    # Z usa valor base fornecido ou h0 + 23mm (altura elevada segura)
-    z = req.z_base if req.z_base is not None else (platform.h0 + HOME_BIAS_MM)
-    
-    # rx -> Pitch (stick direito horizontal)
-    # ry -> Roll (stick direito vertical, invertido)
-    roll = np.clip(-req.ry * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    pitch = np.clip(req.rx * MAX_ANGLE_DEG, -MAX_ANGLE_DEG, MAX_ANGLE_DEG)
-    
-    # Yaw por enquanto em 0 (pode usar lt/rt no futuro)
+    # Curso total do stick = alcance de operação de cada eixo (limites reais, envelope),
+    # vezes a sensibilidade. O alcance pode ser assimétrico: cada lado usa o seu.
+    reach = platform.envelope()["reach"]
+
+    def span(v: float, axis: str) -> float:
+        lo, hi = reach[axis]
+        return float(v * req.scale * (hi if v >= 0 else -lo))
+
+    # lx -> X (direita positivo); ly -> Y (para frente negativo, por isso inverte)
+    x = span(req.lx, "x")
+    y = span(-req.ly, "y")
+    # Z usa valor base fornecido ou a altura de repouso, dentro do alcance
+    z = req.z_base if req.z_base is not None else platform.h0
+    z = float(np.clip(z, platform.h0 + reach["z"][0], platform.h0 + reach["z"][1]))
+    # rx -> Pitch (stick direito horizontal); ry -> Roll (stick direito vertical, invertido)
+    roll = span(-req.ry, "roll")
+    pitch = span(req.rx, "pitch")
     yaw = 0.0
-    # Exemplo futuro: yaw = (rt - lt) * MAX_ANGLE_DEG se ambos forem fornecidos
-    
-    #print(f"🎮 Joystick -> Pose: x={x:.2f}, y={y:.2f}, z={z:.2f}, roll={roll:.2f}°, pitch={pitch:.2f}°, yaw={yaw:.2f}°")
-    
-    # Calcular cinemática inversa
+
+    # os eixos juntos podem passar do limite: aproxima do neutro até caber
+    limited_pose, clipped = platform.limit_pose({"x": x, "y": y, "z": z, "roll": roll, "pitch": pitch, "yaw": yaw})
+    if limited_pose is not None:
+        x, y, z, roll, pitch, yaw = (limited_pose[k] for k in ("x", "y", "z", "roll", "pitch", "yaw"))
     L, valid, P = platform.inverse_kinematics(
         x=x, y=y, z=z,
         roll=roll, pitch=pitch, yaw=yaw
     )
-    
+
     # Se inválido, retornar imediatamente
     if not valid:
         #print("❌ Pose de joystick inválida")
@@ -1794,10 +2421,10 @@ def joystick_pose(req: JoystickPoseRequest):
     # Se apply=True e válido, enviar comando serial
     applied = False
     if req.apply:
+        ensure_manual_allowed()
         try:
-            cmd = f"spmm6x={course_mm[0]:.3f},{course_mm[1]:.3f},{course_mm[2]:.3f},{course_mm[3]:.3f},{course_mm[4]:.3f},{course_mm[5]:.3f}"
             #print(f"📤 Enviando comando joystick: {cmd}")
-            serial_mgr.write_line(cmd)
+            serial_mgr.write_line(format_spmm6x(course_mm))
             applied = True
             #print("✅ Comando joystick enviado com sucesso")
         except Exception as e:
@@ -1808,6 +2435,7 @@ def joystick_pose(req: JoystickPoseRequest):
     return {
         "valid": True,
         "applied": applied,
+        "limited": clipped,
         "pose": {
             "x": float(x),
             "y": float(y),
@@ -1836,47 +2464,49 @@ async def ws_telemetry(ws: WebSocket):
     except Exception:
         await ws_mgr.disconnect(ws)
 
-# -------------------- Raiz --------------------
-@app.get("/")
-def root():
-    return {
-        "name": API_TITLE,
-        "version": API_VERSION,
-        "endpoints": [
-            "GET  /serial/ports",
-            "POST /serial/open {port, baud?}",
-            "POST /serial/close",
-            "GET  /serial/status",
-            "POST /serial/send {command}",
-            "GET  /telemetry",
-            "WS   /ws/telemetry",
-            "POST /calculate",
-            "POST /apply_pose",
-            "POST /joystick/pose",
-            "POST /mpu/control",
-            "GET  /config",
-            "POST /config",
-            "POST /pid/setpoint",
-            "POST /pid/gains",
-            "POST /pid/gains/all",
-            "POST /pid/feedforward",
-            "POST /pid/feedforward/all",
-            "POST /pid/settings",
-            "POST /pid/offset",
-            "POST /pid/offset/all",
-            "POST /pid/manual/{action}",
-            "POST /pid/select/{piston}",
-            "POST /motion/start",
-            "POST /motion/stop",
-            "GET  /motion/status",
-            "POST /flight-simulation/start",
-            "POST /flight-simulation/stop",
-            "POST /flight-simulation/preview",
-            "GET  /flight-simulation/preview",
-            "GET  /flight-simulation/status",
-        ]
-    }
+# -------------------- Raiz / Frontend --------------------
+@app.get("/api/info", tags=[TAG_SYSTEM])
+def api_info():
+    """Nome, versão e rotas da API (a documentação completa está em /docs)."""
+    endpoints = []
+    for route in app.routes:
+        methods = getattr(route, "methods", None)
+        path = getattr(route, "path", "")
+        if methods and not path.startswith(("/docs", "/redoc", "/openapi", "/{")):
+            for method in sorted(methods - {"HEAD", "OPTIONS"}):
+                endpoints.append(f"{method:5} {path}")
+    endpoints.append("WS    /ws/telemetry")
+    return {"name": API_TITLE, "version": API_VERSION, "endpoints": endpoints}
+
+
+# Frontend antigo (vanilla) servido em /antigo/ enquanto a migração não termina
+if LEGACY_FRONTEND_DIR.is_dir():
+    app.mount("/antigo", StaticFiles(directory=LEGACY_FRONTEND_DIR, html=True), name="legacy-frontend")
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa(full_path: str):
+    """Serve o build do frontend React (interface/web/dist) com fallback de SPA.
+
+    Registrada por último para nunca encobrir as rotas da API.
+    """
+    index = WEB_DIST_DIR / "index.html"
+    if not index.is_file():
+        if LEGACY_FRONTEND_DIR.is_dir() and full_path == "":
+            return FileResponse(LEGACY_FRONTEND_DIR / "index.html")
+        raise HTTPException(
+            status_code=404,
+            detail="Frontend não compilado. Rode 'npm run build' em interface/web.",
+        )
+    candidate = (WEB_DIST_DIR / full_path).resolve()
+    if full_path and candidate.is_file() and WEB_DIST_DIR.resolve() in candidate.parents:
+        # assets/ tem hash no nome: pode ficar no cache para sempre
+        immutable = candidate.parent.name == "assets"
+        return FileResponse(candidate, headers={"Cache-Control": "public, max-age=31536000, immutable" if immutable else "no-cache"})
+    # o index.html sempre é revalidado, senão o navegador pode continuar com um build antigo
+    return FileResponse(index, headers={"Cache-Control": "no-cache"})
+
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="127.0.0.1", port=8001)

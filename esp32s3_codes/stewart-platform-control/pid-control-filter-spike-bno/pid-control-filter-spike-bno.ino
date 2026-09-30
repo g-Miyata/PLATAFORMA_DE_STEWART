@@ -454,6 +454,17 @@ void loop() {
 
       } else if (cmd.equalsIgnoreCase("A")) {
         manual_advance = true; manual_retract = false;
+
+      } else if (cmd.equalsIgnoreCase("OK")) {
+        // Sai do modo manual e volta ao PID sem tranco: zera o integrador e
+        // reinicia a derivada a partir da posição atual.
+        manual_advance = false; manual_retract = false;
+        for (int k = 0; k < 6; k++) {
+          integ[k] = 0.0f;
+          last_y_mm[k] = voltsToMM(k, fbV_filt[k]);
+        }
+        Serial.println("OK modo manual desligado");
+
       } else if (cmd.equalsIgnoreCase("recalibra")) {
         OrientationData recalibraCmd = {};
         recalibraCmd.roll = 0;

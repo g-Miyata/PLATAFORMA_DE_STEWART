@@ -1,0 +1,12 @@
+{
+  "stroke_min": 500.0,
+  "stroke_max": 750.0,
+  "cardan_base_max_deg": 45.0,
+  "cardan_top_max_deg": 45.0,
+  "leg_radius_mm": 23.0,
+  "leg_clearance_mm": 5.0,
+  "joint_zone_mm": 60.0,
+  "margin": 0.2,
+  "home_z": null,
+  "note": "Curso: 250 mm do atuador (o firmware usa Lmm = 250). Cardãs: 45°, valor típico de junta universal simples de catálogo (DIN 808); a junta real (cardã metálico no topo e na base de cada perna, preso ao suporte azul impresso) não foi medida — o modelo 3D do cardã daria só 17° (tools/estimate_cardan_limit.py), menos do que a bancada já faz, então não representa a peça. Meça e ajuste em Ajustes → Limites. Raio da perna: tubo em D de 44 × 42 mm."
+}

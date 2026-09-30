@@ -90,7 +90,7 @@ const interfaces = [
   {
     title: 'Simulação de Voo',
     icon: 'flight_takeoff',
-    url: 'simulation.html',
+    url: 'flight-simulation.html',
     description: 'Simule o comportamento do sistema em um ambiente virtual para testes e ajustes seguros.',
     iconColor: 'text-red-400',
     bgGradient: 'from-red-600/20 to-red-800/20',

@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  Saída UDP do FlightGear para o motion cueing da Plataforma de Stewart.
+  Uma linha de texto por frame, campos separados por vírgula, na ordem abaixo
+  (interface/simulation/cueing_bridge.py lê exatamente esta ordem).
+
+  Uso: veja interface/simulation/start-flightgear-cueing.ps1, que passa ao fgfs a
+  pasta interface/simulation/fgdata como caminho extra de dados (opção "data") e
+  liga a saída "generic" com socket,out,60,127.0.0.1,5510,udp,stewart-cueing.
+  (Comentários XML não podem conter dois hífens seguidos.)
+-->
+<PropertyList>
+  <generic>
+    <output>
+      <line_separator>newline</line_separator>
+      <var_separator>,</var_separator>
+
+      <chunk><name>t</name><type>double</type><format>%.4f</format><node>/sim/time/elapsed-sec</node></chunk>
+
+      <!-- força específica no piloto, eixos do corpo (x frente, y direita, z baixo), ft/s² -->
+      <chunk><name>fx</name><type>float</type><format>%.4f</format><node>/accelerations/pilot/x-accel-fps_sec</node></chunk>
+      <chunk><name>fy</name><type>float</type><format>%.4f</format><node>/accelerations/pilot/y-accel-fps_sec</node></chunk>
+      <chunk><name>fz</name><type>float</type><format>%.4f</format><node>/accelerations/pilot/z-accel-fps_sec</node></chunk>
+
+      <!-- velocidades angulares do corpo p, q, r em °/s -->
+      <chunk><name>p</name><type>float</type><format>%.3f</format><node>/orientation/roll-rate-degps</node></chunk>
+      <chunk><name>q</name><type>float</type><format>%.3f</format><node>/orientation/pitch-rate-degps</node></chunk>
+      <chunk><name>r</name><type>float</type><format>%.3f</format><node>/orientation/yaw-rate-degps</node></chunk>
+
+      <chunk><name>roll</name><type>float</type><format>%.3f</format><node>/orientation/roll-deg</node></chunk>
+      <chunk><name>pitch</name><type>float</type><format>%.3f</format><node>/orientation/pitch-deg</node></chunk>
+      <chunk><name>heading</name><type>float</type><format>%.2f</format><node>/orientation/heading-deg</node></chunk>
+
+      <chunk><name>ias</name><type>float</type><format>%.1f</format><node>/velocities/airspeed-kt</node></chunk>
+      <chunk><name>agl</name><type>float</type><format>%.1f</format><node>/position/altitude-agl-ft</node></chunk>
+      <chunk><name>alt</name><type>float</type><format>%.1f</format><node>/position/altitude-ft</node></chunk>
+
+      <chunk><name>wow</name><type>bool</type><node>/gear/gear[0]/wow</node></chunk>
+      <chunk><name>paused</name><type>bool</type><node>/sim/freeze/master</node></chunk>
+      <chunk><name>replay</name><type>bool</type><node>/sim/replay/replay-state</node></chunk>
+      <chunk><name>aircraft</name><type>string</type><format>%s</format><node>/sim/aircraft</node></chunk>
+
+      <!-- v2: o bastante para o FlightGear redesenhar o voo gravado (stewart-visual.xml) -->
+      <chunk><name>lat</name><type>double</type><format>%.7f</format><node>/position/latitude-deg</node></chunk>
+      <chunk><name>lon</name><type>double</type><format>%.7f</format><node>/position/longitude-deg</node></chunk>
+      <chunk><name>gear</name><type>float</type><format>%.3f</format><node>/gear/gear[0]/position-norm</node></chunk>
+      <chunk><name>flaps</name><type>float</type><format>%.3f</format><node>/surface-positions/flap-pos-norm</node></chunk>
+      <chunk><name>elevator</name><type>float</type><format>%.3f</format><node>/surface-positions/elevator-pos-norm</node></chunk>
+      <chunk><name>aileron</name><type>float</type><format>%.3f</format><node>/surface-positions/left-aileron-pos-norm</node></chunk>
+      <chunk><name>rudder</name><type>float</type><format>%.3f</format><node>/surface-positions/rudder-pos-norm</node></chunk>
+      <chunk><name>speedbrake</name><type>float</type><format>%.3f</format><node>/surface-positions/speedbrake-pos-norm</node></chunk>
+
+      <!-- v3: câmera (vista, giro, inclinação, zoom e distância da Chase View), para o replay mostrar o mesmo enquadramento -->
+      <chunk><name>cam_view</name><type>int</type><node>/sim/current-view/view-number</node></chunk>
+      <chunk><name>cam_hdg</name><type>float</type><format>%.2f</format><node>/sim/current-view/heading-offset-deg</node></chunk>
+      <chunk><name>cam_pitch</name><type>float</type><format>%.2f</format><node>/sim/current-view/pitch-offset-deg</node></chunk>
+      <chunk><name>cam_fov</name><type>float</type><format>%.2f</format><node>/sim/current-view/field-of-view</node></chunk>
+      <chunk><name>cam_dist</name><type>float</type><format>%.2f</format><node>/sim/chase-distance-m</node></chunk>
+    </output>
+  </generic>
+</PropertyList>
